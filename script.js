@@ -68,15 +68,39 @@ function getCategoryIcon(cat) {
     const defaultIcon = '<i class="fas fa-box-open"></i>'; 
     if (!cat) return defaultIcon;
     const categoryName = cat.trim();
+    
+    // Danh sách map icon thông minh với tên rút gọn
     const faMap = {
-        'Ăn uống': 'fa-utensils', 'Bảo hiểm & Tài chính cá nhân': 'fa-shield-halved', 'Công nghệ & Thiết bị điện tử': 'fa-laptop',
-        'Công việc & Kinh doanh': 'fa-briefcase', 'Dịch vụ giặt ủi': 'fa-shirt', 'Dịch vụ sửa chữa & Bảo trì': 'fa-screwdriver-wrench',
-        'Đi lại': 'fa-car-side', 'Giải trí': 'fa-clapperboard', 'Giáo dục': 'fa-graduation-cap', 'Gia đình': 'fa-house-user',
-        'Hóa đơn & Tiện ích': 'fa-file-invoice-dollar', 'Làm đẹp & Chăm sóc cá nhân': 'fa-spa', 'Mua sắm': 'fa-bag-shopping',
-        'Quà tặng & Sự kiện': 'fa-gift', 'Sức khỏe & Thể thao': 'fa-dumbbell', 'Tiết kiệm & Đầu tư': 'fa-chart-line',
-        'Y tế': 'fa-pills', 'Khác': 'fa-layer-group'
+        'Ăn uống': 'fa-utensils', 
+        'Bảo hiểm': 'fa-shield-halved', 
+        'Công nghệ': 'fa-laptop',
+        'Công việc': 'fa-briefcase', 
+        'giặt ủi': 'fa-shirt', 
+        'sửa chữa': 'fa-screwdriver-wrench',
+        'Đi lại': 'fa-car-side', 
+        'Giải trí': 'fa-clapperboard', 
+        'Giáo dục': 'fa-graduation-cap', 
+        'Gia đình': 'fa-house-user',
+        'Hóa đơn': 'fa-file-invoice-dollar', 
+        'Chăm sóc': 'fa-spa', 
+        'Làm đẹp': 'fa-spa',
+        'Mua sắm': 'fa-bag-shopping',
+        'Quà tặng': 'fa-gift', 
+        'Sức khỏe': 'fa-dumbbell', 
+        'Tiết kiệm': 'fa-chart-line',
+        'Đầu tư': 'fa-chart-line',
+        'Y tế': 'fa-pills', 
+        'Khác': 'fa-layer-group'
     };
-    return faMap[categoryName] ? `<i class="fas ${faMap[categoryName]}"></i>` : defaultIcon;
+
+    // Tìm kiếm linh hoạt: tên danh mục chỉ cần CHỨA từ khóa là sẽ có icon
+    for (let key in faMap) {
+        if (categoryName.toLowerCase().includes(key.toLowerCase())) {
+            return `<i class="fas ${faMap[key]}"></i>`;
+        }
+    }
+    
+    return defaultIcon;
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
@@ -328,27 +352,23 @@ function drawMonthlyPieChart(data) {
   
   window.pChart = new Chart(ctx, { 
     type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
-    options: { cutout:'75%', layout: {padding: 10}, plugins: { legend:{display:false}, tooltip: { callbacks: { label: ctx => ` ${formatNumberWithCommas(ctx.raw.toString())}đ (${((ctx.raw/total)*100).toFixed(1)}%)` } } } }, 
-    plugins: [{ id:'cText', afterDraw(c) { const {ctx}=c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font='600 12px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 12); ctx.fillStyle='#F43F5E'; ctx.font='800 18px Plus Jakarta Sans'; ctx.fillText(formatNumberWithCommas(total.toString()) + 'đ', c.width/2, c.height/2 + 10); ctx.restore(); } }] 
+    options: { cutout:'75%', layout: {padding: 0}, plugins: { legend:{display:false}, tooltip: { callbacks: { label: ctx => ` ${formatNumberWithCommas(ctx.raw.toString())}đ (${((ctx.raw/total)*100).toFixed(1)}%)` } } } }, 
+    plugins: [{ id:'cText', afterDraw(c) { const {ctx}=c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font='500 10px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font='800 13px Plus Jakarta Sans'; ctx.fillText(formatNumberWithCommas(total.toString()) + 'đ', c.width/2, c.height/2 + 8); ctx.restore(); } }] 
   });
 
   const leg = document.getElementById('monthlyCustomLegend'); leg.innerHTML = '';
   data.forEach((i, idx) => {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
-    const icon = getCategoryIcon(i.category);
-    const div = document.createElement('div'); div.className = 'cat-progress-card';
+    const div = document.createElement('div'); div.className = 'legend-item';
     div.innerHTML = `
-      <div class="cat-progress-header">
-        <div class="cat-progress-info">
-          <div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${icon}</div>
-          <span class="cat-progress-title">${i.category}</span>
-        </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
-          <span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
-          <span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span>
-        </div>
+      <div class="legend-item-left">
+         <div class="legend-dot" style="background:${c}"></div>
+         <span class="legend-name" title="${i.category}">${i.category}</span>
       </div>
-      <div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>
+      <div class="legend-value-col">
+         <span class="legend-pct" style="color:${c}">${pct}%</span>
+         <span class="legend-amt">${formatNumberWithCommas(i.amount.toString())}đ</span>
+      </div>
     `;
     div.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
     leg.appendChild(div);
