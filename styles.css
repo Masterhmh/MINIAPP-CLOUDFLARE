@@ -248,12 +248,16 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .stat-header.card-expense i, .stat-header.card-expense .stat-tag { color: var(--expense); }
 .stat-header.card-balance i, .stat-header.card-balance .stat-tag { color: var(--balance); }
 
+/* Đã thêm white-space nowrap để ngăn chữ đ bị rớt xuống dòng */
 .stat-num { 
-    font-size: 1.05rem; 
+    font-size: clamp(0.85rem, 4vw, 1.05rem); 
     font-weight: 800; 
     letter-spacing: -0.02em; 
-    word-break: break-word; 
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis;
     line-height: 1.1;
+    width: 100%;
 }
 .stat-num.income { color: var(--income); }
 .stat-num.expense { color: var(--expense); }
