@@ -424,7 +424,7 @@ function drawMonthlyPieChart(data) {
     const c = bg[idx];
 
     // CHÚ THÍCH NHỎ BÊN CẠNH BIỂU ĐỒ TRÒN (CHỈ HIỂN THỊ PHẦN TRĂM CÙNG MÀU)
-    if (leg) {
+   if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
           <div class="legend-item-left">
@@ -432,8 +432,7 @@ function drawMonthlyPieChart(data) {
              <span class="legend-name" title="${i.category}">${i.category}</span>
           </div>
           <div class="legend-value-col">
-             <!-- Đã đổi màu phần trăm theo biến ${c} và in đậm -->
-             <span class="legend-pct" style="color:${c}; font-size: 0.85rem; font-weight: 800;">${pct}%</span>
+             <span class="legend-pct" style="color:${c}; font-size: 0.8rem; font-weight: 700;">${pct}%</span>
           </div>
         `;
         divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
