@@ -118,24 +118,35 @@
 
           <div class="stat-grid" id="monthlyStatsContainer">
             <div class="stat-card card-income">
-              <div class="stat-icon-row">
-                <i class="fas fa-hand-holding-dollar"></i><span class="stat-tag">Thu nhập</span>
+              <div class="stat-left-col">
+                  <div class="stat-icon-wrap"><i class="fas fa-hand-holding-dollar"></i></div>
+                  <div class="stat-info-wrap">
+                      <div class="stat-tag">Thu nhập</div>
+                      <div class="stat-num income" id="tab2Income">0đ</div>
+                  </div>
               </div>
-              <div class="stat-num income" id="tab2Income">0đ</div>
               <div class="stat-compare" id="tab2IncomeCompare">-</div>
             </div>
+            
             <div class="stat-card card-expense">
-              <div class="stat-icon-row">
-                <i class="fas fa-money-bill-transfer"></i><span class="stat-tag">Chi tiêu</span>
+              <div class="stat-left-col">
+                  <div class="stat-icon-wrap"><i class="fas fa-money-bill-transfer"></i></div>
+                  <div class="stat-info-wrap">
+                      <div class="stat-tag">Chi tiêu</div>
+                      <div class="stat-num expense" id="tab2Expense">0đ</div>
+                  </div>
               </div>
-              <div class="stat-num expense" id="tab2Expense">0đ</div>
               <div class="stat-compare" id="tab2ExpenseCompare">-</div>
             </div>
+            
             <div class="stat-card card-balance">
-              <div class="stat-icon-row">
-                <i class="fas fa-wallet"></i><span class="stat-tag">Số dư</span>
+              <div class="stat-left-col">
+                  <div class="stat-icon-wrap"><i class="fas fa-wallet"></i></div>
+                  <div class="stat-info-wrap">
+                      <div class="stat-tag">Số dư</div>
+                      <div class="stat-num balance" id="tab2Balance">0đ</div>
+                  </div>
               </div>
-              <div class="stat-num balance" id="tab2Balance">0đ</div>
               <div class="stat-compare" id="tab2BalanceCompare">-</div>
             </div>
           </div>
