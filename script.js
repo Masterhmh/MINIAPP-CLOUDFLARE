@@ -101,14 +101,16 @@ function getCategoryIcon(cat) {
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
-    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 600;">− 0đ ${text}</span>`;
+    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− 0đ ${text}</span>`;
     let diff = current - prev;
-    if (diff === 0) return `<span style="color: var(--text-2); font-weight: 600;">− Bằng ${text}</span>`;
+    if (diff === 0) return `<span style="color: var(--text-2); font-weight: 500;">− Bằng ${text}</span>`;
     let isUp = diff > 0;
     let icon = isUp ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
     let arrowText = isUp ? (type === 'balance' ? 'Dư' : 'Tăng') : (type === 'balance' ? 'Âm' : 'Giảm');
+    
     let colorVar = type === 'expense' ? (isUp ? 'var(--expense)' : 'var(--income)') : (isUp ? 'var(--income)' : 'var(--expense)');
-    return `<span style="color: #ffffff; font-weight: 700;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ</span>`;
+    
+    return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ ${text}</span>`;
 }
 
 window.openTab = function(tabId) {
@@ -421,7 +423,6 @@ function drawMonthlyPieChart(data) {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
     const c = bg[idx];
 
-    // Chú thích nhỏ bên phải
     if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
@@ -438,7 +439,6 @@ function drawMonthlyPieChart(data) {
         leg.appendChild(divLeg);
     }
 
-    // Danh sách thẻ bên dưới
     if (progList) {
         const icon = getCategoryIcon(i.category);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card';
@@ -552,7 +552,6 @@ function updateTimeNavUI() {
 
 // ---------------- CHI TIẾT DANH MỤC ----------------
 async function showCategoryDetail(cat, amt, color) {
-  // LƯU LẠI VỊ TRÍ CUỘN HIỆN TẠI TRƯỚC KHI ẨN VIEW TỔNG QUAN
   savedScrollPositionTab2 = window.scrollY || document.documentElement.scrollTop;
 
   document.getElementById('tab2Overview').style.display='none'; 
@@ -560,7 +559,6 @@ async function showCategoryDetail(cat, amt, color) {
   const detailView = document.getElementById('categoryDetailView');
   detailView.style.display='block';
   
-  // THÊM CLASS ANIMATION TRƯỢT VÀO VÀ CUỘN LÊN ĐẦU TRANG CHO VIEW CHI TIẾT
   detailView.classList.remove('slide-out-right');
   detailView.classList.add('slide-in-right');
   window.scrollTo(0, 0);
@@ -568,7 +566,6 @@ async function showCategoryDetail(cat, amt, color) {
   document.getElementById('categoryDetailTitle').textContent = cat; 
   document.getElementById('categoryDetailTitle').style.color = color;
   
-  // ĐỔ DỮ LIỆU VÀO KHỐI TỔNG TIỀN MỚI
   const totalAmtEl = document.getElementById('categoryDetailTotalAmt');
   if(totalAmtEl) {
       totalAmtEl.textContent = formatNumberWithCommas(amt.toString()) + 'đ';
@@ -647,24 +644,19 @@ function displayCategoryTransactionsList(txs) {
   document.querySelectorAll('#categoryTransactionsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
 
-// HÀM ĐÓNG VIEW CHI TIẾT DANH MỤC VÀ KHÔI PHỤC TRẠNG THÁI CUỘN
 function closeCategoryDetailView() {
     const overview = document.getElementById('tab2Overview');
     const detailView = document.getElementById('categoryDetailView');
 
-    // Kích hoạt hiệu ứng trượt ngược biến mất về bên phải
     detailView.classList.remove('slide-in-right');
     detailView.classList.add('slide-out-right');
 
-    // Chờ hiệu ứng chuyển động hoàn tất rồi mới chuyển đổi display và phục hồi vị trí cuộn
     setTimeout(() => {
         detailView.style.display = 'none';
         overview.style.display = 'block';
         
-        // Tạo hiệu ứng mờ dần (fade-in) dễ chịu cho view tổng quan
         overview.classList.add('fade-in-view');
 
-        // KHÔI PHỤC LẠI CHÍNH XÁC VỊ TRÍ CUỘN TRƯỚC ĐÓ
         window.scrollTo(0, savedScrollPositionTab2);
 
         setTimeout(() => {
@@ -681,7 +673,6 @@ categoryView.addEventListener('touchstart', e => { touchStartX = e.changedTouche
 categoryView.addEventListener('touchend', e => {
     const swipeDistanceX = e.changedTouches[0].screenX - touchStartX;
     const swipeDistanceY = Math.abs(e.changedTouches[0].screenY - touchStartY);
-    // Vuốt từ trái sang phải hợp lệ để quay lại mục tổng quan cũ
     if (swipeDistanceX > 70 && swipeDistanceY < 50) {
         closeCategoryDetailView();
     }
@@ -883,7 +874,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
   await submitTx(tx); 
 };
 
-// ⚡ LƯU GIAO DỊCH TRỰC TIẾP LÊN FIREBASE (TỰ ĐỘNG TẠO MÃ GDxxx)
+// ⚡ LƯU GIAO DỊCH TRỰC TIẾP LÊN FIREBASE
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
