@@ -477,7 +477,7 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
     position: relative;
 }
 
-/* Thu gọn thanh cuộn cho tinh tế VÀ HIỂN THỊ TRÊN MOBILE */
+/* Thu gọn thanh cuộn cho tinh tế VÀ HIỂN THỊ ĐỒNG BỘ MỌI THIẾT BỊ */
 .compact-legend {
     flex: 1;
     display: flex;
@@ -485,22 +485,30 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
     gap: 12px;
     max-height: 150px; 
     overflow-y: auto; 
-    padding-right: 4px;
+    padding-right: 8px; /* Đẩy chữ cách xa thanh cuộn ra 1 chút cho thoáng */
     min-width: 0;
-    -webkit-overflow-scrolling: touch; /* Ép mượt cuộn trên iOS */
+    -webkit-overflow-scrolling: touch;
+    
+    /* Ép hiển thị thanh cuộn trên Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-3) transparent;
 }
 
+/* Tùy chỉnh thanh cuộn cho Webkit (Chrome, Safari, Mobile iOS/Android) */
 .compact-legend::-webkit-scrollbar { 
-    width: 5px; 
-    background-color: transparent;
+    width: 4px; /* Thu nhỏ bề ngang thanh cuộn lại */
+    -webkit-appearance: none;
 }
+
+/* XÓA lớp viền/đường ray thừa ở dưới */
 .compact-legend::-webkit-scrollbar-track { 
-    background: var(--bg-glass-border); 
-    border-radius: 4px; 
+    background: transparent; 
 }
+
+/* Chỉ giữ lại con lăn màu xám đậm */
 .compact-legend::-webkit-scrollbar-thumb { 
-    background: var(--text-3); 
-    border-radius: 4px; 
+    background-color: var(--text-3); 
+    border-radius: 10px; /* Bo tròn 2 đầu con lăn */
 }
 
 /* Style cho từng mục chú thích */
