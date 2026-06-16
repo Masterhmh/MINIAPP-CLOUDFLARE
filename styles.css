@@ -209,17 +209,58 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .filter-separator { font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
 .btn-filter { width: 42px !important; flex: 0 0 42px !important; height: 42px !important; padding: 0 !important; display: flex; align-items: center; justify-content: center; border-radius: 50% !important; }
 
-/* Grid Thống kê báo cáo */
-.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-.stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 12px; display: flex; flex-direction: column; gap: 4px; }
-.stat-icon-row { display: flex; align-items: center; margin-bottom: 2px; }
-.stat-icon-row i { font-size: 0.85rem; margin-right: 4px; }
-.card-income .stat-icon-row i, .stat-num.income { color: var(--income); }
-.card-expense .stat-icon-row i, .stat-num.expense { color: var(--expense); }
-.card-balance .stat-icon-row i, .stat-num.balance { color: var(--balance); }
-.stat-tag { font-size: 0.7rem; font-weight: 600; color: var(--text-2); text-transform: uppercase; }
-.stat-num { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
-.stat-compare { font-size: 0.65rem; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+/* Grid Thống kê báo cáo (Thiết kế Gradient Khối đặc) */
+.stat-grid { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+
+.stat-card { 
+    border-radius: var(--radius-md); 
+    padding: 16px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    border: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Hiệu ứng tia chớp chéo nhẹ trên nền thẻ */
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 100%);
+    pointer-events: none;
+}
+
+/* Đổ màu Gradient hiện đại cho từng thẻ */
+.card-income { background: linear-gradient(135deg, #22C55E 0%, #10B981 100%); }
+.card-expense { background: linear-gradient(135deg, #F43F5E 0%, #E11D48 100%); }
+.card-balance { background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%); }
+
+.stat-left-col { display: flex; align-items: center; gap: 12px; }
+
+.stat-icon-wrap {
+    width: 40px; height: 40px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 1.1rem;
+}
+
+.stat-info-wrap { display: flex; flex-direction: column; gap: 2px; }
+
+.stat-tag { font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.9); }
+.stat-num { font-size: 1.15rem; font-weight: 800; color: white; letter-spacing: -0.01em; }
+
+.stat-compare { 
+    font-size: 0.65rem; 
+    font-weight: 600; 
+    color: rgba(255,255,255,0.8);
+    text-align: right;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 2px;
+}
+.stat-compare span { color: white !important; font-weight: 700; background: rgba(0,0,0,0.15); padding: 2px 6px; border-radius: 6px; }
 
 /* Đồ thị & Vùng chứa Chart.js */
 .chart-placeholder { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; position: relative; display: flex; justify-content: center; align-items: center; min-height: 250px; }
