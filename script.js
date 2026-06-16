@@ -108,7 +108,7 @@ function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
     let icon = isUp ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
     let arrowText = isUp ? (type === 'balance' ? 'Dư' : 'Tăng') : (type === 'balance' ? 'Âm' : 'Giảm');
     let colorVar = type === 'expense' ? (isUp ? 'var(--expense)' : 'var(--income)') : (isUp ? 'var(--income)' : 'var(--expense)');
-    return `<span style="color: ${colorVar}; font-weight: 700;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ ${text}</span>`;
+    return `<span style="color: #ffffff; font-weight: 700;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ</span>`;
 }
 
 window.openTab = function(tabId) {
