@@ -423,7 +423,7 @@ function drawMonthlyPieChart(data) {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
     const c = bg[idx];
 
-    // CHÚ THÍCH NHỎ BÊN CẠNH BIỂU ĐỒ TRÒN (CHỈ HIỂN THỊ PHẦN TRĂM)
+    // CHÚ THÍCH NHỎ BÊN CẠNH BIỂU ĐỒ TRÒN (CHỈ HIỂN THỊ PHẦN TRĂM CÙNG MÀU)
     if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
@@ -432,7 +432,8 @@ function drawMonthlyPieChart(data) {
              <span class="legend-name" title="${i.category}">${i.category}</span>
           </div>
           <div class="legend-value-col">
-             <span class="legend-pct" style="color: var(--text-1); font-size: 0.8rem;">${pct}%</span>
+             <!-- Đã đổi màu phần trăm theo biến ${c} và in đậm -->
+             <span class="legend-pct" style="color:${c}; font-size: 0.85rem; font-weight: 800;">${pct}%</span>
           </div>
         `;
         divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
