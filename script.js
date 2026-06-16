@@ -326,8 +326,8 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     window.mChart = new Chart(ctx, {
       type: 'bar',
       data: { labels: labels, datasets: [
-          { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderRadius: 4, maxBarThickness: 20 }, 
-          { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 4, maxBarThickness: 20 }
+          { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderRadius: 0, maxBarThickness: 20 }, 
+          { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 0, maxBarThickness: 20 }
       ]},
       options: { 
           responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
@@ -423,6 +423,7 @@ function drawMonthlyPieChart(data) {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
     const c = bg[idx];
 
+    // CHÚ THÍCH NHỎ BÊN CẠNH BIỂU ĐỒ TRÒN (CHỈ HIỂN THỊ PHẦN TRĂM)
     if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
@@ -431,14 +432,14 @@ function drawMonthlyPieChart(data) {
              <span class="legend-name" title="${i.category}">${i.category}</span>
           </div>
           <div class="legend-value-col">
-             <span class="legend-pct" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
-             <span class="legend-amt">${pct}%</span>
+             <span class="legend-pct" style="color: var(--text-1); font-size: 0.8rem;">${pct}%</span>
           </div>
         `;
         divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
         leg.appendChild(divLeg);
     }
 
+    // DANH SÁCH BÊN DƯỚI (GIỮ NGUYÊN)
     if (progList) {
         const icon = getCategoryIcon(i.category);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card';
@@ -470,11 +471,13 @@ async function loadWeeklyReport(weekStr) {
         const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7);
         const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]);
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`;
-        const dayNames = ['CN','T2','T3','T4','T5','T6','T7'];
+        
+        // CHỈNH SỬA TÊN NGÀY THÁNG RÕ RÀNG (THỨ 2, NGÀY 16/06)
+        const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
         const labels = [], incs = [], exps = [];
         for(let i=0; i<7; i++) {
             const d = new Date(startDate); d.setDate(d.getDate() + i);
-            labels.push(`${dayNames[d.getDay()]}\n${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
+            labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
             const dateStr = formatDateToDDMMYYYY(d);
             const dayTx = currentTx.filter(t => t.date === dateStr);
             let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; });
@@ -495,7 +498,9 @@ async function loadMonthlyReport(monthStr) {
         const prevStartDate = new Date(prevY, prevM - 1, 1); const prevEndDate = new Date(prevY, prevM, 0);
         const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]);
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`;
-        const labels = [`T${month}`], incs = [0], exps = [0];
+        
+        // CHỈNH SỬA TÊN THÁNG RÕ RÀNG (THÁNG 6)
+        const labels = [`Tháng ${month}`], incs = [0], exps = [0];
         currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; });
         processReportData(currentTx, prevTx, labels, incs, exps);
         cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr };
@@ -511,7 +516,8 @@ async function loadCustomReport(startMonth, endMonth, year) {
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`;
         const labels = [], incs = [], exps = [];
         for(let m=startMonth; m<=endMonth; m++) {
-            labels.push(`T${m}`);
+            // CHỈNH SỬA TÊN THÁNG RÕ RÀNG
+            labels.push(`Tháng ${m}`);
             const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year);
             let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; });
             incs.push(inc); exps.push(exp);
@@ -582,15 +588,19 @@ async function showCategoryDetail(cat, amt, color) {
   let chartLabels = [], chartData = [];
   if (cachedChartData.mode === 'weekly') {
       const map = {}; txs.forEach(t => { map[t.date] = (map[t.date]||0) + t.amount; });
-      chartLabels = Object.keys(map).map(d => d.substring(0,5)); chartData = Object.values(map);
+      // CHỈNH SỬA TÊN NGÀY BÊN TRONG CHI TIẾT
+      chartLabels = Object.keys(map).map(d => `Ngày ${d.substring(0,5)}`); 
+      chartData = Object.values(map);
   } else {
       const map = {}; txs.forEach(t => { const m = parseInt(t.date.split('/')[1]); map[m] = (map[m]||0) + t.amount; });
       const allMonths = [...new Set(cachedChartData.txs.map(t => parseInt(t.date.split('/')[1])))].sort((a,b)=>a-b);
-      chartLabels = allMonths.map(m => `T${m}`); chartData = allMonths.map(m => map[m] || 0);
+      // CHỈNH SỬA TÊN THÁNG BÊN TRONG CHI TIẾT
+      chartLabels = allMonths.map(m => `Tháng ${m}`); 
+      chartData = allMonths.map(m => map[m] || 0);
   }
   
   window.categoryMonthlyChartInstance = new Chart(ctx, {
-      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 20}] },
+      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 0, maxBarThickness: 20}] },
       options: { responsive: true, maintainAspectRatio: false, layout: {padding:{top:10}}, scales: { x:{grid:{display:false}, ticks:{color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}}, y:{ticks:{callback:v=>v>=1000?(v/1000)+'K':v, color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}, grid:{color:'rgba(255,255,255,0.05)'}} }, plugins: { legend:{display:false}, tooltip: {callbacks:{label:ctx=>`${formatNumberWithCommas(ctx.raw.toString())}đ`}} } }
   });
   displayCategoryTransactionsList(txs);
