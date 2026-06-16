@@ -327,8 +327,8 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     window.mChart = new Chart(ctx, {
       type: 'bar',
       data: { labels: labels, datasets: [
-          { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderRadius: 4, maxBarThickness: 40 }, 
-          { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 4, maxBarThickness: 40 }
+          { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderRadius: 4, maxBarThickness: 20 }, 
+          { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 4, maxBarThickness: 20 }
       ]},
       options: { 
           responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
@@ -351,9 +351,57 @@ function drawMonthlyPieChart(data) {
   const total = amts.reduce((a,b)=>a+b,0);
   
   window.pChart = new Chart(ctx, { 
-    type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
-    options: { cutout:'75%', layout: {padding: 0}, plugins: { legend:{display:false}, tooltip: { callbacks: { label: ctx => ` ${formatNumberWithCommas(ctx.raw.toString())}đ (${((ctx.raw/total)*100).toFixed(1)}%)` } } } }, 
-    plugins: [{ id:'cText', afterDraw(c) { const {ctx}=c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font='500 10px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font='800 13px Plus Jakarta Sans'; ctx.fillText(formatNumberWithCommas(total.toString()) + 'đ', c.width/2, c.height/2 + 8); ctx.restore(); } }] 
+    type: 'doughnut', 
+    data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
+    options: { 
+        cutout:'75%', 
+        layout: {padding: 0}, 
+        plugins: { 
+            legend: {display:false}, 
+            tooltip: { enabled: false } 
+        } 
+    }, 
+    plugins: [{ 
+        id:'cText', 
+        afterDraw(c) { 
+            const {ctx} = c; 
+            ctx.save(); 
+            ctx.textAlign='center'; 
+            ctx.textBaseline='middle'; 
+            
+            const activeEls = c.getActiveElements();
+            if (activeEls && activeEls.length > 0) {
+                const activeIdx = activeEls[0].index;
+                const catName = c.data.labels[activeIdx];
+                const catAmt = c.data.datasets[0].data[activeIdx];
+                const color = c.data.datasets[0].backgroundColor[activeIdx];
+                const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0;
+                
+                let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName;
+                
+                ctx.fillStyle = '#94A3B8'; 
+                ctx.font = '600 9px Plus Jakarta Sans'; 
+                ctx.fillText(shortName, c.width/2, c.height/2 - 12); 
+                
+                ctx.fillStyle = color; 
+                ctx.font = '800 12px Plus Jakarta Sans'; 
+                ctx.fillText(formatNumberWithCommas(catAmt.toString()) + 'đ', c.width/2, c.height/2 + 4);
+                
+                ctx.fillStyle = '#94A3B8';
+                ctx.font = '500 9px Plus Jakarta Sans';
+                ctx.fillText(`(${pct}%)`, c.width/2, c.height/2 + 16);
+
+            } else {
+                ctx.fillStyle='#94A3B8'; 
+                ctx.font='500 10px Plus Jakarta Sans'; 
+                ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); 
+                ctx.fillStyle='#F43F5E'; 
+                ctx.font='800 13px Plus Jakarta Sans'; 
+                ctx.fillText(formatNumberWithCommas(total.toString()) + 'đ', c.width/2, c.height/2 + 8); 
+            }
+            ctx.restore(); 
+        } 
+    }] 
   });
 
   const leg = document.getElementById('monthlyCustomLegend'); leg.innerHTML = '';
@@ -366,8 +414,8 @@ function drawMonthlyPieChart(data) {
          <span class="legend-name" title="${i.category}">${i.category}</span>
       </div>
       <div class="legend-value-col">
-         <span class="legend-pct" style="color:${c}">${pct}%</span>
-         <span class="legend-amt">${formatNumberWithCommas(i.amount.toString())}đ</span>
+         <span class="legend-pct" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
+         <span class="legend-amt">${pct}%</span>
       </div>
     `;
     div.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
@@ -499,7 +547,7 @@ async function showCategoryDetail(cat, amt, color) {
   }
   
   window.categoryMonthlyChartInstance = new Chart(ctx, {
-      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 40}] },
+      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 24}] },
       options: { responsive: true, maintainAspectRatio: false, layout: {padding:{top:10}}, scales: { x:{grid:{display:false}, ticks:{color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}}, y:{ticks:{callback:v=>v>=1000?(v/1000)+'K':v, color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}, grid:{color:'rgba(255,255,255,0.05)'}} }, plugins: { legend:{display:false}, tooltip: {callbacks:{label:ctx=>`${formatNumberWithCommas(ctx.raw.toString())}đ`}} } }
   });
   displayCategoryTransactionsList(txs);
