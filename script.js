@@ -142,7 +142,8 @@ window.fetchTransactions = async function(forceRefresh = false) {
   selectedDateObj.setHours(0,0,0,0);
   const diffDays = Math.round((selectedDateObj - todayObj) / (1000 * 60 * 60 * 24));
   
-  let prefixText = "Ngày, ";
+  // Sửa lỗi dấu phẩy dư thừa ở chữ "Ngày"
+  let prefixText = "Ngày "; 
   if (diffDays === 0) prefixText = "Hôm nay, ";
   else if (diffDays === -1) prefixText = "Hôm qua, ";
   else if (diffDays === 1) prefixText = "Ngày mai, ";
@@ -195,7 +196,7 @@ window.fetchTransactions = async function(forceRefresh = false) {
 function displayTransactions() {
   const data = cachedTransactions?.data || [];
   const prevData = cachedTransactions?.prevData || [];
-  const compSuffix = cachedTransactions?.compareSuffix || 'so với hôm qua'; // Lấy đuôi chữ so sánh động từ cache
+  const compSuffix = cachedTransactions?.compareSuffix || 'so với hôm qua'; 
   
   const container = document.getElementById('transactionsContainer'); container.innerHTML = '';
   
@@ -272,6 +273,60 @@ function displayTransactions() {
 }
 
 // ---------------- TAB 2: BÁO CÁO ----------------
+function getWeekNumber(d) {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
+}
+function formatWeekInput(date) { return `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`; }
+function getDateFromWeekString(weekStr) {
+  const [yearStr, weekPart] = weekStr.split('-W');
+  if(!yearStr || !weekPart) return null;
+  const year = parseInt(yearStr); const week = parseInt(weekPart);
+  const simple = new Date(year, 0, 1 + (week - 1) * 7);
+  const dow = simple.getDay(); const start = new Date(simple);
+  if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1);
+  else start.setDate(simple.getDate() + 8 - simple.getDay());
+  return start;
+}
+
+async function getTransactionsInRange(startDate, endDate) {
+    const startStr = formatDateToYYYYMMDD(startDate);
+    const endStr = formatDateToYYYYMMDD(endDate);
+    const cacheKey = startStr + '_' + endStr;
+    if (window.apiTxCache[cacheKey]) return window.apiTxCache[cacheKey];
+
+    try {
+        const sY = startDate.getFullYear(), eY = endDate.getFullYear();
+        let txs = [];
+        let fetchPromises = [];
+
+        for (let y = sY; y <= eY; y++) {
+            let sM = (y === sY) ? startDate.getMonth() + 1 : 1;
+            let eM = (y === eY) ? endDate.getMonth() + 1 : 12;
+            for (let m = sM; m <= eM; m++) {
+                fetchPromises.push((async () => {
+                    let monthData = await fetchMonthData(m);
+                    return { y, m, data: monthData };
+                })());
+            }
+        }
+
+        const monthsResults = await Promise.all(fetchPromises);
+        monthsResults.forEach(res => {
+            res.data.forEach(t => {
+                const dParts = t.date.split('/');
+                const txDate = new Date(res.y, parseInt(dParts[1], 10) - 1, parseInt(dParts[0], 10));
+                if (txDate >= startDate && txDate <= endDate) txs.push(t);
+            });
+        });
+
+        window.apiTxCache[cacheKey] = txs;
+        return txs;
+    } catch (e) { return []; }
+}
+
 function processReportData(currentTx, prevTx, labels, incs, exps) {
     let tInc = 0, tExp = 0; currentTx.forEach(i => { if(i.type==='Thu nhập') tInc += i.amount; else tExp += i.amount; });
     const tBal = tInc - tExp;
@@ -435,6 +490,8 @@ async function loadWeeklyReport(weekStr) {
     showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none';
     try {
         const startDate = getDateFromWeekString(weekStr);
+        if (!startDate) throw new Error("Dữ liệu tuần không hợp lệ");
+        
         const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6);
         const prevStartDate = new Date(startDate); prevStartDate.setDate(prevStartDate.getDate() - 7);
         const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7);
@@ -499,12 +556,16 @@ function updateTimeNavUI() {
    const monthP = document.getElementById('monthPicker');
    const timeNav = document.getElementById('timeNavContainer');
    const customNav = document.getElementById('customFilterContainer');
+   
    if (currentFilterMode === 'weekly') {
        timeNav.style.display = 'flex'; customNav.style.display = 'none';
        weekP.style.display = 'block'; monthP.style.display = 'none';
-       weekP.value = formatWeekInput(activePeriodDate);
+       // KHẮC PHỤC LỖI IOS/SAFARI KHÔNG ĐỌC ĐƯỢC <input type="week">
+       const wStr = formatWeekInput(activePeriodDate); 
+       weekP.value = wStr; 
        label.textContent = `Tuần ${getWeekNumber(activePeriodDate)}, ${activePeriodDate.getFullYear()}`;
-       loadWeeklyReport(weekP.value);
+       loadWeeklyReport(wStr); 
+       
    } else if (currentFilterMode === 'monthly') {
        timeNav.style.display = 'flex'; customNav.style.display = 'none';
        weekP.style.display = 'none'; monthP.style.display = 'block';
@@ -512,9 +573,11 @@ function updateTimeNavUI() {
        monthP.value = mStr;
        label.textContent = `Tháng ${activePeriodDate.getMonth()+1}/${activePeriodDate.getFullYear()}`;
        loadMonthlyReport(mStr);
+       
    } else if (currentFilterMode === 'yearly') {
        timeNav.style.display = 'none'; customNav.style.display = 'none';
        loadCustomReport(1, 12, new Date().getFullYear());
+       
    } else if (currentFilterMode === 'custom') {
        timeNav.style.display = 'none'; customNav.style.display = 'flex';
        const curM = new Date().getMonth() + 1;
@@ -964,29 +1027,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tDate = document.getElementById('transactionDate');
   if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => window.fetchTransactions(true); }
-  document.getElementById('displayCurrentDate').textContent = `${new Date().getDate()} tháng ${new Date().getMonth()+1} · ${new Date().getFullYear()}`;
-  
-  const heroCard = document.querySelector('#tab1 .hero-card');
-  if (heroCard) {
-      heroCard.style.cursor = 'pointer'; 
-      heroCard.title = "Bấm để quay về Hôm nay"; 
-      heroCard.onclick = () => {
-          const todayStr = formatDateToYYYYMMDD(new Date());
-          const dateInput = document.getElementById('transactionDate');
-          if (dateInput.value !== todayStr) { dateInput.value = todayStr; window.fetchTransactions(true); showToast("Đã quay về Hôm nay", "info"); }
-      };
-  }
   
   // SỰ KIỆN CLICK CHO MŨI TÊN TRÁI (LÙI NGÀY)
   const prevDayBtn = document.getElementById('prevDayBtn');
   if(prevDayBtn) {
       prevDayBtn.onclick = (e) => {
-          e.stopPropagation(); // Ngăn click nhầm vào heroCard tổng
+          e.stopPropagation(); 
           const dateInput = document.getElementById('transactionDate');
           if (!dateInput.value) return;
           const [y, m, d] = dateInput.value.split('-');
           const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() - 1); // Trừ 1 ngày
+          currDate.setDate(currDate.getDate() - 1); 
           dateInput.value = formatDateToYYYYMMDD(currDate);
           window.fetchTransactions(true);
       };
@@ -1001,7 +1052,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (!dateInput.value) return;
           const [y, m, d] = dateInput.value.split('-');
           const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() + 1); // Cộng 1 ngày
+          currDate.setDate(currDate.getDate() + 1); 
           dateInput.value = formatDateToYYYYMMDD(currDate);
           window.fetchTransactions(true);
       };
