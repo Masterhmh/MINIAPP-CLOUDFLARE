@@ -69,7 +69,6 @@ function getCategoryIcon(cat) {
     if (!cat) return defaultIcon;
     const categoryName = cat.trim();
     
-    // Danh sách map icon thông minh với tên rút gọn
     const faMap = {
         'Ăn uống': 'fa-utensils', 
         'Bảo hiểm': 'fa-shield-halved', 
@@ -358,6 +357,7 @@ function drawMonthlyPieChart(data) {
             legend: {display:false}, 
             tooltip: { enabled: false } 
         },
+        // MẸO: Người dùng chạm lần 1 để xem số giữa tâm, chạm lần 2 để chuyển sang tab chi tiết!
         onClick: (event, activeEls) => {
             if (activeEls && activeEls.length > 0) {
                 const activeIdx = activeEls[0].index;
@@ -422,7 +422,7 @@ function drawMonthlyPieChart(data) {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
     const c = bg[idx];
 
-    // 1. CHÚ THÍCH RÚT GỌN BÊN PHẢI (Chỉ hiện %)
+    // Chú thích nhỏ bên phải
     if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
@@ -431,14 +431,15 @@ function drawMonthlyPieChart(data) {
              <span class="legend-name" title="${i.category}">${i.category}</span>
           </div>
           <div class="legend-value-col">
-             <span class="legend-pct" style="color:${c}">${pct}%</span>
+             <span class="legend-pct" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
+             <span class="legend-amt">${pct}%</span>
           </div>
         `;
         divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
         leg.appendChild(divLeg);
     }
 
-    // 2. DANH SÁCH THẺ PROGRESS BAR BÊN DƯỚI
+    // Danh sách thẻ bên dưới
     if (progList) {
         const icon = getCategoryIcon(i.category);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card';
@@ -555,7 +556,9 @@ async function showCategoryDetail(cat, amt, color) {
   // LƯU LẠI VỊ TRÍ CUỘN HIỆN TẠI TRƯỚC KHI ẨN VIEW TỔNG QUAN
   savedScrollPositionTab2 = window.scrollY || document.documentElement.scrollTop;
 
-  document.querySelector('.chart-container').style.display='none'; 
+  // ẨN TOÀN BỘ KHỐI TỔNG QUAN ĐỂ CHUYỂN SANG MÀN HÌNH MỚI 100%
+  document.getElementById('tab2Overview').style.display='none'; 
+  
   const detailView = document.getElementById('categoryDetailView');
   detailView.style.display='block';
   
@@ -641,7 +644,7 @@ function displayCategoryTransactionsList(txs) {
 
 // HÀM ĐÓNG VIEW CHI TIẾT DANH MỤC VÀ KHÔI PHỤC TRẠNG THÁI CUỘN
 function closeCategoryDetailView() {
-    const mainView = document.querySelector('#tab2 .chart-container');
+    const overview = document.getElementById('tab2Overview');
     const detailView = document.getElementById('categoryDetailView');
 
     // Kích hoạt hiệu ứng trượt ngược biến mất về bên phải
@@ -651,16 +654,16 @@ function closeCategoryDetailView() {
     // Chờ hiệu ứng chuyển động hoàn tất rồi mới chuyển đổi display và phục hồi vị trí cuộn
     setTimeout(() => {
         detailView.style.display = 'none';
-        mainView.style.display = 'block';
+        overview.style.display = 'block';
         
         // Tạo hiệu ứng mờ dần (fade-in) dễ chịu cho view tổng quan
-        mainView.classList.add('fade-in-view');
+        overview.classList.add('fade-in-view');
 
         // KHÔI PHỤC LẠI CHÍNH XÁC VỊ TRÍ CUỘN TRƯỚC ĐÓ
         window.scrollTo(0, savedScrollPositionTab2);
 
         setTimeout(() => {
-            mainView.classList.remove('fade-in-view');
+            overview.classList.remove('fade-in-view');
         }, 300);
     }, 250); 
 }
