@@ -123,7 +123,33 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .hero-card { background: var(--grad-primary); border-radius: var(--radius-xl); padding: 20px 20px 18px; margin-top: 16px; margin-bottom: 16px; box-shadow: var(--shadow-glow); position: relative; overflow: hidden; }
 .hero-card::before { content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.06); top: -60px; right: -40px; }
 .hero-card::after { content: ''; position: absolute; width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.04); bottom: -30px; left: 20px; }
-.hero-date { font-size: 0.78rem; color: rgba(255,255,255,0.55); margin-bottom: 4px; position: relative; z-index: 1; }
+
+/* Các class mới cho Nút chuyển ngày */
+.hero-date-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+    position: relative;
+    z-index: 1;
+}
+.hero-date { font-size: 0.78rem; color: rgba(255,255,255,0.55); margin-bottom: 0; }
+.date-nav-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.6rem;
+}
+.date-nav-btn:active { transform: scale(0.9); }
+
 .hero-label, .hero-stat-label { display: flex; align-items: center; }
 .hero-label i, .hero-stat-label i { margin-right: 4px; }
 .hero-label { font-size: 0.72rem; font-weight: 600; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; position: relative; z-index: 1; }
@@ -248,7 +274,6 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .stat-header.card-expense i, .stat-header.card-expense .stat-tag { color: var(--expense); }
 .stat-header.card-balance i, .stat-header.card-balance .stat-tag { color: var(--balance); }
 
-/* Đã thêm white-space nowrap để ngăn chữ đ bị rớt xuống dòng */
 .stat-num { 
     font-size: clamp(0.85rem, 4vw, 1.05rem); 
     font-weight: 800; 
