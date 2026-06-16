@@ -355,7 +355,7 @@ function drawMonthlyPieChart(data) {
     data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
     options: { 
         cutout:'75%', 
-        layout: {padding: 0}, 
+        layout: {padding: 8}, 
         plugins: { 
             legend: {display:false}, 
             tooltip: { enabled: false } 
