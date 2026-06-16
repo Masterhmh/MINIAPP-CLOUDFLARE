@@ -77,8 +77,10 @@
       </div>
     </div>
 
+    <!-- TAB BÁO CÁO -->
     <div id="tab2" class="tab-content">
       
+      <!-- KHỐI TỔNG QUAN BÁO CÁO -->
       <div id="tab2Overview">
           <div class="section-header">
             <span class="section-title">Báo Cáo Tài Chính</span>
@@ -158,12 +160,21 @@
             <div id="monthlyCategoryProgressList"></div>
           </div>
       </div>
+
+      <!-- KHỐI CHI TIẾT DANH MỤC -->
       <div id="categoryDetailView" class="category-detail" style="display: none;">
         <div class="detail-header-row">
           <h1 id="categoryDetailTitle"></h1>
           <button id="backToCategoryBtn" class="btn-back"><i class="fas fa-arrow-left"></i> Quay lại</button>
         </div>
-        <div class="chart-title text-left mb-3">Tổng quan tài chính</div>
+        
+        <!-- KHỐI TỔNG TIỀN HIỆN ĐẠI MỚI THÊM -->
+        <div style="text-align: center; margin-bottom: 24px; padding: 20px; background: var(--bg-card); border-radius: var(--radius-lg); border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+           <div style="font-size: 0.75rem; color: var(--text-2); font-weight: 700; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.05em;">Tổng chi tiêu</div>
+           <div id="categoryDetailTotalAmt" style="font-size: 2.2rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em;">0đ</div>
+        </div>
+
+        <div class="chart-title text-left mb-3">Biến động chi tiêu</div>
         <div class="chart-placeholder">
           <canvas id="categoryMonthlyChart"></canvas>
         </div>
