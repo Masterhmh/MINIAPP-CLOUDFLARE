@@ -26,7 +26,6 @@ let currentPageTab1 = 1, currentPageCategory = 1, currentPageSearch = 1;
 window.apiTxCache = {}; 
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
-// Biến lưu vị trí cuộn của Tab 2 để tối ưu hóa trải nghiệm quay lại
 let savedScrollPositionTab2 = 0;
 
 // ---------------- UTILITIES ----------------
@@ -135,8 +134,34 @@ window.fetchTransactions = async function(forceRefresh = false) {
   const tDate = document.getElementById('transactionDate').value;
   if (!tDate) return;
   const [y, m, d] = tDate.split('-');
-  document.getElementById('displayCurrentDate').textContent = `${d}/${m}/${y}`;
+  
+  // TÍNH TOÁN HIỂN THỊ TEXT "HÔM NAY", "HÔM QUA" THÔNG MINH
+  const selectedDateObj = new Date(y, m - 1, d);
+  const todayObj = new Date();
+  todayObj.setHours(0,0,0,0);
+  selectedDateObj.setHours(0,0,0,0);
+  const diffDays = Math.round((selectedDateObj - todayObj) / (1000 * 60 * 60 * 24));
+  
+  let prefixText = "Ngày, ";
+  if (diffDays === 0) prefixText = "Hôm nay, ";
+  else if (diffDays === -1) prefixText = "Hôm qua, ";
+  else if (diffDays === 1) prefixText = "Ngày mai, ";
+  
+  document.getElementById('displayCurrentDate').textContent = `${prefixText}${d}/${m}/${y}`;
+  
   const cacheKey = `${d}/${m}/${y}`;
+  
+  // TÍNH TOÁN TRƯỚC NGÀY LIỀN KỀ ĐỂ PHỤC VỤ LOGIC SO SÁNH ĐỘNG
+  const currDateObj = new Date(y, m - 1, d);
+  currDateObj.setDate(currDateObj.getDate() - 1);
+  const prevDateStr = formatDateToDDMMYYYY(currDateObj);
+  const prevM = String(currDateObj.getMonth() + 1).padStart(2, '0');
+
+  // ĐUÔI CHỮ SO SÁNH TỰ ĐỘNG NHẢY THEO NGÀY ĐANG CHỌN (Hôm nay -> so với hôm qua, Ngày khác -> so với ngày cũ)
+  let compareSuffix = "so với hôm qua";
+  if (diffDays !== 0) {
+      compareSuffix = `so với ngày ${prevDateStr}`;
+  }
   
   if (!forceRefresh && cachedTransactions && cachedTransactions.cacheKey === cacheKey) {
       displayTransactions(); return;
@@ -145,11 +170,6 @@ window.fetchTransactions = async function(forceRefresh = false) {
   showLoading(true, 'tab1');
   try {
     const currDateStr = `${d}/${m}/${y}`;
-    const currDateObj = new Date(y, m - 1, d);
-    currDateObj.setDate(currDateObj.getDate() - 1);
-    const prevDateStr = formatDateToDDMMYYYY(currDateObj);
-    const prevM = String(currDateObj.getMonth() + 1).padStart(2, '0');
-
     let dataCurrMonth, dataPrevMonth;
     if (m === prevM) {
         dataCurrMonth = await fetchMonthData(m);
@@ -162,17 +182,21 @@ window.fetchTransactions = async function(forceRefresh = false) {
     let dataPrev = dataPrevMonth.filter(t => t.date === prevDateStr);
     dataCurr.sort((a,b) => b.id.localeCompare(a.id));
     dataPrev.sort((a,b) => b.id.localeCompare(a.id));
-    cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev };
+    
+    // Lưu đuôi chữ so sánh động vào bộ nhớ tạm cache
+    cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev, compareSuffix: compareSuffix };
     
     currentPageTab1 = 1; 
     displayTransactions();
-  } catch (err) { cachedTransactions = { cacheKey, data: [], prevData: [] }; displayTransactions(); }
+  } catch (err) { cachedTransactions = { cacheKey, data: [], prevData: [], compareSuffix: compareSuffix }; displayTransactions(); }
   finally { showLoading(false, 'tab1'); }
 };
 
 function displayTransactions() {
   const data = cachedTransactions?.data || [];
   const prevData = cachedTransactions?.prevData || [];
+  const compSuffix = cachedTransactions?.compareSuffix || 'so với hôm qua'; // Lấy đuôi chữ so sánh động từ cache
+  
   const container = document.getElementById('transactionsContainer'); container.innerHTML = '';
   
   let tInc = 0, tExp = 0; if (Array.isArray(data)) data.forEach(i => { if (i.type === 'Thu nhập') tInc += i.amount; else tExp += i.amount; });
@@ -190,8 +214,9 @@ function displayTransactions() {
   const heroBalSub = document.getElementById('heroBalanceSub');
   if(heroBalSub) { let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); heroBalSub.textContent = `${sign}${formatNumberWithCommas(Math.abs(tBal).toString())}đ`; }
   
+  // TRUYỀN ĐUÔI CHỮ SO SÁNH ĐỘNG VÀO HÀM ĐỂ IN RA GIAO DIỆN
   const heroExpCompare = document.getElementById('heroExpenseCompare');
-  if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', 'so với hôm qua');
+  if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
   
   const headerTitle = document.querySelector('#tab1 .section-title');
   if(headerTitle) headerTitle.innerHTML = `Giao dịch trong ngày <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
@@ -247,60 +272,6 @@ function displayTransactions() {
 }
 
 // ---------------- TAB 2: BÁO CÁO ----------------
-function getWeekNumber(d) {
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
-    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
-}
-function formatWeekInput(date) { return `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`; }
-function getDateFromWeekString(weekStr) {
-  const [yearStr, weekPart] = weekStr.split('-W');
-  if(!yearStr || !weekPart) return null;
-  const year = parseInt(yearStr); const week = parseInt(weekPart);
-  const simple = new Date(year, 0, 1 + (week - 1) * 7);
-  const dow = simple.getDay(); const start = new Date(simple);
-  if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1);
-  else start.setDate(simple.getDate() + 8 - simple.getDay());
-  return start;
-}
-
-async function getTransactionsInRange(startDate, endDate) {
-    const startStr = formatDateToYYYYMMDD(startDate);
-    const endStr = formatDateToYYYYMMDD(endDate);
-    const cacheKey = startStr + '_' + endStr;
-    if (window.apiTxCache[cacheKey]) return window.apiTxCache[cacheKey];
-
-    try {
-        const sY = startDate.getFullYear(), eY = endDate.getFullYear();
-        let txs = [];
-        let fetchPromises = [];
-
-        for (let y = sY; y <= eY; y++) {
-            let sM = (y === sY) ? startDate.getMonth() + 1 : 1;
-            let eM = (y === eY) ? endDate.getMonth() + 1 : 12;
-            for (let m = sM; m <= eM; m++) {
-                fetchPromises.push((async () => {
-                    let monthData = await fetchMonthData(m);
-                    return { y, m, data: monthData };
-                })());
-            }
-        }
-
-        const monthsResults = await Promise.all(fetchPromises);
-        monthsResults.forEach(res => {
-            res.data.forEach(t => {
-                const dParts = t.date.split('/');
-                const txDate = new Date(res.y, parseInt(dParts[1], 10) - 1, parseInt(dParts[0], 10));
-                if (txDate >= startDate && txDate <= endDate) txs.push(t);
-            });
-        });
-
-        window.apiTxCache[cacheKey] = txs;
-        return txs;
-    } catch (e) { return []; }
-}
-
 function processReportData(currentTx, prevTx, labels, incs, exps) {
     let tInc = 0, tExp = 0; currentTx.forEach(i => { if(i.type==='Thu nhập') tInc += i.amount; else tExp += i.amount; });
     const tBal = tInc - tExp;
@@ -423,8 +394,7 @@ function drawMonthlyPieChart(data) {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
     const c = bg[idx];
 
-    // CHÚ THÍCH NHỎ BÊN CẠNH BIỂU ĐỒ TRÒN (CHỈ HIỂN THỊ PHẦN TRĂM CÙNG MÀU)
-   if (leg) {
+    if (leg) {
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
         divLeg.innerHTML = `
           <div class="legend-item-left">
@@ -439,7 +409,6 @@ function drawMonthlyPieChart(data) {
         leg.appendChild(divLeg);
     }
 
-    // DANH SÁCH BÊN DƯỚI (GIỮ NGUYÊN)
     if (progList) {
         const icon = getCategoryIcon(i.category);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card';
@@ -472,7 +441,6 @@ async function loadWeeklyReport(weekStr) {
         const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]);
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`;
         
-        // CHỈNH SỬA TÊN NGÀY THÁNG RÕ RÀNG (THỨ 2, NGÀY 16/06)
         const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
         const labels = [], incs = [], exps = [];
         for(let i=0; i<7; i++) {
@@ -499,7 +467,6 @@ async function loadMonthlyReport(monthStr) {
         const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]);
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`;
         
-        // CHỈNH SỬA TÊN THÁNG RÕ RÀNG (THÁNG 6)
         const labels = [`Tháng ${month}`], incs = [0], exps = [0];
         currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; });
         processReportData(currentTx, prevTx, labels, incs, exps);
@@ -516,7 +483,6 @@ async function loadCustomReport(startMonth, endMonth, year) {
         document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`;
         const labels = [], incs = [], exps = [];
         for(let m=startMonth; m<=endMonth; m++) {
-            // CHỈNH SỬA TÊN THÁNG RÕ RÀNG
             labels.push(`Tháng ${m}`);
             const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year);
             let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; });
@@ -588,13 +554,11 @@ async function showCategoryDetail(cat, amt, color) {
   let chartLabels = [], chartData = [];
   if (cachedChartData.mode === 'weekly') {
       const map = {}; txs.forEach(t => { map[t.date] = (map[t.date]||0) + t.amount; });
-      // CHỈNH SỬA TÊN NGÀY BÊN TRONG CHI TIẾT
       chartLabels = Object.keys(map).map(d => `Ngày ${d.substring(0,5)}`); 
       chartData = Object.values(map);
   } else {
       const map = {}; txs.forEach(t => { const m = parseInt(t.date.split('/')[1]); map[m] = (map[m]||0) + t.amount; });
       const allMonths = [...new Set(cachedChartData.txs.map(t => parseInt(t.date.split('/')[1])))].sort((a,b)=>a-b);
-      // CHỈNH SỬA TÊN THÁNG BÊN TRONG CHI TIẾT
       chartLabels = allMonths.map(m => `Tháng ${m}`); 
       chartData = allMonths.map(m => map[m] || 0);
   }
@@ -1010,6 +974,36 @@ document.addEventListener('DOMContentLoaded', async () => {
           const todayStr = formatDateToYYYYMMDD(new Date());
           const dateInput = document.getElementById('transactionDate');
           if (dateInput.value !== todayStr) { dateInput.value = todayStr; window.fetchTransactions(true); showToast("Đã quay về Hôm nay", "info"); }
+      };
+  }
+  
+  // SỰ KIỆN CLICK CHO MŨI TÊN TRÁI (LÙI NGÀY)
+  const prevDayBtn = document.getElementById('prevDayBtn');
+  if(prevDayBtn) {
+      prevDayBtn.onclick = (e) => {
+          e.stopPropagation(); // Ngăn click nhầm vào heroCard tổng
+          const dateInput = document.getElementById('transactionDate');
+          if (!dateInput.value) return;
+          const [y, m, d] = dateInput.value.split('-');
+          const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() - 1); // Trừ 1 ngày
+          dateInput.value = formatDateToYYYYMMDD(currDate);
+          window.fetchTransactions(true);
+      };
+  }
+
+  // SỰ KIỆN CLICK CHO MŨI TÊN PHẢI (TIẾN NGÀY)
+  const nextDayBtn = document.getElementById('nextDayBtn');
+  if(nextDayBtn) {
+      nextDayBtn.onclick = (e) => {
+          e.stopPropagation();
+          const dateInput = document.getElementById('transactionDate');
+          if (!dateInput.value) return;
+          const [y, m, d] = dateInput.value.split('-');
+          const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() + 1); // Cộng 1 ngày
+          dateInput.value = formatDateToYYYYMMDD(currDate);
+          window.fetchTransactions(true);
       };
   }
 
