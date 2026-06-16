@@ -78,84 +78,86 @@
     </div>
 
     <div id="tab2" class="tab-content">
-      <div class="section-header">
-        <span class="section-title">Báo Cáo Tài Chính</span>
-      </div>
       
-      <div class="period-pills">
-        <div id="filterWeeklyBtn" class="period-pill active">Theo tuần</div>
-        <div id="filterMonthlyBtn" class="period-pill">Theo tháng</div>
-        <div id="filterYearlyBtn" class="period-pill">Cả năm</div>
-        <div id="filterCustomBtn" class="period-pill">Tùy chọn</div>
-      </div>
-
-      <div id="timeNavContainer" class="time-nav-container" style="display: flex;">
-        <button id="prevPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-left"></i></button>
-        <div class="time-nav-center">
-           <span id="currentPeriodLabel">Tuần này</span>
-           <input type="week" id="weekPicker" class="hidden-picker" style="display: none;">
-           <input type="month" id="monthPicker" class="hidden-picker" style="display: none;">
-        </div>
-        <button id="nextPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-right"></i></button>
-      </div>
-
-      <div id="customFilterContainer" class="filter-controls" style="display: none;">
-        <select id="startMonth" class="field-input flex-1">
-          <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-        </select>
-        <span class="filter-separator">đến</span>
-        <select id="endMonth" class="field-input flex-1">
-          <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-        </select>
-        <button id="fetchCustomDataBtn" class="btn-save btn-filter"><i class="fas fa-search"></i></button>
-      </div>
-
-      <div id="loadingTab2" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
-
-      <div class="stat-grid" id="monthlyStatsContainer">
-        <div class="stat-card card-income">
-          <div class="stat-icon-row">
-            <i class="fas fa-hand-holding-dollar"></i><span class="stat-tag">Thu nhập</span>
+      <div id="tab2Overview">
+          <div class="section-header">
+            <span class="section-title">Báo Cáo Tài Chính</span>
           </div>
-          <div class="stat-num income" id="tab2Income">0đ</div>
-          <div class="stat-compare" id="tab2IncomeCompare">-</div>
-        </div>
-        <div class="stat-card card-expense">
-          <div class="stat-icon-row">
-            <i class="fas fa-money-bill-transfer"></i><span class="stat-tag">Chi tiêu</span>
+          
+          <div class="period-pills">
+            <div id="filterWeeklyBtn" class="period-pill active">Theo tuần</div>
+            <div id="filterMonthlyBtn" class="period-pill">Theo tháng</div>
+            <div id="filterYearlyBtn" class="period-pill">Cả năm</div>
+            <div id="filterCustomBtn" class="period-pill">Tùy chọn</div>
           </div>
-          <div class="stat-num expense" id="tab2Expense">0đ</div>
-          <div class="stat-compare" id="tab2ExpenseCompare">-</div>
-        </div>
-        <div class="stat-card card-balance">
-          <div class="stat-icon-row">
-            <i class="fas fa-wallet"></i><span class="stat-tag">Số dư</span>
-          </div>
-          <div class="stat-num balance" id="tab2Balance">0đ</div>
-          <div class="stat-compare" id="tab2BalanceCompare">-</div>
-        </div>
-      </div>
 
-      <p id="placeholderTab2" class="empty-text" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</p>
-      
-      <div class="chart-container" style="display: none;">
-        <div id="chartTitleTab2" class="chart-title text-left w-full">Thu nhập & Chi tiêu</div>
-        <div class="chart-placeholder w-full">
-           <canvas id="monthlyChart"></canvas>
-        </div>
-
-        <div id="pieChartTitleTab2" class="chart-title text-left w-full mt-4">Chi tiêu theo danh mục</div>
-        
-        <div class="chart-placeholder pie-layout-wrapper" style="margin-bottom: 12px;">
-          <div class="pie-chart-inner">
-            <canvas id="monthlyPieChart"></canvas>
+          <div id="timeNavContainer" class="time-nav-container" style="display: flex;">
+            <button id="prevPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-left"></i></button>
+            <div class="time-nav-center">
+               <span id="currentPeriodLabel">Tuần này</span>
+               <input type="week" id="weekPicker" class="hidden-picker" style="display: none;">
+               <input type="month" id="monthPicker" class="hidden-picker" style="display: none;">
+            </div>
+            <button id="nextPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-right"></i></button>
           </div>
-          <div id="monthlyCustomLegend" class="compact-legend"></div>
-        </div>
-        
-        <div id="monthlyCategoryProgressList"></div>
+
+          <div id="customFilterContainer" class="filter-controls" style="display: none;">
+            <select id="startMonth" class="field-input flex-1">
+              <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+            </select>
+            <span class="filter-separator">đến</span>
+            <select id="endMonth" class="field-input flex-1">
+              <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+            </select>
+            <button id="fetchCustomDataBtn" class="btn-save btn-filter"><i class="fas fa-search"></i></button>
+          </div>
+
+          <div id="loadingTab2" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
+
+          <div class="stat-grid" id="monthlyStatsContainer">
+            <div class="stat-card card-income">
+              <div class="stat-icon-row">
+                <i class="fas fa-hand-holding-dollar"></i><span class="stat-tag">Thu nhập</span>
+              </div>
+              <div class="stat-num income" id="tab2Income">0đ</div>
+              <div class="stat-compare" id="tab2IncomeCompare">-</div>
+            </div>
+            <div class="stat-card card-expense">
+              <div class="stat-icon-row">
+                <i class="fas fa-money-bill-transfer"></i><span class="stat-tag">Chi tiêu</span>
+              </div>
+              <div class="stat-num expense" id="tab2Expense">0đ</div>
+              <div class="stat-compare" id="tab2ExpenseCompare">-</div>
+            </div>
+            <div class="stat-card card-balance">
+              <div class="stat-icon-row">
+                <i class="fas fa-wallet"></i><span class="stat-tag">Số dư</span>
+              </div>
+              <div class="stat-num balance" id="tab2Balance">0đ</div>
+              <div class="stat-compare" id="tab2BalanceCompare">-</div>
+            </div>
+          </div>
+
+          <p id="placeholderTab2" class="empty-text" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</p>
+          
+          <div class="chart-container" style="display: none;">
+            <div id="chartTitleTab2" class="chart-title text-left w-full">Thu nhập & Chi tiêu</div>
+            <div class="chart-placeholder w-full">
+               <canvas id="monthlyChart"></canvas>
+            </div>
+
+            <div id="pieChartTitleTab2" class="chart-title text-left w-full mt-4">Chi tiêu theo danh mục</div>
+            
+            <div class="chart-placeholder pie-layout-wrapper" style="margin-bottom: 12px;">
+              <div class="pie-chart-inner">
+                <canvas id="monthlyPieChart"></canvas>
+              </div>
+              <div id="monthlyCustomLegend" class="compact-legend"></div>
+            </div>
+            
+            <div id="monthlyCategoryProgressList"></div>
+          </div>
       </div>
-      
       <div id="categoryDetailView" class="category-detail" style="display: none;">
         <div class="detail-header-row">
           <h1 id="categoryDetailTitle"></h1>
