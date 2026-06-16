@@ -357,7 +357,6 @@ function drawMonthlyPieChart(data) {
             legend: {display:false}, 
             tooltip: { enabled: false } 
         },
-        // MẸO: Người dùng chạm lần 1 để xem số giữa tâm, chạm lần 2 để chuyển sang tab chi tiết!
         onClick: (event, activeEls) => {
             if (activeEls && activeEls.length > 0) {
                 const activeIdx = activeEls[0].index;
@@ -556,7 +555,6 @@ async function showCategoryDetail(cat, amt, color) {
   // LƯU LẠI VỊ TRÍ CUỘN HIỆN TẠI TRƯỚC KHI ẨN VIEW TỔNG QUAN
   savedScrollPositionTab2 = window.scrollY || document.documentElement.scrollTop;
 
-  // ẨN TOÀN BỘ KHỐI TỔNG QUAN ĐỂ CHUYỂN SANG MÀN HÌNH MỚI 100%
   document.getElementById('tab2Overview').style.display='none'; 
   
   const detailView = document.getElementById('categoryDetailView');
@@ -569,6 +567,13 @@ async function showCategoryDetail(cat, amt, color) {
 
   document.getElementById('categoryDetailTitle').textContent = cat; 
   document.getElementById('categoryDetailTitle').style.color = color;
+  
+  // ĐỔ DỮ LIỆU VÀO KHỐI TỔNG TIỀN MỚI
+  const totalAmtEl = document.getElementById('categoryDetailTotalAmt');
+  if(totalAmtEl) {
+      totalAmtEl.textContent = formatNumberWithCommas(amt.toString()) + 'đ';
+      totalAmtEl.style.color = color;
+  }
   
   const txs = cachedChartData.txs.filter(t => t.category === cat);
   const detailHeader = document.getElementById('categoryDetailListTitle');
