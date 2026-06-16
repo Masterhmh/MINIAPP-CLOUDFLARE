@@ -224,9 +224,6 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 /* Đồ thị & Vùng chứa Chart.js */
 .chart-placeholder { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; position: relative; display: flex; justify-content: center; align-items: center; min-height: 250px; }
 .chart-title { font-size: 0.9rem; font-weight: 800; color: var(--primary-light); margin-bottom: 12px; letter-spacing: -0.01em; text-transform: uppercase; }
-.pie-chart-wrapper { height: auto; padding: 24px; width: 100%; display: flex; justify-content: center; }
-.pie-chart-inner { position: relative; height: 220px; width: 220px; }
-#monthlyCustomLegend { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 16px; }
 
 /* Tiến trình Chi tiêu theo danh mục */
 .category-detail { padding-bottom: 20px; will-change: transform, opacity; }
@@ -480,20 +477,31 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
     position: relative;
 }
 
+/* Thu gọn thanh cuộn cho tinh tế VÀ HIỂN THỊ TRÊN MOBILE */
 .compact-legend {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: 150px; /* Cân đối với chiều cao biểu đồ */
-    overflow-y: auto; /* Tự động cuộn nếu có nhiều hơn 4 danh mục */
+    max-height: 150px; 
+    overflow-y: auto; 
     padding-right: 4px;
     min-width: 0;
+    -webkit-overflow-scrolling: touch; /* Ép mượt cuộn trên iOS */
 }
 
-/* Thu gọn thanh cuộn cho tinh tế */
-.compact-legend::-webkit-scrollbar { width: 3px; }
-.compact-legend::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+.compact-legend::-webkit-scrollbar { 
+    width: 5px; 
+    background-color: transparent;
+}
+.compact-legend::-webkit-scrollbar-track { 
+    background: var(--bg-glass-border); 
+    border-radius: 4px; 
+}
+.compact-legend::-webkit-scrollbar-thumb { 
+    background: var(--text-3); 
+    border-radius: 4px; 
+}
 
 /* Style cho từng mục chú thích */
 .legend-item {
@@ -510,7 +518,7 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
     align-items: center;
     gap: 8px;
     flex: 1;
-    min-width: 0; /* Để chữ dài tự động cắt bằng dấu ... */
+    min-width: 0; 
 }
 
 .legend-dot {
