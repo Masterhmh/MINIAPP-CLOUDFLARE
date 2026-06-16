@@ -93,13 +93,11 @@ function getCategoryIcon(cat) {
         'Khác': 'fa-layer-group'
     };
 
-    // Tìm kiếm linh hoạt: tên danh mục chỉ cần CHỨA từ khóa là sẽ có icon
     for (let key in faMap) {
         if (categoryName.toLowerCase().includes(key.toLowerCase())) {
             return `<i class="fas ${faMap[key]}"></i>`;
         }
     }
-    
     return defaultIcon;
 }
 
@@ -359,7 +357,17 @@ function drawMonthlyPieChart(data) {
         plugins: { 
             legend: {display:false}, 
             tooltip: { enabled: false } 
-        } 
+        },
+        onClick: (event, activeEls) => {
+            if (activeEls && activeEls.length > 0) {
+                const activeIdx = activeEls[0].index;
+                const catName = lbls[activeIdx];
+                const catAmt = amts[activeIdx];
+                const color = bg[activeIdx];
+                currentPageCategory = 1; 
+                showCategoryDetail(catName, catAmt, color);
+            }
+        }
     }, 
     plugins: [{ 
         id:'cText', 
@@ -404,22 +412,52 @@ function drawMonthlyPieChart(data) {
     }] 
   });
 
-  const leg = document.getElementById('monthlyCustomLegend'); leg.innerHTML = '';
+  const leg = document.getElementById('monthlyCustomLegend'); 
+  if(leg) leg.innerHTML = '';
+  
+  const progList = document.getElementById('monthlyCategoryProgressList');
+  if(progList) progList.innerHTML = '';
+
   data.forEach((i, idx) => {
-    const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
-    const div = document.createElement('div'); div.className = 'legend-item';
-    div.innerHTML = `
-      <div class="legend-item-left">
-         <div class="legend-dot" style="background:${c}"></div>
-         <span class="legend-name" title="${i.category}">${i.category}</span>
-      </div>
-      <div class="legend-value-col">
-         <span class="legend-pct" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
-         <span class="legend-amt">${pct}%</span>
-      </div>
-    `;
-    div.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
-    leg.appendChild(div);
+    const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; 
+    const c = bg[idx];
+
+    // 1. CHÚ THÍCH RÚT GỌN BÊN PHẢI (Chỉ hiện %)
+    if (leg) {
+        const divLeg = document.createElement('div'); divLeg.className = 'legend-item';
+        divLeg.innerHTML = `
+          <div class="legend-item-left">
+             <div class="legend-dot" style="background:${c}"></div>
+             <span class="legend-name" title="${i.category}">${i.category}</span>
+          </div>
+          <div class="legend-value-col">
+             <span class="legend-pct" style="color:${c}">${pct}%</span>
+          </div>
+        `;
+        divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
+        leg.appendChild(divLeg);
+    }
+
+    // 2. DANH SÁCH THẺ PROGRESS BAR BÊN DƯỚI
+    if (progList) {
+        const icon = getCategoryIcon(i.category);
+        const divProg = document.createElement('div'); divProg.className = 'cat-progress-card';
+        divProg.innerHTML = `
+          <div class="cat-progress-header">
+            <div class="cat-progress-info">
+              <div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${icon}</div>
+              <span class="cat-progress-title">${i.category}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
+              <span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span>
+            </div>
+          </div>
+          <div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>
+        `;
+        divProg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
+        progList.appendChild(divProg);
+    }
   });
 }
 
@@ -547,7 +585,7 @@ async function showCategoryDetail(cat, amt, color) {
   }
   
   window.categoryMonthlyChartInstance = new Chart(ctx, {
-      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 24}] },
+      type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 4, maxBarThickness: 20}] },
       options: { responsive: true, maintainAspectRatio: false, layout: {padding:{top:10}}, scales: { x:{grid:{display:false}, ticks:{color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}}, y:{ticks:{callback:v=>v>=1000?(v/1000)+'K':v, color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}, grid:{color:'rgba(255,255,255,0.05)'}} }, plugins: { legend:{display:false}, tooltip: {callbacks:{label:ctx=>`${formatNumberWithCommas(ctx.raw.toString())}đ`}} } }
   });
   displayCategoryTransactionsList(txs);
