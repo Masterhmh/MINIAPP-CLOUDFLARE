@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX GIAO DIỆN BẢNG CHUYÊN NGHIỆP, CHUẨN KẾ TOÁN)
+// 💎 XUẤT FILE BÁO CÁO PDF (ĐỒNG BỘ MÀU DANH MỤC VỚI BIỂU ĐỒ)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1118,6 +1118,19 @@ window.exportToPDF = function() {
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
     
+    // ==========================================
+    // 🎨 TÍNH TOÁN VÀ ĐỒNG BỘ MÀU SẮC TỪ BIỂU ĐỒ
+    // ==========================================
+    const catMapForColor = {};
+    data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
+    const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
+    
+    const categoryColorMap = {};
+    catArrForColor.forEach((c, idx) => {
+        categoryColorMap[c.category] = getColorByIndex(idx);
+    });
+    // ==========================================
+
     const groupedData = {};
     data.forEach(t => {
         const parts = t.date.split('/');
@@ -1146,13 +1159,17 @@ window.exportToPDF = function() {
             if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
             else { totalExpense += t.amount; monthExp += t.amount; }
             
-            // Căn chỉnh lại TD (Row Dữ liệu) đồng bộ tuyệt đối với Header
+            // Nếu là chi tiêu, lấy màu y hệt biểu đồ tròn. Thu nhập mặc định xanh ngọc (#10B981)
+            const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
+            
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
                     <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
-                    <td style="padding: 12px 10px; font-size: 11px; color: #475569; text-align: left;">${t.category}</td>
+                    <td style="padding: 12px 10px; font-size: 11px; color: ${catColor}; font-weight: 700; text-align: left;">
+                        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${catColor};margin-right:6px;vertical-align:middle;margin-top:-2px;"></span>${t.category}
+                    </td>
                     <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
                     <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                         ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
@@ -1161,7 +1178,6 @@ window.exportToPDF = function() {
             `;
         });
 
-        // Định nghĩa mẫu Header (TH) được dùng lại cho cả 2 trường hợp
         const theadHTML = `
             <thead>
                 <tr style="background: #0891B2; color: #FFFFFF;">
