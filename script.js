@@ -63,7 +63,15 @@ function formatDateToYYYYMMDD(date) { return `${date.getFullYear()}-${String(dat
 function formatDateToDDMMYYYY(date) { return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth() + 1).padStart(2,'0')}/${date.getFullYear()}`; }
 function formatNumberWithCommas(value) { return value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(value) { return parseInt(value.replace(/[^0-9]/g, '')) || 0; }
-function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#8B5CF6']; return c[i % c.length]; }
+function getColorByIndex(i) { 
+    const c = [
+        '#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#06B6D4', 
+        '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', 
+        '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', 
+        '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3'
+    ]; 
+    return c[i % c.length]; 
+}
 
 // 🌟 THUẬT TOÁN GET ICON - PHIÊN DỊCH EMOJI SANG FLAT ICON
 function getCategoryIcon(cat) {
@@ -509,7 +517,7 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (ĐÃ FIX TÀNG HÌNH ICON BẰNG CSS FONT AWESOME)
+// 💎 XUẤT FILE BÁO CÁO PDF 
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -687,7 +695,6 @@ window.exportToPDF = function() {
         `;
     }
 
-    // 🚀 BẮT BUỘC CÓ THẺ LINK NÀY ĐỂ HTML2PDF LOAD ĐƯỢC FONT AWESOME TRƯỚC KHI CHỤP!
     element.innerHTML = `
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
         <style>
@@ -774,41 +781,76 @@ window.exportToPDF = function() {
     
     document.getElementById('sharePdfBtn').onclick = async () => {
         triggerHaptic('medium');
-        showToast("Đang kết xuất file PDF chuẩn...", "info");
-        
+        showToast("Đang chuẩn bị file PDF...", "info");
+
+        // KHẮC PHỤC LỖI TRẮNG FILE: Tạo bản sao và đưa vào vùng chứa tạm thời
+        const printElement = element.cloneNode(true);
+        const tempContainer = document.createElement('div');
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.top = '0';
+        tempContainer.style.left = '-9999px';
+        tempContainer.appendChild(printElement);
+        document.body.appendChild(tempContainer);
+
         const opt = {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 740 }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] }
         };
 
-        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-            triggerHapticNotification('success');
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-            
-            const platform = window.Telegram?.WebApp?.platform || 'unknown';
-            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+        try {
+            html2pdf().set(opt).from(printElement).output('blob').then(async function(blob) {
+                // Dọn dẹp DOM ngay lập tức để tránh lỗi giao diện
+                if (document.body.contains(tempContainer)) {
+                    document.body.removeChild(tempContainer);
+                }
 
-            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({ files: [file], title: fileName });
-                    triggerHapticNotification('success');
-                } catch (error) {}
-            } else {
-                const pdfUrl = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = pdfUrl;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(pdfUrl);
-                showToast("Đã tải file PDF xuống máy!", "success");
-            }
-        }).catch(err => {
-            showToast("Lỗi tạo PDF: " + err.message, "error");
-        });
+                triggerHapticNotification('success');
+                
+                let isShared = false;
+                const platform = window.Telegram?.WebApp?.platform || 'unknown';
+                const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+
+                // Ưu tiên xử lý lệnh Share (Chia sẻ) gốc trên thiết bị Mobile
+                if (isMobile && navigator.canShare) {
+                    try {
+                        const file = new File([blob], fileName, { type: 'application/pdf' });
+                        if (navigator.canShare({ files: [file] })) {
+                            await navigator.share({ files: [file], title: fileName });
+                            isShared = true;
+                        }
+                    } catch (err) {
+                        console.log("Hủy chia sẻ, chuyển sang tải xuống gốc.");
+                    }
+                }
+
+                // Cưỡng chế tải xuống nếu không share được
+                if (!isShared) {
+                    const pdfUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = pdfUrl;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        if (document.body.contains(a)) document.body.removeChild(a);
+                        URL.revokeObjectURL(pdfUrl);
+                    }, 100);
+                    showToast("Đã tải file PDF xuống máy!", "success");
+                }
+            }).catch(err => {
+                if (document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
+                showToast("Lỗi kết xuất PDF: " + err.message, "error");
+            });
+        } catch (fatalErr) {
+            if (document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
+            showToast("Lỗi hệ thống: " + fatalErr.message, "error");
+        }
     };
 };
 
