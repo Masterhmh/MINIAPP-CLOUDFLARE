@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX TRIỆT ĐỂ LỖI CẮT LỀ)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX GIAO DIỆN BẢNG CHUYÊN NGHIỆP, CHUẨN KẾ TOÁN)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1105,7 +1105,6 @@ window.exportToPDF = function() {
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    // FIX CHIỀU RỘNG: Dùng kích thước an toàn 720px để luôn lọt thỏm trong khổ giấy A4
     element.style.width = '720px';
     element.style.minWidth = '720px'; 
     element.style.maxWidth = '720px'; 
@@ -1114,7 +1113,7 @@ window.exportToPDF = function() {
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
-    element.style.overflow = 'hidden'; // Ngăn chặn tuyệt đối mọi thành phần con phình ra
+    element.style.overflow = 'hidden'; 
     
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
@@ -1147,19 +1146,34 @@ window.exportToPDF = function() {
             if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
             else { totalExpense += t.amount; monthExp += t.amount; }
             
+            // Căn chỉnh lại TD (Row Dữ liệu) đồng bộ tuyệt đối với Header
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                    <td style="padding: 12px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
-                    <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                    <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                    <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
+                    <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
+                    <td style="padding: 12px 10px; font-size: 11px; color: #475569; text-align: left;">${t.category}</td>
+                    <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
+                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                         ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                     </td>
                 </tr>
             `;
         });
+
+        // Định nghĩa mẫu Header (TH) được dùng lại cho cả 2 trường hợp
+        const theadHTML = `
+            <thead>
+                <tr style="background: #0891B2; color: #FFFFFF;">
+                    <th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
+                    <th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th>
+                    <th style="padding: 12px 10px; width: 32%; text-align: left;">Nội dung</th>
+                    <th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th>
+                    <th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th>
+                    <th style="padding: 12px 14px 12px 6px; width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
+                </tr>
+            </thead>
+        `;
 
         if (showMonthHeader) {
             tablesHTML += `
@@ -1173,16 +1187,7 @@ window.exportToPDF = function() {
                         </span>
                     </div>
                     <table class="pdf-table">
-                        <thead>
-                            <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                                <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
-                                <th style="width: 14%; text-align: center;">Mã GD</th>
-                                <th style="width: 32%;">Nội dung</th>
-                                <th style="width: 20%;">Danh mục</th>
-                                <th style="width: 10%; text-align: center;">Ngày</th>
-                                <th style="width: 18%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
-                            </tr>
-                        </thead>
+                        ${theadHTML}
                         <tbody>
                             ${monthRows}
                         </tbody>
@@ -1192,16 +1197,7 @@ window.exportToPDF = function() {
         } else {
             tablesHTML += `
                 <table class="pdf-table" style="margin-top: 10px;">
-                    <thead>
-                        <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                            <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
-                            <th style="width: 14%; text-align: center;">Mã GD</th>
-                            <th style="width: 32%;">Nội dung</th>
-                            <th style="width: 20%;">Danh mục</th>
-                            <th style="width: 10%; text-align: center;">Ngày</th>
-                            <th style="width: 18%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
-                        </tr>
-                    </thead>
+                    ${theadHTML}
                     <tbody>
                         ${monthRows}
                     </tbody>
@@ -1260,7 +1256,7 @@ window.exportToPDF = function() {
         <style>
             * { box-sizing: border-box; }
             .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
-            .pdf-table th { padding: 10px 4px; font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
@@ -1339,7 +1335,7 @@ window.exportToPDF = function() {
 
     function adjustPreviewSize() {
         const containerWidth = previewContainer.clientWidth - 20; 
-        const scale = containerWidth / 720; // Đã đổi theo kích thước gốc
+        const scale = containerWidth / 720;
         
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
@@ -1372,7 +1368,6 @@ window.exportToPDF = function() {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
         
-        // CẤU HÌNH CỐT LÕI: Margin rộng rãi & windowWidth 740 để bọc trọn 720px
         const opt = {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
