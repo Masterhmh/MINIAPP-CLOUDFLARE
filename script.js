@@ -65,28 +65,37 @@ function formatNumberWithCommas(value) { return value.replace(/[^0-9]/g, '').rep
 function parseNumber(value) { return parseInt(value.replace(/[^0-9]/g, '')) || 0; }
 function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#8B5CF6']; return c[i % c.length]; }
 
+// 🌟 THUẬT TOÁN GET ICON 
 function getCategoryIcon(cat) {
     if (!cat) return '<i class="fas fa-box-open"></i>';
     const categoryName = cat.trim();
+    
+    // Ưu tiên 1: Icon cấu hình trên App
     if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
         let iconCode = window.customCategoryIcons[categoryName];
         if (!iconCode.includes('fa-')) iconCode = `fa-${iconCode}`;
         if (!iconCode.includes('fas ')) iconCode = `fas ${iconCode}`;
         return `<i class="${iconCode}"></i>`;
     }
+    
+    // Ưu tiên 2: Icon cấu hình trên Sheet
     if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
         let dynamicIcon = window.categoryIconMap[categoryName];
         if (!dynamicIcon.includes('fa-')) dynamicIcon = `fa-${dynamicIcon}`;
         if (!dynamicIcon.includes('fas ')) dynamicIcon = `fas ${dynamicIcon}`;
         return `<i class="${dynamicIcon}"></i>`;
     }
+    
+    // Ưu tiên 3: Bộ Icon mặc định
     const faMap = {
         'Ăn uống': 'fa-utensils', 'Bảo hiểm': 'fa-shield-halved', 'Công nghệ': 'fa-laptop', 'Công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
         'Đi lại': 'fa-car-side', 'Giải trí': 'fa-clapperboard', 'Giáo dục': 'fa-graduation-cap', 'Gia đình': 'fa-house-user', 'Hóa đơn': 'fa-file-invoice-dollar', 'Chăm sóc': 'fa-spa', 
         'Làm đẹp': 'fa-spa', 'Mua sắm': 'fa-bag-shopping', 'Quà tặng': 'fa-gift', 'Sức khỏe': 'fa-dumbbell', 'Tiết kiệm': 'fa-chart-line', 'Đầu tư': 'fa-chart-line', 'Y tế': 'fa-pills', 'Khác': 'fa-layer-group'
     };
     for (let key in faMap) { if (categoryName.toLowerCase().includes(key.toLowerCase())) return `<i class="fas ${faMap[key]}"></i>`; }
-    return `<span style="font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">${categoryName.charAt(0).toUpperCase()}</span>`;
+    
+    // Ưu tiên 4: Fallback chữ cái đầu
+    return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif;">${categoryName.charAt(0).toUpperCase()}</span>`;
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
@@ -283,8 +292,42 @@ function drawMonthlyPieChart(data) {
 
   data.forEach((i, idx) => {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
-    if (leg) { const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; divLeg.innerHTML = `<div class="legend-item-left"><div class="legend-dot" style="background:${c}"></div><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${c}; font-size: 0.8rem; font-weight: 700;">${pct}%</span></div>`; divLeg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); }; leg.appendChild(divLeg); }
-    if (progList) { const icon = getCategoryIcon(i.category); const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${icon}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span><span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; divProg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); }; progList.appendChild(divProg); }
+    const catIconHTML = getCategoryIcon(i.category);
+
+    if (leg) { 
+        const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; 
+        // ✨ ĐÃ SỬA: Thay thế chấm tròn bằng Icon trong bảng chú thích Miniapp
+        divLeg.innerHTML = `
+          <div class="legend-item-left">
+             <span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span>
+             <span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span>
+          </div>
+          <div class="legend-value-col">
+             <span class="legend-pct" style="color:${c}; font-size: 0.8rem; font-weight: 700;">${pct}%</span>
+          </div>
+        `; 
+        divLeg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); }; 
+        leg.appendChild(divLeg); 
+    }
+    
+    if (progList) { 
+        const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
+        divProg.innerHTML = `
+          <div class="cat-progress-header">
+            <div class="cat-progress-info">
+              <div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${catIconHTML}</div>
+              <span class="cat-progress-title">${escapeHTML(i.category)}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
+              <span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
+              <span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span>
+            </div>
+          </div>
+          <div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>
+        `; 
+        divProg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); }; 
+        progList.appendChild(divProg); 
+    }
   });
 }
 
@@ -440,50 +483,73 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF 
+// 💎 XUẤT FILE BÁO CÁO PDF
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
     
-    if (data.length === 0) return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
-    if (typeof html2pdf === 'undefined') return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
+    if (data.length === 0) {
+        return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
+    }
+    if (typeof html2pdf === 'undefined') {
+        return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
+    }
     
-    triggerHaptic('medium'); showToast("Đang chuẩn bị bản xem trước...", "info");
+    triggerHaptic('medium');
+    showToast("Đang chuẩn bị bản xem trước...", "info");
 
     let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
     if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    element.style.width = '720px'; element.style.minWidth = '720px'; element.style.maxWidth = '720px'; 
-    element.style.boxSizing = 'border-box'; element.style.padding = '10px 15px'; element.style.color = '#0F172A';
-    element.style.backgroundColor = '#FFFFFF'; element.style.fontFamily = "'Plus Jakarta Sans', sans-serif"; element.style.overflow = 'hidden'; 
+    element.style.width = '720px';
+    element.style.minWidth = '720px'; 
+    element.style.maxWidth = '720px'; 
+    element.style.boxSizing = 'border-box'; 
+    element.style.padding = '10px 15px';
+    element.style.color = '#0F172A';
+    element.style.backgroundColor = '#FFFFFF';
+    element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
+    element.style.overflow = 'hidden'; 
     
-    let tablesHTML = ''; let totalIncome = 0, totalExpense = 0;
+    let tablesHTML = '';
+    let totalIncome = 0, totalExpense = 0;
     
-    const catMapForColor = {}; data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
+    const catMapForColor = {};
+    data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
     const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
-    const categoryColorMap = {}; catArrForColor.forEach((c, idx) => { categoryColorMap[c.category] = getColorByIndex(idx); });
+    
+    const categoryColorMap = {};
+    catArrForColor.forEach((c, idx) => { categoryColorMap[c.category] = getColorByIndex(idx); });
 
     const groupedData = {};
     data.forEach(t => {
-        const parts = t.date.split('/'); const monthYear = parts.length === 3 ? `${parts[1]}/${parts[2]}` : 'Khác';
-        if (!groupedData[monthYear]) groupedData[monthYear] = []; groupedData[monthYear].push(t);
+        const parts = t.date.split('/');
+        const monthYear = parts.length === 3 ? `${parts[1]}/${parts[2]}` : 'Khác';
+        if (!groupedData[monthYear]) groupedData[monthYear] = [];
+        groupedData[monthYear].push(t);
     });
 
     const sortedKeys = Object.keys(groupedData).sort((a, b) => {
         if (a === 'Khác') return 1; if (b === 'Khác') return -1;
-        const [mA, yA] = a.split('/').map(Number); const [mB, yB] = b.split('/').map(Number);
-        if (yA !== yB) return yA - yB; return mA - mB;
+        const [mA, yA] = a.split('/').map(Number);
+        const [mB, yB] = b.split('/').map(Number);
+        if (yA !== yB) return yA - yB;
+        return mA - mB;
     });
 
     const showMonthHeader = isTab2 && sortedKeys.length >= 1;
 
     sortedKeys.forEach(key => {
-        let monthRows = ''; let monthInc = 0, monthExp = 0;
+        let monthRows = '';
+        let monthInc = 0, monthExp = 0;
+        
         groupedData[key].forEach((t, idx) => {
             const isInc = t.type === 'Thu nhập';
-            if (isInc) { totalIncome += t.amount; monthInc += t.amount; } else { totalExpense += t.amount; monthExp += t.amount; }
+            if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
+            else { totalExpense += t.amount; monthExp += t.amount; }
+            
             const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
             const catIconHTML = getCategoryIcon(t.category);
             
@@ -503,42 +569,147 @@ window.exportToPDF = function() {
             `;
         });
 
-        const theadHTML = `<thead><tr style="background: #0891B2; color: #FFFFFF;"><th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th><th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th><th style="padding: 12px 10px; width: 32%; text-align: left;">Nội dung</th><th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th><th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th><th style="padding: 12px 14px 12px 6px; width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th></tr></thead>`;
+        const theadHTML = `
+            <thead>
+                <tr style="background: #0891B2; color: #FFFFFF;">
+                    <th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
+                    <th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th>
+                    <th style="padding: 12px 10px; width: 32%; text-align: left;">Nội dung</th>
+                    <th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th>
+                    <th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th>
+                    <th style="padding: 12px 14px 12px 6px; width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
+                </tr>
+            </thead>
+        `;
 
         if (showMonthHeader) {
             tablesHTML += `
                 <div style="margin-bottom: 24px; page-break-inside: auto; width: 100%; box-sizing: border-box;">
                     <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                         <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
-                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> <span style="margin: 0 6px; color: #CBD5E1;">|</span> Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span></span>
+                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">
+                            Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
+                            <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
+                            Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
+                        </span>
                     </div>
-                    <table class="pdf-table">${theadHTML}<tbody>${monthRows}</tbody></table>
+                    <table class="pdf-table">
+                        ${theadHTML}
+                        <tbody>
+                            ${monthRows}
+                        </tbody>
+                    </table>
                 </div>
             `;
         } else {
-            tablesHTML += `<table class="pdf-table" style="margin-top: 10px;">${theadHTML}<tbody>${monthRows}</tbody></table>`;
+            tablesHTML += `
+                <table class="pdf-table" style="margin-top: 10px;">
+                    ${theadHTML}
+                    <tbody>
+                        ${monthRows}
+                    </tbody>
+                </table>
+            `;
         }
     });
 
     let chartsHTML = '';
     if (isTab2 && window.mChart && window.pChart) {
-        const barChartImg = window.mChart.toBase64Image(); const pieChartImg = window.pChart.toBase64Image();
-        const catMap = {}; data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
+        const barChartImg = window.mChart.toBase64Image();
+        const pieChartImg = window.pChart.toBase64Image();
+        
+        const catMap = {};
+        data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
         const catArr = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
+        
         let pieLegendHTML = '';
         catArr.forEach((c, idx) => {
             const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
-            const color = getColorByIndex(idx); const catIconHTML = getCategoryIcon(c.category);
-            pieLegendHTML += `<div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;"><span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;"><span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>${c.category}</span><span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span></div>`;
+            const color = getColorByIndex(idx);
+            const catIconHTML = getCategoryIcon(c.category);
+            
+            pieLegendHTML += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
+                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
+                        <span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>
+                        ${c.category}
+                    </span>
+                    <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
+                </div>
+            `;
         });
-        chartsHTML = `<div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;"><h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3><div style="text-align: center; margin-top: 10px;"><img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" /></div></div><div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;"><div style="flex: 1; min-width: 0; max-width: 50%;"><h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3><div style="text-align: center;"><img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" /></div></div><div style="flex: 1; min-width: 0; max-width: 50%; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}</div></div><div style="height: 24px;"></div>`;
+
+        chartsHTML = `
+            <div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+                <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
+                <div style="text-align: center; margin-top: 10px;">
+                    <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
+                </div>
+            </div>
+            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 1; min-width: 0; max-width: 50%;">
+                    <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
+                    <div style="text-align: center;">
+                        <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 0; max-width: 50%; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
+                    ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
+                </div>
+            </div>
+            <div style="height: 24px;"></div>
+        `;
     }
 
-    element.innerHTML = `<style>* { box-sizing: border-box; } .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; } .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pdf-table td { overflow-wrap: break-word; word-break: break-word; } tr { page-break-inside: avoid; page-break-after: auto; } thead { display: table-header-group; } tfoot { display: table-footer-group; }</style><div style="text-align: center; margin-bottom: 24px; width: 100%; box-sizing: border-box;"><h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2><p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p></div><div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;"><div style="flex: 1; min-width: 0;"><span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span><div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div></div><div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;"><span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span><div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-${totalExpense.toLocaleString('vi-VN')}đ</div></div><div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;"><span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span><div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ</div></div></div>${chartsHTML}<div style="page-break-before: auto; width: 100%; box-sizing: border-box;"><h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>${tablesHTML}</div><div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;"><span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span><span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span></div>`;
+    // Ép HTML tải FontAwesome từ bên ngoài vào
+    element.innerHTML = `
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+        <style>
+            * { box-sizing: border-box; }
+            .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
+            .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+        </style>
+        <div style="text-align: center; margin-bottom: 24px; width: 100%; box-sizing: border-box;">
+            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
+            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+            <div style="flex: 1; min-width: 0;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
+                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span>
+                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span>
+                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ
+                </div>
+            </div>
+        </div>
+
+        ${chartsHTML}
+
+        <div style="page-break-before: auto; width: 100%; box-sizing: border-box;">
+            <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
+            ${tablesHTML} 
+        </div>
+        
+        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+            <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
+            <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
+        </div>
+    `;
 
     const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
-    // GỌI MODAL CÓ SẴN TRONG HTML
     const modal = document.getElementById('pdfPreviewModal');
     const overlay = document.getElementById('modalOverlay');
     const previewContainer = document.getElementById('pdfPreviewContainer');
@@ -557,26 +728,61 @@ window.exportToPDF = function() {
             clonedElement.style.transform = `scale(${scale})`;
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
             const widthDiff = 720 * (1 - scale);
-            clonedElement.style.marginBottom = `-${heightDiff}px`; clonedElement.style.marginRight = `-${widthDiff}px`; clonedElement.style.marginLeft = '0px';
+            clonedElement.style.marginBottom = `-${heightDiff}px`; 
+            clonedElement.style.marginRight = `-${widthDiff}px`;
+            clonedElement.style.marginLeft = '0px';
         } else {
-            clonedElement.style.transform = 'none'; clonedElement.style.marginBottom = '0px'; clonedElement.style.marginRight = '0px'; clonedElement.style.marginLeft = 'auto'; clonedElement.style.marginRight = 'auto';
+            clonedElement.style.transform = 'none';
+            clonedElement.style.marginBottom = '0px';
+            clonedElement.style.marginRight = '0px';
+            clonedElement.style.marginLeft = 'auto'; 
+            clonedElement.style.marginRight = 'auto';
         }
     }
     
-    setTimeout(adjustPreviewSize, 50); window.addEventListener('resize', adjustPreviewSize);
+    setTimeout(adjustPreviewSize, 50);
+    window.addEventListener('resize', adjustPreviewSize);
     
     overlay.classList.add('show');
     setTimeout(() => modal.classList.add('show'), 10);
     
     document.getElementById('sharePdfBtn').onclick = async () => {
-        triggerHaptic('medium'); showToast("Đang kết xuất file PDF chuẩn...", "info");
-        const opt = { margin: [10, 10, 10, 10], filename: fileName, image: { type: 'jpeg', quality: 1 }, html2canvas: { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
+        triggerHaptic('medium');
+        showToast("Đang kết xuất file PDF chuẩn...", "info");
+        
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['css', 'legacy'] }
+        };
+
         html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-            triggerHapticNotification('success'); const file = new File([blob], fileName, { type: 'application/pdf' });
-            const platform = window.Telegram?.WebApp?.platform || 'unknown'; const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
-            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: fileName }); triggerHapticNotification('success'); } catch (error) {} } 
-            else { const pdfUrl = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = pdfUrl; a.download = fileName; a.click(); URL.revokeObjectURL(pdfUrl); showToast("Đã tải file PDF xuống máy!", "success"); }
-        }).catch(err => { showToast("Lỗi tạo PDF: " + err.message, "error"); });
+            triggerHapticNotification('success');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            
+            const platform = window.Telegram?.WebApp?.platform || 'unknown';
+            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: fileName });
+                    triggerHapticNotification('success');
+                } catch (error) {}
+            } else {
+                const pdfUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(pdfUrl);
+                showToast("Đã tải file PDF xuống máy!", "success");
+            }
+        }).catch(err => {
+            showToast("Lỗi tạo PDF: " + err.message, "error");
+        });
     };
 };
 
@@ -586,7 +792,6 @@ window.openIconPickerModal = function() {
     const modal = document.getElementById('iconPickerModal');
     const container = document.getElementById('iconGridContainer');
     
-    // Nếu chưa load Icon thì load lần đầu
     if (container.innerHTML === '') {
         const flatIcons = [
             'fa-utensils', 'fa-coffee', 'fa-burger', 'fa-pizza-slice', 'fa-basket-shopping', 'fa-car', 'fa-motorcycle', 'fa-bus', 'fa-train', 'fa-plane', 'fa-gas-pump',
@@ -618,10 +823,12 @@ window.openIconPickerModal = function() {
             try {
                 await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'PATCH', body: JSON.stringify({ [cat]: selectedIcon }) });
                 window.customCategoryIcons[cat] = selectedIcon; showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
+                
                 const kCat = document.getElementById('keywordCategory');
                 if(kCat) { let exists = Array.from(kCat.options).some(opt => opt.value === cat); if(!exists) kCat.appendChild(new Option(cat, cat)); kCat.value = cat; }
                 const addCat = document.getElementById('addCategory');
                 if (addCat) { let exists = Array.from(addCat.options).some(opt => opt.value === cat); if(!exists) addCat.appendChild(new Option(cat, cat)); }
+                
                 displayKeywords(); 
                 if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
                 if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
@@ -629,7 +836,6 @@ window.openIconPickerModal = function() {
         };
     }
     
-    // Nạp dữ liệu vào Dropdown
     const datalist = document.getElementById('iconPickerCatList'); datalist.innerHTML = '';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); });
@@ -661,6 +867,11 @@ window.closeIconPickerModal = function() {
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
     
+  // ✨ TỰ ĐỘNG IN HOA TẤT CẢ CÁC TIÊU ĐỀ MODAL BẰNG CSS
+  document.querySelectorAll('.modal-title').forEach(title => {
+      title.style.textTransform = 'uppercase';
+  });
+
   const currentMonthValue = new Date().getMonth() + 1;
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
@@ -680,18 +891,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
-  let startY = 0; const tab1Content = document.getElementById('tab1');
+  let startY = 0;
+  const tab1Content = document.getElementById('tab1');
   if (tab1Content) {
       tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true });
       tab1Content.addEventListener('touchend', e => {
-          if (startY === 0) return; let endY = e.changedTouches[0].clientY;
-          if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); }
+          if (startY === 0) return;
+          let endY = e.changedTouches[0].clientY;
+          if (endY - startY > 80 && window.scrollY === 0) { 
+              triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true);
+          }
           startY = 0;
       }, { passive: true });
   }
 
   document.querySelectorAll('.nav-btn').forEach(b => {
-    b.onclick = () => { const targetTab = b.dataset.tab; window.openTab(targetTab); if (targetTab === 'tab1') window.fetchTransactions(false); if (targetTab === 'tab2') updateTimeNavUI(); };
+    b.onclick = () => {
+      const targetTab = b.dataset.tab; window.openTab(targetTab);
+      if (targetTab === 'tab1') window.fetchTransactions(false);
+      if (targetTab === 'tab2') updateTimeNavUI();
+    };
   });
   
   const kwActionContainer = document.getElementById('keywordActionContainer');
@@ -703,24 +922,54 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
               const cat = document.getElementById('keywordCategory').value;
               await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
-              triggerHapticNotification('success'); showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+              triggerHapticNotification('success');
+              showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
           } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
       };
       kwActionContainer.appendChild(deleteBtn);
 
       const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel-kw'; cancelBtn.style.cssText = "flex: 1; display: none;"; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
-      cancelBtn.onclick = window.cancelEditKeyword; kwActionContainer.appendChild(cancelBtn);
+      cancelBtn.onclick = window.cancelEditKeyword;
+      kwActionContainer.appendChild(cancelBtn);
   }
 
   const tDate = document.getElementById('transactionDate');
   if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => { triggerHaptic('light'); window.fetchTransactions(true); }; }
   
   const prevDayBtn = document.getElementById('prevDayBtn');
-  if(prevDayBtn) { prevDayBtn.onclick = (e) => { e.stopPropagation(); triggerHaptic('light'); const dateInput = document.getElementById('transactionDate'); if (!dateInput.value) return; const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d); currDate.setDate(currDate.getDate() - 1);  dateInput.value = formatDateToYYYYMMDD(currDate); window.fetchTransactions(true); }; }
-  const nextDayBtn = document.getElementById('nextDayBtn');
-  if(nextDayBtn) { nextDayBtn.onclick = (e) => { e.stopPropagation(); triggerHaptic('light'); const dateInput = document.getElementById('transactionDate'); if (!dateInput.value) return; const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d); currDate.setDate(currDate.getDate() + 1); dateInput.value = formatDateToYYYYMMDD(currDate); window.fetchTransactions(true); }; }
+  if(prevDayBtn) {
+      prevDayBtn.onclick = (e) => {
+          e.stopPropagation(); 
+          triggerHaptic('light');
+          const dateInput = document.getElementById('transactionDate');
+          if (!dateInput.value) return;
+          const [y, m, d] = dateInput.value.split('-');
+          const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() - 1); 
+          dateInput.value = formatDateToYYYYMMDD(currDate);
+          window.fetchTransactions(true);
+      };
+  }
 
-  window.openTab('tab1'); showLoading(true, 'tab1'); window.loadKeywords(true); window.fetchTransactions(false);
+  const nextDayBtn = document.getElementById('nextDayBtn');
+  if(nextDayBtn) {
+      nextDayBtn.onclick = (e) => {
+          e.stopPropagation();
+          triggerHaptic('light');
+          const dateInput = document.getElementById('transactionDate');
+          if (!dateInput.value) return;
+          const [y, m, d] = dateInput.value.split('-');
+          const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() + 1); 
+          dateInput.value = formatDateToYYYYMMDD(currDate);
+          window.fetchTransactions(true);
+      };
+  }
+
+  window.openTab('tab1'); 
+  showLoading(true, 'tab1'); 
+  window.loadKeywords(true); 
+  window.fetchTransactions(false);
 
   document.getElementById('filterWeeklyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('weekly'); };
   document.getElementById('filterMonthlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('monthly'); };
@@ -739,7 +988,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   sPills.forEach(p => p.onclick = function() { triggerHaptic('light'); sPills.forEach(x=>x.classList.remove('active')); this.classList.add('active'); document.getElementById('searchCustomFilterContainer').style.display = 'none'; if(this.id==='searchCustomBtn') document.getElementById('searchCustomFilterContainer').style.display = 'flex'; });
   
   document.getElementById('searchTransactionsBtn').onclick = async () => {
-    triggerHaptic('light'); const c = document.getElementById('searchContent').value.toLowerCase(), a = document.getElementById('searchAmount').value, cat = document.getElementById('searchCategory').value;
+    triggerHaptic('light');
+    const c = document.getElementById('searchContent').value.toLowerCase(), a = document.getElementById('searchAmount').value, cat = document.getElementById('searchCategory').value;
     if(!c && !a && !cat) return showToast("Nhập điều kiện tìm kiếm", "warning");
     let sM = 1, eM = 12;
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
@@ -747,23 +997,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     showLoading(true, 'tab3');
     try {
-      let txs = []; let fetchPromises = []; 
+      let txs = [];
+      let fetchPromises = []; 
       for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
-      const monthsResults = await Promise.all(fetchPromises); const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
-      monthsResults.forEach(monthData => { monthData.forEach(t => { let matches = true; if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false; if (a && Math.abs(t.amount - aNum) > 0.01) matches = false; if (cat && t.category !== cat) matches = false; if (matches) txs.push(t); }); });
-      txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
+      const monthsResults = await Promise.all(fetchPromises);
+      const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
+
+      monthsResults.forEach(monthData => {
+          monthData.forEach(t => {
+              let matches = true;
+              if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false;
+              if (a && Math.abs(t.amount - aNum) > 0.01) matches = false;
+              if (cat && t.category !== cat) matches = false;
+              if (matches) txs.push(t);
+          });
+      });
+      txs.sort((a,b) => b.id.localeCompare(a.id));
+      cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
   
   document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
   document.getElementById('addKeywordBtn').onclick = async () => {
-        triggerHaptic('light'); const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
+        triggerHaptic('light');
+        const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
         if(!cat || !kw) return showToast('Vui lòng nhập đủ thông tin', 'warning');
         showLoading(true, 'tab4');
         try {
             if (currentEditKeyword) await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
             await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) });
-            triggerHapticNotification('success'); showToast(currentEditKeyword ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+            triggerHapticNotification('success');
+            showToast(currentEditKeyword ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
   };
 
@@ -771,15 +1035,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   async function initCategories() {
     try {
-      const cats = await fetchCategories(); const sCat = document.getElementById('searchCategory'); const kCat = document.getElementById('keywordCategory');
+      const cats = await fetchCategories();
+      const sCat = document.getElementById('searchCategory'); 
+      const kCat = document.getElementById('keywordCategory');
       cats.forEach(c => { sCat.appendChild(new Option(c, c)); kCat.appendChild(new Option(c, c)); });
       
       if (kCat && !document.getElementById('openIconPickerBtn')) {
-          const btn = document.createElement('button'); btn.id = 'openIconPickerBtn'; btn.type = 'button'; btn.innerHTML = '<i class="fas fa-cog"></i>';
+          const btn = document.createElement('button');
+          btn.id = 'openIconPickerBtn';
+          btn.type = 'button';
+          btn.innerHTML = '<i class="fas fa-cog"></i>';
           btn.style.cssText = 'background: var(--bg-card2); color: var(--primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;';
           btn.onclick = window.openIconPickerModal;
-          const parent = kCat.parentElement; const wrapper = document.createElement('div'); wrapper.style.display = 'flex'; wrapper.style.width = '100%';
-          parent.insertBefore(wrapper, kCat); wrapper.appendChild(kCat); wrapper.appendChild(btn); kCat.style.flex = '1';
+          
+          const parent = kCat.parentElement;
+          const wrapper = document.createElement('div');
+          wrapper.style.display = 'flex';
+          wrapper.style.width = '100%';
+          
+          parent.insertBefore(wrapper, kCat);
+          wrapper.appendChild(kCat);
+          wrapper.appendChild(btn);
+          kCat.style.flex = '1';
       }
     } catch(e) {}
   }
