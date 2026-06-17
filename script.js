@@ -28,7 +28,32 @@ let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
 let savedScrollPositionTab2 = 0;
 
+// Khởi tạo phím cứng MainButton từ Telegram SDK
+const mainButton = window.Telegram?.WebApp?.MainButton;
+
 // ---------------- UTILITIES ----------------
+function triggerHaptic(style = 'light') {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.impactOccurred(style);
+    }
+}
+
+function triggerHapticNotification(type = 'success') {
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) {
+        Telegram.WebApp.HapticFeedback.notificationOccurred(type);
+    }
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function showToast(message, type = "info") {
   toastQueue.push({ message, type });
   if (!isShowingToast) processToastQueue();
@@ -41,7 +66,7 @@ function processToastQueue() {
   const toast = document.createElement('div');
   let icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.2rem; color: var(--${type === 'success' ? 'income' : (type === 'error' ? 'expense' : 'balance')});"></i> <span>${message}</span>`;
+  toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.2rem; color: var(--${type === 'success' ? 'income' : (type === 'error' ? 'expense' : 'balance')});"></i> <span>${escapeHTML(message)}</span>`;
   document.body.appendChild(toast);
   setTimeout(() => toast.classList.add('show'), 10);
   setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.remove(); processToastQueue(); }, 300); }, 3000);
@@ -100,19 +125,20 @@ function getCategoryIcon(cat) {
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
-    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− 0đ ${text}</span>`;
+    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− 0đ ${escapeHTML(text)}</span>`;
     let diff = current - prev;
-    if (diff === 0) return `<span style="color: var(--text-2); font-weight: 500;">− Bằng ${text}</span>`;
+    if (diff === 0) return `<span style="color: var(--text-2); font-weight: 500;">− Bằng ${escapeHTML(text)}</span>`;
     let isUp = diff > 0;
     let icon = isUp ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
     let arrowText = isUp ? (type === 'balance' ? 'Dư' : 'Tăng') : (type === 'balance' ? 'Âm' : 'Giảm');
     
     let colorVar = type === 'expense' ? (isUp ? 'var(--expense)' : 'var(--income)') : (isUp ? 'var(--income)' : 'var(--expense)');
     
-    return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ ${text}</span>`;
+    return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ ${escapeHTML(text)}</span>`;
 }
 
 window.openTab = function(tabId) {
+  triggerHaptic('light');
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
@@ -142,7 +168,6 @@ window.fetchTransactions = async function(forceRefresh = false) {
   selectedDateObj.setHours(0,0,0,0);
   const diffDays = Math.round((selectedDateObj - todayObj) / (1000 * 60 * 60 * 24));
   
-  // Sửa lỗi dấu phẩy dư thừa ở chữ "Ngày"
   let prefixText = "Ngày "; 
   if (diffDays === 0) prefixText = "Hôm nay, ";
   else if (diffDays === -1) prefixText = "Hôm qua, ";
@@ -152,13 +177,11 @@ window.fetchTransactions = async function(forceRefresh = false) {
   
   const cacheKey = `${d}/${m}/${y}`;
   
-  // TÍNH TOÁN TRƯỚC NGÀY LIỀN KỀ ĐỂ PHỤC VỤ LOGIC SO SÁNH ĐỘNG
   const currDateObj = new Date(y, m - 1, d);
   currDateObj.setDate(currDateObj.getDate() - 1);
   const prevDateStr = formatDateToDDMMYYYY(currDateObj);
   const prevM = String(currDateObj.getMonth() + 1).padStart(2, '0');
 
-  // ĐUÔI CHỮ SO SÁNH TỰ ĐỘNG NHẢY THEO NGÀY ĐANG CHỌN (Hôm nay -> so với hôm qua, Ngày khác -> so với ngày cũ)
   let compareSuffix = "so với hôm qua";
   if (diffDays !== 0) {
       compareSuffix = `so với ngày ${prevDateStr}`;
@@ -184,7 +207,6 @@ window.fetchTransactions = async function(forceRefresh = false) {
     dataCurr.sort((a,b) => b.id.localeCompare(a.id));
     dataPrev.sort((a,b) => b.id.localeCompare(a.id));
     
-    // Lưu đuôi chữ so sánh động vào bộ nhớ tạm cache
     cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev, compareSuffix: compareSuffix };
     
     currentPageTab1 = 1; 
@@ -215,7 +237,6 @@ function displayTransactions() {
   const heroBalSub = document.getElementById('heroBalanceSub');
   if(heroBalSub) { let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); heroBalSub.textContent = `${sign}${formatNumberWithCommas(Math.abs(tBal).toString())}đ`; }
   
-  // TRUYỀN ĐUÔI CHỮ SO SÁNH ĐỘNG VÀO HÀM ĐỂ IN RA GIAO DIỆN
   const heroExpCompare = document.getElementById('heroExpenseCompare');
   if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
   
@@ -240,22 +261,22 @@ function displayTransactions() {
     card.innerHTML = `
       <div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div>
       <div class="tx-body">
-        <div class="tx-title">${item.content}</div>
+        <div class="tx-title">${escapeHTML(item.content)}</div>
         <div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-           <span class="tx-date" style="margin-right: 2px;">${formatDate(item.date)}</span>
-           <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${item.type}</span>
-           <span class="tx-badge ${tCls}">${item.category}</span>
+           <span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span>
+           <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span>
+           <span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>
         </div>
-        ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${item.note}</div>` : ''}
+        ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}
         <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;">
-           <span>STT: ${stt}</span> • <span>#${item.id}</span>
+           <span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span>
         </div>
       </div>
       <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
         <div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div>
         <div class="tx-actions">
-           <button class="tx-btn edit-btn" data-id="${item.id}" title="Sửa"><i class="fas fa-pen"></i></button>
-           <button class="tx-btn delete-btn" data-id="${item.id}" title="Xóa"><i class="fas fa-trash"></i></button>
+           <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}" title="Sửa"><i class="fas fa-pen"></i></button>
+           <button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}" title="Xóa"><i class="fas fa-trash"></i></button>
         </div>
       </div>
     `;
@@ -265,8 +286,8 @@ function displayTransactions() {
   document.getElementById('pageInfo').textContent = `${currentPageTab1} / ${tPages}`;
   document.getElementById('prevPage').disabled = currentPageTab1 === 1;
   document.getElementById('nextPage').disabled = currentPageTab1 === tPages;
-  document.getElementById('prevPage').onclick = () => { if(currentPageTab1 > 1) { currentPageTab1--; displayTransactions(); } };
-  document.getElementById('nextPage').onclick = () => { if(currentPageTab1 < tPages) { currentPageTab1++; displayTransactions(); } };
+  document.getElementById('prevPage').onclick = () => { triggerHaptic('light'); if(currentPageTab1 > 1) { currentPageTab1--; displayTransactions(); } };
+  document.getElementById('nextPage').onclick = () => { triggerHaptic('light'); if(currentPageTab1 < tPages) { currentPageTab1++; displayTransactions(); } };
   
   document.querySelectorAll('#transactionsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id'))));
   document.querySelectorAll('#transactionsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
@@ -454,13 +475,13 @@ function drawMonthlyPieChart(data) {
         divLeg.innerHTML = `
           <div class="legend-item-left">
              <div class="legend-dot" style="background:${c}"></div>
-             <span class="legend-name" title="${i.category}">${i.category}</span>
+             <span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span>
           </div>
           <div class="legend-value-col">
              <span class="legend-pct" style="color:${c}; font-size: 0.8rem; font-weight: 700;">${pct}%</span>
           </div>
         `;
-        divLeg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
+        divLeg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
         leg.appendChild(divLeg);
     }
 
@@ -471,7 +492,7 @@ function drawMonthlyPieChart(data) {
           <div class="cat-progress-header">
             <div class="cat-progress-info">
               <div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${icon}</div>
-              <span class="cat-progress-title">${i.category}</span>
+              <span class="cat-progress-title">${escapeHTML(i.category)}</span>
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
               <span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}đ</span>
@@ -480,7 +501,7 @@ function drawMonthlyPieChart(data) {
           </div>
           <div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>
         `;
-        divProg.onclick = () => { currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
+        divProg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); };
         progList.appendChild(divProg);
     }
   });
@@ -502,7 +523,8 @@ async function loadWeeklyReport(weekStr) {
         const labels = [], incs = [], exps = [];
         for(let i=0; i<7; i++) {
             const d = new Date(startDate); d.setDate(d.getDate() + i);
-            labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
+            labels.push(`${dayNames[d.getDay()]}
+Ngày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
             const dateStr = formatDateToDDMMYYYY(d);
             const dayTx = currentTx.filter(t => t.date === dateStr);
             let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; });
@@ -560,7 +582,6 @@ function updateTimeNavUI() {
    if (currentFilterMode === 'weekly') {
        timeNav.style.display = 'flex'; customNav.style.display = 'none';
        weekP.style.display = 'block'; monthP.style.display = 'none';
-       // KHẮC PHỤC LỖI IOS/SAFARI KHÔNG ĐỌC ĐƯỢC <input type="week">
        const wStr = formatWeekInput(activePeriodDate); 
        weekP.value = wStr; 
        label.textContent = `Tuần ${getWeekNumber(activePeriodDate)}, ${activePeriodDate.getFullYear()}`;
@@ -652,20 +673,20 @@ function displayCategoryTransactionsList(txs) {
       card.innerHTML = `
         <div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div>
         <div class="tx-body">
-          <div class="tx-title">${item.content}</div>
+          <div class="tx-title">${escapeHTML(item.content)}</div>
           <div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-             <span class="tx-date" style="margin-right: 2px;">${formatDate(item.date)}</span>
-             <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${item.type}</span>
-             <span class="tx-badge ${tCls}">${item.category}</span>
+             <span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span>
+             <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span>
+             <span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>
           </div>
-          ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${item.note}</div>` : ''}
-          <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${item.id}</span></div>
+          ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}
+          <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>
         </div>
         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
           <div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div>
           <div class="tx-actions">
-             <button class="tx-btn edit-btn" data-id="${item.id}"><i class="fas fa-pen"></i></button>
-             <button class="tx-btn delete-btn" data-id="${item.id}"><i class="fas fa-trash"></i></button>
+             <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button>
+             <button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button>
           </div>
         </div>
       `;
@@ -675,13 +696,14 @@ function displayCategoryTransactionsList(txs) {
   document.getElementById('pageInfoCategoryDetail').textContent = `${currentPageCategory} / ${tPages}`;
   document.getElementById('prevPageCategoryDetail').disabled = currentPageCategory === 1;
   document.getElementById('nextPageCategoryDetail').disabled = currentPageCategory === tPages;
-  document.getElementById('prevPageCategoryDetail').onclick = () => { if(currentPageCategory > 1) { currentPageCategory--; displayCategoryTransactionsList(txs); } };
-  document.getElementById('nextPageCategoryDetail').onclick = () => { if(currentPageCategory < tPages) { currentPageCategory++; displayCategoryTransactionsList(txs); } };
+  document.getElementById('prevPageCategoryDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory > 1) { currentPageCategory--; displayCategoryTransactionsList(txs); } };
+  document.getElementById('nextPageCategoryDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory < tPages) { currentPageCategory++; displayCategoryTransactionsList(txs); } };
   document.querySelectorAll('#categoryTransactionsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(txs.find(i => String(i.id) === btn.getAttribute('data-id'))));
   document.querySelectorAll('#categoryTransactionsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
 
 function closeCategoryDetailView() {
+    triggerHaptic('light');
     const overview = document.getElementById('tab2Overview');
     const detailView = document.getElementById('categoryDetailView');
 
@@ -691,14 +713,9 @@ function closeCategoryDetailView() {
     setTimeout(() => {
         detailView.style.display = 'none';
         overview.style.display = 'block';
-        
         overview.classList.add('fade-in-view');
-
         window.scrollTo(0, savedScrollPositionTab2);
-
-        setTimeout(() => {
-            overview.classList.remove('fade-in-view');
-        }, 300);
+        setTimeout(() => { overview.classList.remove('fade-in-view'); }, 300);
     }, 250); 
 }
 
@@ -739,20 +756,20 @@ function displaySearchResults() {
         card.innerHTML = `
           <div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div>
           <div class="tx-body">
-             <div class="tx-title">${item.content}</div>
+             <div class="tx-title">${escapeHTML(item.content)}</div>
              <div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-                <span class="tx-date" style="margin-right: 2px;">${formatDate(item.date)}</span>
-                <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${item.type}</span>
-                <span class="tx-badge ${tCls}">${item.category}</span>
+                <span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span>
+                <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span>
+                <span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>
              </div>
-             ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${item.note}</div>` : ''}             
-             <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${item.id}</span></div>
+             ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}             
+             <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>
           </div>
           <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
              <div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div>
              <div class="tx-actions">
-                <button class="tx-btn edit-btn" data-id="${item.id}"><i class="fas fa-pen"></i></button>
-                <button class="tx-btn delete-btn" data-id="${item.id}"><i class="fas fa-trash"></i></button>
+                <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button>
+                <button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button>
              </div>
           </div>
         `;
@@ -762,8 +779,8 @@ function displaySearchResults() {
     document.getElementById('pageInfoSearch').textContent = `${currentPageSearch} / ${tPages}`;
     document.getElementById('prevPageSearch').disabled = currentPageSearch === 1;
     document.getElementById('nextPageSearch').disabled = currentPageSearch === tPages;
-    document.getElementById('prevPageSearch').onclick = () => { if(currentPageSearch > 1) { currentPageSearch--; displaySearchResults(); } };
-    document.getElementById('nextPageSearch').onclick = () => { if(currentPageSearch < tPages) { currentPageSearch++; displaySearchResults(); } };
+    document.getElementById('prevPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch > 1) { currentPageSearch--; displaySearchResults(); } };
+    document.getElementById('nextPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch < tPages) { currentPageSearch++; displaySearchResults(); } };
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id'))));
     document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
@@ -785,6 +802,7 @@ window.loadKeywords = async function(isInit = false) {
 };
 
 window.startEditKeyword = function(kw, category) {
+    triggerHaptic('light');
     document.getElementById('keywordInput').value = kw;
     document.getElementById('keywordCategory').value = category;
     currentEditKeyword = kw; 
@@ -796,6 +814,7 @@ window.startEditKeyword = function(kw, category) {
 };
 
 window.cancelEditKeyword = function() {
+    triggerHaptic('light');
     document.getElementById('keywordInput').value = '';
     currentEditKeyword = null;
     const btnAdd = document.getElementById('addKeywordBtn');
@@ -825,11 +844,11 @@ function displayKeywords() {
        const group = groupedKeywords[category];
        let tagsHTML = '';
        group.keywords.forEach(kw => {
-           tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${kw}', '${category}')">${kw}</span>`;
+           tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`;
        });
        const div = document.createElement('div');
        div.className = 'tx-card'; div.style.cssText = 'padding:14px; margin-bottom:16px; flex-direction:column; align-items:flex-start; gap:10px;';
-       div.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%;"><div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title" style="font-size:0.95rem;">${category}</div><div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div></div></div><div style="width:100%; display:flex; flex-wrap:wrap; margin-top:4px;">${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}</div>`;
+       div.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%;"><div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div><div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div></div></div><div style="width:100%; display:flex; flex-wrap:wrap; margin-top:4px;">${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}</div>`;
        container.appendChild(div);
    });
 }
@@ -845,15 +864,35 @@ async function fetchCategories() {
 }
 
 window.selectType = function(formId, type, el) {
+  triggerHaptic('light');
   document.getElementById(formId + 'Type').value = type;
   const pills = el.parentElement.querySelectorAll('.type-pill');
   pills.forEach(p => p.classList.remove('income-active', 'expense-active'));
   if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active');
 };
 
+// Hàm điều hướng tương tác cho nút SDK Telegram cứng
+function handleMainButtonClick() {
+    triggerHaptic('medium');
+    if (document.getElementById('addModal').classList.contains('show')) {
+        document.getElementById('addForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    } else if (document.getElementById('editModal').classList.contains('show')) {
+        document.getElementById('editForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    }
+}
+
 window.openAddForm = async function() {
+  triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('addModal').classList.add('show'), 10);
+  
+  if (mainButton) {
+      mainButton.setText("LƯU GIAO DỊCH MỚI");
+      mainButton.show();
+      mainButton.offClick(handleMainButtonClick);
+      mainButton.onClick(handleMainButtonClick);
+  }
+
   document.querySelectorAll('#addModal .type-pill').forEach(p => {
      if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
      else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu';
@@ -866,12 +905,25 @@ window.openAddForm = async function() {
   document.getElementById('addAmount').oninput = function() { this.value = formatNumberWithCommas(this.value); };
 };
 
-window.closeAddForm = function() { document.getElementById('addModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
+window.closeAddForm = function() { 
+  if(mainButton) mainButton.hide();
+  document.getElementById('addModal').classList.remove('show'); 
+  setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
+};
 
 window.openEditForm = async function(tx) {
   if(!tx) return;
+  triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('editModal').classList.add('show'), 10);
+  
+  if (mainButton) {
+      mainButton.setText("CẬP NHẬT GIAO DỊCH");
+      mainButton.show();
+      mainButton.offClick(handleMainButtonClick);
+      mainButton.onClick(handleMainButtonClick);
+  }
+
   const pills = document.querySelectorAll('#editModal .type-pill');
   pills.forEach(p => {
      if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
@@ -893,8 +945,16 @@ window.openEditForm = async function(tx) {
   document.getElementById('editAmount').oninput = function() { this.value = formatNumberWithCommas(this.value); };
 };
 
-window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
-window.closeAllModals = function() { closeAddForm(); closeEditForm(); document.getElementById('confirmDeleteModal').classList.remove('show'); };
+window.closeEditForm = function() { 
+  if(mainButton) mainButton.hide();
+  document.getElementById('editModal').classList.remove('show'); 
+  setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
+};
+window.closeAllModals = function() { 
+  closeAddForm(); 
+  closeEditForm(); 
+  document.getElementById('confirmDeleteModal').classList.remove('show'); 
+};
 window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
 
 document.getElementById('addForm').onsubmit = async function(e) {
@@ -950,6 +1010,7 @@ async function submitTx(tx) {
         method: 'PUT',
         body: JSON.stringify(fbTx)
     });
+    triggerHapticNotification('success');
     showToast("Đã lưu giao dịch!", "success");
 
     fetch(proxyUrl + encodeURIComponent(apiUrl), { 
@@ -962,9 +1023,14 @@ async function submitTx(tx) {
 
 // ⚡ XÓA TRỰC TIẾP TRÊN FIREBASE
 window.deleteTransaction = function(id) {
-  closeEditForm(); document.getElementById('modalOverlay').classList.add('show'); document.getElementById('confirmDeleteModal').classList.add('show');
+  closeEditForm(); 
+  triggerHaptic('medium');
+  document.getElementById('modalOverlay').classList.add('show'); 
+  document.getElementById('confirmDeleteModal').classList.add('show');
+  
   document.getElementById('confirmDeleteBtn').onclick = async () => {
-    document.getElementById('confirmDeleteModal').classList.remove('show'); document.getElementById('modalOverlay').classList.remove('show');
+    document.getElementById('confirmDeleteModal').classList.remove('show'); 
+    document.getElementById('modalOverlay').classList.remove('show');
     
     let tx = null;
     if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
@@ -986,10 +1052,140 @@ window.deleteTransaction = function(id) {
 
     try {
       await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' });
+      triggerHapticNotification('success');
       showToast("Đã xóa giao dịch!", "success");
       fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e));
     } catch(e) { showToast(e.message, "error"); }
   };
+};
+
+// 💎 XUẤT FILE DATA CSV 
+window.exportToCSV = function() {
+    const data = cachedTransactions?.data || [];
+    if (data.length === 0) {
+        return showToast("Không có dữ liệu giao dịch ngày hiện tại để xuất!", "warning");
+    }
+    
+    triggerHaptic('light');
+    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Thêm BOM để không lỗi Tiếng Việt Excel
+    csvContent += "Mã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
+    
+    data.forEach(t => {
+        let content = t.content ? t.content.replace(/,/g, " ") : "";
+        let note = t.note ? t.note.replace(/,/g, " ") : "";
+        let row = `${t.id},${t.date},${t.type},${t.category},${t.amount},${content},${note}`;
+        csvContent += row + "\n";
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `Giao_Dich_${formatDateToYYYYMMDD(new Date())}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    triggerHapticNotification('success');
+    showToast("Đã xuất file CSV thành công!", "success");
+};
+
+// 💎 XUẤT FILE BÁO CÁO PDF ĐỒNG BỘ TIẾNG VIỆT QUA HTML2PDF
+window.exportToPDF = function() {
+    const data = cachedTransactions?.data || [];
+    if (data.length === 0) {
+        return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
+    }
+    if (typeof html2pdf === 'undefined') {
+        return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
+    }
+    
+    triggerHaptic('medium');
+    showToast("Đang lập báo cáo PDF...", "info");
+
+    const element = document.createElement('div');
+    element.style.padding = '24px';
+    element.style.color = '#0F172A';
+    element.style.backgroundColor = '#FFFFFF';
+    element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
+    
+    let dateStr = document.getElementById('displayCurrentDate')?.textContent || '';
+    let tableRows = '';
+    let totalIncome = 0, totalExpense = 0;
+    
+    data.forEach((t, idx) => {
+        const isInc = t.type === 'Thu nhập';
+        if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
+        
+        tableRows += `
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+                <td style="padding: 10px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 10px; font-size: 11px; text-align: center;">${t.id}</td>
+                <td style="padding: 10px; font-size: 11px; font-weight: 600;">${t.content}</td>
+                <td style="padding: 10px; font-size: 11px; color: #475569;">${t.category}</td>
+                <td style="padding: 10px; font-size: 11px; font-weight: 700; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
+                </td>
+            </tr>
+        `;
+    });
+
+    element.innerHTML = `
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">Báo Cáo Giao Dịch Tài Chính</h2>
+            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 500;">Thống kê chi tiết: ${dateStr}</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-bottom: 24px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0;">
+            <div style="flex: 1;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
+                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span>
+                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span>
+                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px;">
+                    ${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ
+                </div>
+            </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 8%;">STT</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; width: 15%;">Mã GD</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 45%;">Nội dung giao dịch</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 17%;">Danh mục</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 15%;">Số tiền</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${tableRows}
+            </tbody>
+        </table>
+        
+        <div style="margin-top: 40px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic;">
+            <span>Chữ ký số: Hệ thống FinTech tự động</span>
+            <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
+        </div>
+    `;
+
+    const opt = {
+        margin:       12,
+        filename:     `Bao_Cao_Chi_Tieu_${formatDateToYYYYMMDD(new Date())}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save().then(() => {
+        triggerHapticNotification('success');
+        showToast("Đã xuất file PDF báo cáo thành công!", "success");
+    }).catch(err => {
+        showToast("Lỗi tạo PDF: " + err.message, "error");
+    });
 };
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
@@ -997,6 +1193,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   const currentMonthValue = new Date().getMonth() + 1;
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
+
+  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY (Đã sửa tối ưu loại trừ phần tử con)
+  const heroCardTab1 = document.querySelector('#tab1 .hero-card');
+  if(heroCardTab1) {
+      heroCardTab1.style.cursor = 'pointer';
+      heroCardTab1.onclick = (e) => {
+          if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn')) return;
+          const dateInput = document.getElementById('transactionDate');
+          if (dateInput) {
+              dateInput.value = formatDateToYYYYMMDD(new Date());
+              window.fetchTransactions(true);
+              triggerHaptic('light');
+              showToast("Đã quay về dữ liệu ngày hôm nay", "info");
+          }
+      };
+  }
+
+  // 2. TÍNH NĂNG VUỐT XUỐNG ĐỂ LÀM MỚI DỮ LIỆU (SWIPE TO REFRESH)
+  let startY = 0;
+  const tab1Content = document.getElementById('tab1');
+  if (tab1Content) {
+      tab1Content.addEventListener('touchstart', e => {
+          if (window.scrollY === 0) startY = e.touches[0].clientY;
+      }, { passive: true });
+
+      tab1Content.addEventListener('touchend', e => {
+          if (startY === 0) return;
+          let endY = e.changedTouches[0].clientY;
+          if (endY - startY > 80 && window.scrollY === 0) { 
+              triggerHaptic('medium');
+              showToast("Đang làm mới giao dịch...", "info");
+              window.fetchTransactions(true);
+          }
+          startY = 0;
+      }, { passive: true });
+  }
 
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.onclick = () => {
@@ -1015,7 +1247,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
               const cat = document.getElementById('keywordCategory').value;
               await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
-              showToast('Đã xóa từ khóa', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+              triggerHapticNotification('success');
+              showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
           } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
       };
       kwActionContainer.appendChild(deleteBtn);
@@ -1026,13 +1259,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   const tDate = document.getElementById('transactionDate');
-  if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => window.fetchTransactions(true); }
+  if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => { triggerHaptic('light'); window.fetchTransactions(true); }; }
   
-  // SỰ KIỆN CLICK CHO MŨI TÊN TRÁI (LÙI NGÀY)
   const prevDayBtn = document.getElementById('prevDayBtn');
   if(prevDayBtn) {
       prevDayBtn.onclick = (e) => {
           e.stopPropagation(); 
+          triggerHaptic('light');
           const dateInput = document.getElementById('transactionDate');
           if (!dateInput.value) return;
           const [y, m, d] = dateInput.value.split('-');
@@ -1043,11 +1276,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
-  // SỰ KIỆN CLICK CHO MŨI TÊN PHẢI (TIẾN NGÀY)
   const nextDayBtn = document.getElementById('nextDayBtn');
   if(nextDayBtn) {
       nextDayBtn.onclick = (e) => {
           e.stopPropagation();
+          triggerHaptic('light');
           const dateInput = document.getElementById('transactionDate');
           if (!dateInput.value) return;
           const [y, m, d] = dateInput.value.split('-');
@@ -1063,23 +1296,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.loadKeywords(true); 
   window.fetchTransactions(false);
 
-  document.getElementById('filterWeeklyBtn').onclick = () => { setFilterMode('weekly'); };
-  document.getElementById('filterMonthlyBtn').onclick = () => { setFilterMode('monthly'); };
-  document.getElementById('filterYearlyBtn').onclick = () => { setFilterMode('yearly'); };
-  document.getElementById('filterCustomBtn').onclick = () => { setFilterMode('custom'); };
-  document.getElementById('prevPeriodBtn').onclick = () => { shiftPeriod(-1); };
-  document.getElementById('nextPeriodBtn').onclick = () => { shiftPeriod(1); };
-  document.getElementById('weekPicker').onchange = (e) => { const d = getDateFromWeekString(e.target.value); if(d) { activePeriodDate = d; updateTimeNavUI(); } };
-  document.getElementById('monthPicker').onchange = (e) => { const val = e.target.value; if(val) { const [y, m] = val.split('-'); activePeriodDate = new Date(y, m-1, 1); updateTimeNavUI(); } };
-  document.getElementById('fetchCustomDataBtn').onclick = () => { const s = parseInt(document.getElementById('startMonth').value); const e = parseInt(document.getElementById('endMonth').value); if(s > e) return showToast("Tháng bắt đầu phải nhỏ hơn kết thúc", "warning"); loadCustomReport(s, e, new Date().getFullYear()); };
+  document.getElementById('filterWeeklyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('weekly'); };
+  document.getElementById('filterMonthlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('monthly'); };
+  document.getElementById('filterYearlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('yearly'); };
+  document.getElementById('filterCustomBtn').onclick = () => { triggerHaptic('light'); setFilterMode('custom'); };
+  document.getElementById('prevPeriodBtn').onclick = () => { triggerHaptic('light'); shiftPeriod(-1); };
+  document.getElementById('nextPeriodBtn').onclick = () => { triggerHaptic('light'); shiftPeriod(1); };
+  document.getElementById('weekPicker').onchange = (e) => { triggerHaptic('light'); const d = getDateFromWeekString(e.target.value); if(d) { activePeriodDate = d; updateTimeNavUI(); } };
+  document.getElementById('monthPicker').onchange = (e) => { triggerHaptic('light'); const val = e.target.value; if(val) { const [y, m] = val.split('-'); activePeriodDate = new Date(y, m-1, 1); updateTimeNavUI(); } };
+  document.getElementById('fetchCustomDataBtn').onclick = () => { triggerHaptic('light'); const s = parseInt(document.getElementById('startMonth').value); const e = parseInt(document.getElementById('endMonth').value); if(s > e) return showToast("Tháng bắt đầu phải nhỏ hơn kết thúc", "warning"); loadCustomReport(s, e, new Date().getFullYear()); };
   
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
   
   const sPills = document.querySelectorAll('#tab3 .period-pill');
-  sPills.forEach(p => p.onclick = function() { sPills.forEach(x=>x.classList.remove('active')); this.classList.add('active'); document.getElementById('searchCustomFilterContainer').style.display = 'none'; if(this.id==='searchCustomBtn') document.getElementById('searchCustomFilterContainer').style.display = 'flex'; });
+  sPills.forEach(p => p.onclick = function() { triggerHaptic('light'); sPills.forEach(x=>x.classList.remove('active')); this.classList.add('active'); document.getElementById('searchCustomFilterContainer').style.display = 'none'; if(this.id==='searchCustomBtn') document.getElementById('searchCustomFilterContainer').style.display = 'flex'; });
   
   document.getElementById('searchTransactionsBtn').onclick = async () => {
+    triggerHaptic('light');
     const c = document.getElementById('searchContent').value.toLowerCase(), a = document.getElementById('searchAmount').value, cat = document.getElementById('searchCategory').value;
     if(!c && !a && !cat) return showToast("Nhập điều kiện tìm kiếm", "warning");
     let sM = 1, eM = 12;
@@ -1108,15 +1342,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
   
-  document.getElementById('fetchKeywordsBtn').onclick = () => window.loadKeywords(false);
+  document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
   document.getElementById('addKeywordBtn').onclick = async () => {
+        triggerHaptic('light');
         const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
         if(!cat || !kw) return showToast('Vui lòng nhập đủ thông tin', 'warning');
         showLoading(true, 'tab4');
         try {
             if (currentEditKeyword) await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
             await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) });
-            showToast(currentEditKeyword ? 'Cập nhật thành công' : 'Thêm thành công', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+            triggerHapticNotification('success');
+            showToast(currentEditKeyword ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
   };
 
@@ -1131,18 +1367,3 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   initCategories();
 });
-// SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ HÔM NAY
-  const heroCardTab1 = document.querySelector('#tab1 .hero-card'); // Đảm bảo class này khớp với HTML của bạn
-  if(heroCardTab1) {
-      heroCardTab1.style.cursor = 'pointer'; // Hiển thị con trỏ chuột dạng nút bấm
-      heroCardTab1.onclick = () => {
-          const dateInput = document.getElementById('transactionDate');
-          if (dateInput) {
-              // Cập nhật input về ngày hôm nay
-              dateInput.value = formatDateToYYYYMMDD(new Date());
-              // Tải lại dữ liệu của ngày hôm nay
-              window.fetchTransactions(true);
-              showToast("Đã quay về dữ liệu hôm nay", "info"); // Hiện thông báo nhỏ cho mượt mà
-          }
-      };
-  }
