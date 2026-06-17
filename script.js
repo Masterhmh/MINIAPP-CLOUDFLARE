@@ -19,6 +19,8 @@ let cachedTransactions = null, cachedChartData = null;
 let filterModeCache = { monthly: {}, yearly: {}, custom: {} };
 let cachedSearchResults = [], cachedKeywords = []; 
 window.categoryIconMap = {}; 
+window.customCategoryIcons = {}; // 🌟 Biến lưu trữ Icon Custom của người dùng
+
 let toastQueue = [], isShowingToast = false, currentEditKeyword = null;
 
 const itemsPerPage = 10;
@@ -27,8 +29,6 @@ window.apiTxCache = {};
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
 let savedScrollPositionTab2 = 0;
-
-// Khởi tạo phím cứng MainButton từ Telegram SDK
 
 // ---------------- UTILITIES ----------------
 function triggerHaptic(style = 'light') {
@@ -87,32 +87,37 @@ function formatNumberWithCommas(value) { return value.replace(/[^0-9]/g, '').rep
 function parseNumber(value) { return parseInt(value.replace(/[^0-9]/g, '')) || 0; }
 function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#8B5CF6']; return c[i % c.length]; }
 
+// 🌟 THUẬT TOÁN GET ICON (4 LỚP BẢO VỆ THÔNG MINH)
 function getCategoryIcon(cat) {
     const defaultIcon = '<i class="fas fa-box-open"></i>'; 
     if (!cat) return defaultIcon;
     const categoryName = cat.trim();
+
+    // Lớp 1: Lấy Icon Custom do người dùng tự gán trong Mini App
+    if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
+        let iconCode = window.customCategoryIcons[categoryName];
+        if (!iconCode.includes('fa-')) iconCode = `fa-${iconCode}`;
+        if (!iconCode.includes('fas ')) iconCode = `fas ${iconCode}`;
+        return `<i class="${iconCode}"></i>`;
+    }
+
+    // Lớp 2: Lấy từ cấu hình trên Google Sheet (nếu có)
+    if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
+        let dynamicIcon = window.categoryIconMap[categoryName];
+        if (!dynamicIcon.includes('fa-')) dynamicIcon = `fa-${dynamicIcon}`;
+        if (!dynamicIcon.includes('fas ')) dynamicIcon = `fas ${dynamicIcon}`;
+        return `<i class="${dynamicIcon}"></i>`;
+    }
     
+    // Lớp 3: Từ điển Icon mặc định của App
     const faMap = {
-        'Ăn uống': 'fa-utensils', 
-        'Bảo hiểm': 'fa-shield-halved', 
-        'Công nghệ': 'fa-laptop',
-        'Công việc': 'fa-briefcase', 
-        'giặt ủi': 'fa-shirt', 
-        'sửa chữa': 'fa-screwdriver-wrench',
-        'Đi lại': 'fa-car-side', 
-        'Giải trí': 'fa-clapperboard', 
-        'Giáo dục': 'fa-graduation-cap', 
-        'Gia đình': 'fa-house-user',
-        'Hóa đơn': 'fa-file-invoice-dollar', 
-        'Chăm sóc': 'fa-spa', 
-        'Làm đẹp': 'fa-spa',
-        'Mua sắm': 'fa-bag-shopping',
-        'Quà tặng': 'fa-gift', 
-        'Sức khỏe': 'fa-dumbbell', 
-        'Tiết kiệm': 'fa-chart-line',
-        'Đầu tư': 'fa-chart-line',
-        'Y tế': 'fa-pills', 
-        'Khác': 'fa-layer-group'
+        'Ăn uống': 'fa-utensils', 'Bảo hiểm': 'fa-shield-halved', 'Công nghệ': 'fa-laptop',
+        'Công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
+        'Đi lại': 'fa-car-side', 'Giải trí': 'fa-clapperboard', 'Giáo dục': 'fa-graduation-cap', 
+        'Gia đình': 'fa-house-user', 'Hóa đơn': 'fa-file-invoice-dollar', 'Chăm sóc': 'fa-spa', 
+        'Làm đẹp': 'fa-spa', 'Mua sắm': 'fa-bag-shopping', 'Quà tặng': 'fa-gift', 
+        'Sức khỏe': 'fa-dumbbell', 'Tiết kiệm': 'fa-chart-line', 'Đầu tư': 'fa-chart-line',
+        'Y tế': 'fa-pills', 'Khác': 'fa-layer-group'
     };
 
     for (let key in faMap) {
@@ -120,7 +125,10 @@ function getCategoryIcon(cat) {
             return `<i class="fas ${faMap[key]}"></i>`;
         }
     }
-    return defaultIcon;
+    
+    // Lớp 4: Tự động tạo Icon chữ cái (Avatar Text) cực xịn cho danh mục hoàn toàn mới
+    const firstLetter = categoryName.charAt(0).toUpperCase();
+    return `<span style="font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">${firstLetter}</span>`;
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
@@ -160,7 +168,6 @@ window.fetchTransactions = async function(forceRefresh = false) {
   if (!tDate) return;
   const [y, m, d] = tDate.split('-');
   
-  // TÍNH TOÁN HIỂN THỊ TEXT "HÔM NAY", "HÔM QUA" THÔNG MINH
   const selectedDateObj = new Date(y, m - 1, d);
   const todayObj = new Date();
   todayObj.setHours(0,0,0,0);
@@ -376,7 +383,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
           { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 0, maxBarThickness: 20 }
       ]},
       options: { 
-          devicePixelRatio: 4, // 🚀 FIX MỜ ẢNH BÁO CÁO (Tăng độ phân giải lên 4K)
+          devicePixelRatio: 4,
           responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
           scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, 
                     y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => v >= 1000 ? (v/1000)+'K' : v } } }, 
@@ -400,7 +407,7 @@ function drawMonthlyPieChart(data) {
     type: 'doughnut', 
     data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
     options: { 
-        devicePixelRatio: 4, // 🚀 FIX MỜ ẢNH BÁO CÁO (Tăng độ phân giải lên 4K)
+        devicePixelRatio: 4,
         cutout:'75%', 
         layout: {padding: 8}, 
         plugins: { 
@@ -791,6 +798,12 @@ window.loadKeywords = async function(isInit = false) {
     if(!isInit) showLoading(true, 'tab4');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
     try {
+        // 🚀 BƯỚC 1: LOAD ICONS CUSTOM TỪ FIREBASE ĐỂ LÀM ƯU TIÊN SỐ 1
+        const iconRes = await fetch(`${FIREBASE_URL}/categoryIcons.json`);
+        const iconData = await iconRes.json();
+        if(iconData) window.customCategoryIcons = iconData;
+
+        // BƯỚC 2: LOAD TỪ KHÓA NHƯ BÌNH THƯỜNG
         const res = await fetch(`${FIREBASE_URL}/keywords.json`);
         let data = await res.json();
         if(!data) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); data = await gasRes.json(); }
@@ -854,7 +867,7 @@ function displayKeywords() {
    });
 }
 
-// ---------------- CÁC HÀM MODALS ----------------
+// ---------------- CÁC HÀM MODALS GIAO DỊCH ----------------
 async function fetchCategories() {
   try {
     const res = await fetch(`${FIREBASE_URL}/categories.json`);
@@ -872,13 +885,10 @@ window.selectType = function(formId, type, el) {
   if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active');
 };
 
-// Hàm điều hướng tương tác cho nút SDK Telegram cứng
-
 window.openAddForm = async function() {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('addModal').classList.add('show'), 10);
-  
   
   document.querySelectorAll('#addModal .type-pill').forEach(p => {
      if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
@@ -902,7 +912,6 @@ window.openEditForm = async function(tx) {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('editModal').classList.add('show'), 10);
-  
   
   const pills = document.querySelectorAll('#editModal .type-pill');
   pills.forEach(p => {
@@ -932,7 +941,8 @@ window.closeEditForm = function() {
 window.closeAllModals = function() { 
   closeAddForm(); 
   closeEditForm(); 
-  document.getElementById('confirmDeleteModal').classList.remove('show'); 
+  if (document.getElementById('confirmDeleteModal')) document.getElementById('confirmDeleteModal').classList.remove('show'); 
+  if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show');
 };
 window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
 
@@ -950,7 +960,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
   await submitTx(tx); 
 };
 
-// ⚡ LƯU GIAO DỊCH TRỰC TIẾP LÊN FIREBASE
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -1000,7 +1009,6 @@ async function submitTx(tx) {
   } catch(e) { showToast(e.message, "error"); }
 }
 
-// ⚡ XÓA TRỰC TIẾP TRÊN FIREBASE
 window.deleteTransaction = function(id) {
   closeEditForm(); 
   triggerHaptic('medium');
@@ -1038,18 +1046,13 @@ window.deleteTransaction = function(id) {
   };
 };
 
-// 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (CHỌN LỌC PC / MOBILE)
 window.exportToCSV = async function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
-    
-    if (dataToExport.length === 0) {
-        return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
-    }
+    if (dataToExport.length === 0) return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
     
     triggerHaptic('light');
     let csvContent = "\uFEFFMã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
-    
     dataToExport.forEach(t => {
         let content = t.content ? t.content.replace(/,/g, " ") : "";
         let note = t.note ? t.note.replace(/,/g, " ") : "";
@@ -1058,7 +1061,6 @@ window.exportToCSV = async function() {
 
     const reportName = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
     const fileName = `Giao_Dich_${reportName}.csv`;
-    
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const platform = window.Telegram?.WebApp?.platform || 'unknown';
     const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
@@ -1068,26 +1070,19 @@ window.exportToCSV = async function() {
             const file = new File([blob], fileName, { type: 'text/csv' });
             if (navigator.canShare({ files: [file] })) {
                 await navigator.share({ files: [file], title: fileName });
-                triggerHapticNotification('success');
-                return;
+                triggerHapticNotification('success'); return;
             }
-        } catch (error) { console.log("Hủy share:", error); }
+        } catch (error) {}
     } 
     
-    // PC (hoặc fallback Mobile): Tải file (Sẽ hiện hộp thoại Save As trên máy tính)
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    triggerHapticNotification('success');
-    showToast("Đã tải file CSV!", "success");
+    a.href = url; a.download = fileName;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (DÙNG ICON DANH MỤC + ĐỒNG BỘ MÀU BIỂU ĐỒ + BIỂU ĐỒ NÉT CĂNG)
+// 💎 XUẤT FILE BÁO CÁO PDF (Bản chốt xịn nhất)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1120,18 +1115,12 @@ window.exportToPDF = function() {
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
     
-    // ==========================================
-    // 🎨 TÍNH TOÁN VÀ ĐỒNG BỘ MÀU SẮC TỪ BIỂU ĐỒ
-    // ==========================================
     const catMapForColor = {};
     data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
     const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
     
     const categoryColorMap = {};
-    catArrForColor.forEach((c, idx) => {
-        categoryColorMap[c.category] = getColorByIndex(idx);
-    });
-    // ==========================================
+    catArrForColor.forEach((c, idx) => { categoryColorMap[c.category] = getColorByIndex(idx); });
 
     const groupedData = {};
     data.forEach(t => {
@@ -1142,8 +1131,7 @@ window.exportToPDF = function() {
     });
 
     const sortedKeys = Object.keys(groupedData).sort((a, b) => {
-        if (a === 'Khác') return 1;
-        if (b === 'Khác') return -1;
+        if (a === 'Khác') return 1; if (b === 'Khác') return -1;
         const [mA, yA] = a.split('/').map(Number);
         const [mB, yB] = b.split('/').map(Number);
         if (yA !== yB) return yA - yB;
@@ -1161,11 +1149,9 @@ window.exportToPDF = function() {
             if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
             else { totalExpense += t.amount; monthExp += t.amount; }
             
-            // Lấy màu và lấy ICON từ hệ thống
             const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
             const catIconHTML = getCategoryIcon(t.category);
             
-            // Dùng ICON thay vì thẻ span tạo màu
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
@@ -1206,23 +1192,11 @@ window.exportToPDF = function() {
                             Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
                         </span>
                     </div>
-                    <table class="pdf-table">
-                        ${theadHTML}
-                        <tbody>
-                            ${monthRows}
-                        </tbody>
-                    </table>
+                    <table class="pdf-table">${theadHTML}<tbody>${monthRows}</tbody></table>
                 </div>
             `;
         } else {
-            tablesHTML += `
-                <table class="pdf-table" style="margin-top: 10px;">
-                    ${theadHTML}
-                    <tbody>
-                        ${monthRows}
-                    </tbody>
-                </table>
-            `;
+            tablesHTML += `<table class="pdf-table" style="margin-top: 10px;">${theadHTML}<tbody>${monthRows}</tbody></table>`;
         }
     });
 
@@ -1239,9 +1213,8 @@ window.exportToPDF = function() {
         catArr.forEach((c, idx) => {
             const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
             const color = getColorByIndex(idx);
-            const catIconHTML = getCategoryIcon(c.category); // Lấy icon cho Legend
+            const catIconHTML = getCategoryIcon(c.category);
             
-            // Dùng ICON cho khu vực tỷ trọng (Thay cho dấu chấm vuông)
             pieLegendHTML += `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
                     <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
@@ -1306,14 +1279,11 @@ window.exportToPDF = function() {
                 </div>
             </div>
         </div>
-
         ${chartsHTML}
-
         <div style="page-break-before: auto; width: 100%; box-sizing: border-box;">
             <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
             ${tablesHTML} 
         </div>
-        
         <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
             <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
             <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
@@ -1338,8 +1308,7 @@ window.exportToPDF = function() {
         <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-size: 1.1rem;"><i class="fas fa-file-invoice" style="color: #0891B2; margin-right: 6px;"></i> Xem trước báo cáo</span>
         </div>
-        <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: block;">
-        </div>
+        <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: block;"></div>
         <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
             <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
             <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3); font-weight: 800;"><i class="fas fa-share-nodes"></i> Chia sẻ / Tải PDF</button>
@@ -1359,12 +1328,10 @@ window.exportToPDF = function() {
     function adjustPreviewSize() {
         const containerWidth = previewContainer.clientWidth - 20; 
         const scale = containerWidth / 720;
-        
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
             const widthDiff = 720 * (1 - scale);
-            
             clonedElement.style.marginBottom = `-${heightDiff}px`; 
             clonedElement.style.marginRight = `-${widthDiff}px`;
             clonedElement.style.marginLeft = '0px';
@@ -1395,7 +1362,7 @@ window.exportToPDF = function() {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, // 🚀 TĂNG SCALE ĐỂ CHỮ NÉT CĂNG
+            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] }
         };
@@ -1411,31 +1378,178 @@ window.exportToPDF = function() {
                 try {
                     await navigator.share({ files: [file], title: fileName });
                     triggerHapticNotification('success');
-                } catch (error) { 
-                    console.log("Hủy share:", error); 
-                }
+                } catch (error) {}
             } else {
                 const pdfUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = pdfUrl;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(pdfUrl);
+                a.href = pdfUrl; a.download = fileName; a.click(); URL.revokeObjectURL(pdfUrl);
                 showToast("Đã tải file PDF xuống máy!", "success");
             }
-        }).catch(err => {
-            showToast("Lỗi tạo PDF: " + err.message, "error");
-        });
+        }).catch(err => { showToast("Lỗi tạo PDF: " + err.message, "error"); });
     };
 };
 
-// ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
+// 🌟 XÂY DỰNG TÍNH NĂNG CỬA SỔ "ICON PICKER" ĐỂ CẤU HÌNH DANH MỤC
+window.openIconPickerModal = function() {
+    triggerHaptic('light');
+    let modal = document.getElementById('iconPickerModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'iconPickerModal';
+        modal.className = 'modal-sheet';
+        modal.style.height = '88vh';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.padding = '20px 16px 30px';
+        
+        // Kho dữ liệu 60 icon phẳng xịn xò nhất
+        const flatIcons = [
+            'fa-utensils', 'fa-coffee', 'fa-burger', 'fa-pizza-slice', 'fa-basket-shopping',
+            'fa-car', 'fa-motorcycle', 'fa-bus', 'fa-train', 'fa-plane', 'fa-gas-pump',
+            'fa-house', 'fa-building', 'fa-cart-shopping', 'fa-bag-shopping', 'fa-shirt', 
+            'fa-shoe-prints', 'fa-glasses', 'fa-laptop', 'fa-mobile-screen', 'fa-tv', 
+            'fa-gamepad', 'fa-headphones', 'fa-bolt', 'fa-droplet', 'fa-fire', 'fa-wifi',
+            'fa-heart-pulse', 'fa-pills', 'fa-stethoscope', 'fa-tooth', 'fa-dumbbell',
+            'fa-graduation-cap', 'fa-book', 'fa-pen', 'fa-briefcase', 'fa-money-bill-trend-up', 
+            'fa-chart-line', 'fa-piggy-bank', 'fa-credit-card', 'fa-coins', 'fa-wallet',
+            'fa-gift', 'fa-cake-candles', 'fa-champagne-glasses', 'fa-paw', 'fa-child', 
+            'fa-baby', 'fa-user-group', 'fa-wrench', 'fa-hammer', 'fa-scissors',
+            'fa-film', 'fa-ticket', 'fa-music', 'fa-spa', 'fa-ellipsis', 'fa-box-open', 
+            'fa-layer-group', 'fa-tag', 'fa-shield-halved', 'fa-file-invoice-dollar'
+        ];
+
+        let iconGridHTML = flatIcons.map(icon => `
+            <div class="icon-item" data-icon="${icon}" style="font-size: 1.5rem; color: var(--text-2); padding: 12px; border-radius: 12px; background: var(--bg-card2); text-align: center; cursor: pointer; border: 2px solid transparent; transition: 0.2s; display: flex; justify-content: center; align-items: center;">
+                <i class="fas ${icon}"></i>
+            </div>
+        `).join('');
+
+        modal.innerHTML = `
+            <div class="modal-handle"></div>
+            <div class="modal-title" style="margin-bottom: 16px;"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-2); text-transform: uppercase; margin-bottom: 6px; display: block;">Tên Danh mục (Chọn hoặc nhập mới)</label>
+                <input list="iconPickerCatList" id="iconPickerCategory" placeholder="VD: Học phí, Du lịch..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-1); font-family: inherit; font-size: 0.95rem;">
+                <datalist id="iconPickerCatList"></datalist>
+            </div>
+
+            <label style="font-size: 0.75rem; font-weight: 700; color: var(--text-2); text-transform: uppercase; margin-bottom: 6px; display: block;">Bảng chọn Icon phẳng</label>
+            <div id="iconGridContainer" style="flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; align-content: start;">
+                ${iconGridHTML}
+            </div>
+
+            <div style="display: flex; gap: 12px; flex-shrink: 0; margin-top: auto;">
+                <button class="btn-cancel" onclick="closeIconPickerModal()" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
+                <button class="btn-save" id="saveIconPickerBtn" style="flex: 1.5; font-weight: 800; background: var(--primary);"><i class="fas fa-save"></i> Áp dụng</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Sự kiện click chọn Icon
+        const iconItems = modal.querySelectorAll('.icon-item');
+        iconItems.forEach(item => {
+            item.onclick = function() {
+                triggerHaptic('light');
+                iconItems.forEach(i => { i.style.borderColor = 'transparent'; i.style.color = 'var(--text-2)'; i.style.background = 'var(--bg-card2)'; });
+                this.style.borderColor = 'var(--primary)';
+                this.style.color = 'var(--primary)';
+                this.style.background = 'var(--primary-light)';
+                modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
+            };
+        });
+        
+        // Sự kiện Lưu thay đổi
+        document.getElementById('saveIconPickerBtn').onclick = async () => {
+            const cat = document.getElementById('iconPickerCategory').value.trim();
+            const selectedIcon = modal.getAttribute('data-selected-icon');
+            if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
+            if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
+            
+            triggerHaptic('medium');
+            showLoading(true, 'tab4');
+            try {
+                // Đẩy dữ liệu cấu hình Icon lên Firebase (Chỉ update đúng biến của Danh mục đó)
+                await fetch(`${FIREBASE_URL}/categoryIcons.json`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ [cat]: selectedIcon })
+                });
+                
+                // Cập nhật bộ nhớ đệm
+                window.customCategoryIcons[cat] = selectedIcon; 
+                showToast('Đã lưu cấu hình danh mục!', 'success');
+                closeIconPickerModal();
+                
+                // Tự động bổ sung Danh mục mới vào Dropdown nếu chưa có
+                const kCat = document.getElementById('keywordCategory');
+                if(kCat) {
+                    let exists = Array.from(kCat.options).some(opt => opt.value === cat);
+                    if(!exists) kCat.appendChild(new Option(cat, cat));
+                    kCat.value = cat; // Auto select the new category
+                }
+                const addCat = document.getElementById('addCategory');
+                if (addCat) {
+                    let exists = Array.from(addCat.options).some(opt => opt.value === cat);
+                    if(!exists) addCat.appendChild(new Option(cat, cat));
+                }
+                
+                // Làm mới các màn hình để Icon có tác dụng ngay lập tức
+                displayKeywords(); 
+                if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
+                if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
+            } catch(e) {
+                showToast('Lỗi cập nhật icon: ' + e.message, 'error');
+            } finally {
+                showLoading(false, 'tab4');
+            }
+        };
+    }
+    
+    // Nạp dữ liệu vào Dropdown
+    const datalist = document.getElementById('iconPickerCatList');
+    datalist.innerHTML = '';
+    const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
+    const uniqueCats = [...new Set(cats)];
+    uniqueCats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        datalist.appendChild(opt);
+    });
+
+    // Lấy value đang được chọn ở màn hình chính
+    const currentSelected = document.getElementById('keywordCategory').value;
+    if(currentSelected) document.getElementById('iconPickerCategory').value = currentSelected;
+
+    // Reset lại giao diện lưới Icon
+    modal.removeAttribute('data-selected-icon');
+    const iconItems = modal.querySelectorAll('.icon-item');
+    iconItems.forEach(i => { i.style.borderColor = 'transparent'; i.style.color = 'var(--text-2)'; i.style.background = 'var(--bg-card2)'; });
+
+    // Tự động bôi sáng Icon cũ nếu đã có cấu hình
+    if (window.customCategoryIcons[currentSelected]) {
+        let mappedIcon = window.customCategoryIcons[currentSelected];
+        if (!mappedIcon.includes('fa-')) mappedIcon = `fa-${mappedIcon}`;
+        const item = modal.querySelector(`.icon-item[data-icon="${mappedIcon}"]`);
+        if (item) item.click();
+    }
+
+    document.getElementById('modalOverlay').classList.add('show');
+    setTimeout(() => modal.classList.add('show'), 10);
+};
+
+window.closeIconPickerModal = function() {
+    const modal = document.getElementById('iconPickerModal');
+    if (modal) modal.classList.remove('show');
+    setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
+};
+
+// ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
   const currentMonthValue = new Date().getMonth() + 1;
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
-  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
   if(heroCardTab1) {
       heroCardTab1.style.cursor = 'pointer';
@@ -1451,21 +1565,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
-  // 2. TÍNH NĂNG VUỐT XUỐNG ĐỂ LÀM MỚI DỮ LIỆU (SWIPE TO REFRESH)
   let startY = 0;
   const tab1Content = document.getElementById('tab1');
   if (tab1Content) {
-      tab1Content.addEventListener('touchstart', e => {
-          if (window.scrollY === 0) startY = e.touches[0].clientY;
-      }, { passive: true });
-
+      tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true });
       tab1Content.addEventListener('touchend', e => {
           if (startY === 0) return;
           let endY = e.changedTouches[0].clientY;
           if (endY - startY > 80 && window.scrollY === 0) { 
-              triggerHaptic('medium');
-              showToast("Đang làm mới giao dịch...", "info");
-              window.fetchTransactions(true);
+              triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true);
           }
           startY = 0;
       }, { passive: true });
@@ -1505,14 +1613,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const prevDayBtn = document.getElementById('prevDayBtn');
   if(prevDayBtn) {
       prevDayBtn.onclick = (e) => {
-          e.stopPropagation(); 
-          triggerHaptic('light');
+          e.stopPropagation(); triggerHaptic('light');
           const dateInput = document.getElementById('transactionDate');
           if (!dateInput.value) return;
-          const [y, m, d] = dateInput.value.split('-');
-          const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() - 1); 
-          dateInput.value = formatDateToYYYYMMDD(currDate);
+          const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() - 1);  dateInput.value = formatDateToYYYYMMDD(currDate);
           window.fetchTransactions(true);
       };
   }
@@ -1520,14 +1625,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const nextDayBtn = document.getElementById('nextDayBtn');
   if(nextDayBtn) {
       nextDayBtn.onclick = (e) => {
-          e.stopPropagation();
-          triggerHaptic('light');
+          e.stopPropagation(); triggerHaptic('light');
           const dateInput = document.getElementById('transactionDate');
           if (!dateInput.value) return;
-          const [y, m, d] = dateInput.value.split('-');
-          const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() + 1); 
-          dateInput.value = formatDateToYYYYMMDD(currDate);
+          const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d);
+          currDate.setDate(currDate.getDate() + 1); dateInput.value = formatDateToYYYYMMDD(currDate);
           window.fetchTransactions(true);
       };
   }
@@ -1602,8 +1704,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function initCategories() {
     try {
       const cats = await fetchCategories();
-      const sCat = document.getElementById('searchCategory'); const kCat = document.getElementById('keywordCategory');
+      const sCat = document.getElementById('searchCategory'); 
+      const kCat = document.getElementById('keywordCategory');
       cats.forEach(c => { sCat.appendChild(new Option(c, c)); kCat.appendChild(new Option(c, c)); });
+      
+      // 🌟 TỰ ĐỘNG CHÈN NÚT CÀI ĐẶT ICON CẠNH DROPDOWN (KHÔNG LÀM VỠ GIAO DIỆN)
+      if (kCat && !document.getElementById('openIconPickerBtn')) {
+          const btn = document.createElement('button');
+          btn.id = 'openIconPickerBtn';
+          btn.type = 'button';
+          btn.innerHTML = '<i class="fas fa-cog"></i>';
+          // Bắt màu theo theme của App (Tương thích cả chế độ Sáng/Tối)
+          btn.style.cssText = 'background: var(--bg-card2); color: var(--primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;';
+          btn.onclick = window.openIconPickerModal;
+          
+          const parent = kCat.parentElement;
+          const wrapper = document.createElement('div');
+          wrapper.style.display = 'flex';
+          wrapper.style.width = '100%';
+          
+          parent.insertBefore(wrapper, kCat);
+          wrapper.appendChild(kCat);
+          wrapper.appendChild(btn);
+          kCat.style.flex = '1';
+      }
     } catch(e) {}
   }
   initCategories();
