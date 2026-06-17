@@ -1059,38 +1059,64 @@ window.deleteTransaction = function(id) {
   };
 };
 
-// 💎 XUẤT FILE DATA CSV 
-window.exportToCSV = function() {
-    const data = cachedTransactions?.data || [];
-    if (data.length === 0) {
-        return showToast("Không có dữ liệu giao dịch ngày hiện tại để xuất!", "warning");
+
+// 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (HỖ TRỢ CHỌN NƠI LƯU TRÊN ĐIỆN THOẠI)
+window.exportToCSV = async function() {
+    // Tự động nhận diện dữ liệu: Đang ở Tab Báo Cáo thì xuất dữ liệu của báo cáo (Tuần/Tháng/Năm), ở Tab Giao Dịch thì xuất dữ liệu ngày.
+    const isTab2 = document.getElementById('tab2').classList.contains('active');
+    const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
+    
+    if (dataToExport.length === 0) {
+        return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
     }
     
     triggerHaptic('light');
-    let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // Thêm BOM để không lỗi Tiếng Việt Excel
+    let csvContent = "\uFEFF"; // Thêm BOM để không lỗi Tiếng Việt Excel
     csvContent += "Mã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
     
-    data.forEach(t => {
+    dataToExport.forEach(t => {
         let content = t.content ? t.content.replace(/,/g, " ") : "";
         let note = t.note ? t.note.replace(/,/g, " ") : "";
         let row = `${t.id},${t.date},${t.type},${t.category},${t.amount},${content},${note}`;
         csvContent += row + "\n";
     });
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Giao_Dich_${formatDateToYYYYMMDD(new Date())}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    triggerHapticNotification('success');
-    showToast("Đã xuất file CSV thành công!", "success");
+    const reportName = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
+    const fileName = `Giao_Dich_${reportName}.csv`;
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const file = new File([blob], fileName, { type: 'text/csv' });
+
+    // CỐT LÕI: Dùng Web Share API để mở menu lưu/chia sẻ gốc của iOS/Android (Save to Files, Zalo, Drive...)
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: fileName,
+            });
+            triggerHapticNotification('success');
+        } catch (error) {
+            console.log("Người dùng hủy hoặc lỗi:", error);
+        }
+    } else {
+        // Fallback tải xuống truyền thống cho Máy tính
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        triggerHapticNotification('success');
+        showToast("Đã xuất file CSV thành công!", "success");
+    }
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF ĐỒNG BỘ TIẾNG VIỆT QUA HTML2PDF
+// 💎 XUẤT FILE BÁO CÁO PDF CÓ BIỂU ĐỒ & HỖ TRỢ CHỌN NƠI LƯU TRÊN ĐIỆN THOẠI
 window.exportToPDF = function() {
-    const data = cachedTransactions?.data || [];
+    const isTab2 = document.getElementById('tab2').classList.contains('active');
+    const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
+    
     if (data.length === 0) {
         return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
     }
@@ -1101,26 +1127,31 @@ window.exportToPDF = function() {
     triggerHaptic('medium');
     showToast("Đang lập báo cáo PDF...", "info");
 
+    let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
+    if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
+    
+    const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
+
     const element = document.createElement('div');
     element.style.padding = '24px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
     
-    let dateStr = document.getElementById('displayCurrentDate')?.textContent || '';
     let tableRows = '';
     let totalIncome = 0, totalExpense = 0;
     
+    // Tạo bảng dữ liệu
     data.forEach((t, idx) => {
         const isInc = t.type === 'Thu nhập';
         if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
         
         tableRows += `
-            <tr style="border-bottom: 1px solid #E2E8F0;">
+            <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
                 <td style="padding: 10px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                <td style="padding: 10px; font-size: 11px; text-align: center;">${t.id}</td>
                 <td style="padding: 10px; font-size: 11px; font-weight: 600;">${t.content}</td>
                 <td style="padding: 10px; font-size: 11px; color: #475569;">${t.category}</td>
+                <td style="padding: 10px; font-size: 11px; color: #94A3B8;">${t.date.substring(0,5)}</td>
                 <td style="padding: 10px; font-size: 11px; font-weight: 700; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                     ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                 </td>
@@ -1128,13 +1159,60 @@ window.exportToPDF = function() {
         `;
     });
 
+    // CHỤP BIỂU ĐỒ (Chỉ khi xuất từ Tab Báo Cáo)
+    let chartsHTML = '';
+    if (isTab2 && window.mChart && window.pChart) {
+        // Biến biểu đồ Canvas trên màn hình thành ảnh Base64
+        const barChartImg = window.mChart.toBase64Image();
+        const pieChartImg = window.pChart.toBase64Image();
+        
+        // Tạo chú thích phần trăm cho biểu đồ tròn để ghép vào PDF
+        const catMap = {};
+        data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
+        const catArr = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
+        
+        let pieLegendHTML = '';
+        catArr.forEach((c, idx) => {
+            const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
+            const color = getColorByIndex(idx);
+            pieLegendHTML += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center;">
+                    <span style="color: #475569; display: flex; align-items: center; gap: 8px;">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};"></span>
+                        ${c.category}
+                    </span>
+                    <span style="font-weight: 800; color: ${color};">${pct}%</span>
+                </div>
+            `;
+        });
+
+        chartsHTML = `
+            <div style="margin-top: 20px; page-break-inside: avoid;">
+                <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
+                <div style="text-align: center; margin-top: 10px;">
+                    <img src="${barChartImg}" style="width: 100%; max-height: 220px; object-fit: contain;" />
+                </div>
+            </div>
+            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px;">
+                <div style="flex: 1;">
+                    <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
+                    <img src="${pieChartImg}" style="width: 100%; max-height: 220px; object-fit: contain;" />
+                </div>
+                <div style="flex: 1; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center;">
+                    ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
+                </div>
+            </div>
+            <div style="height: 24px;"></div>
+        `;
+    }
+
     element.innerHTML = `
         <div style="text-align: center; margin-bottom: 24px;">
-            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">Báo Cáo Giao Dịch Tài Chính</h2>
-            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 500;">Thống kê chi tiết: ${dateStr}</p>
+            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
+            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
         </div>
         
-        <div style="display: flex; gap: 12px; margin-bottom: 24px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0;">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid;">
             <div style="flex: 1;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
                 <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
@@ -1151,14 +1229,17 @@ window.exportToPDF = function() {
             </div>
         </div>
 
+        ${chartsHTML}
+
+        <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; page-break-inside: avoid; margin-bottom: 10px;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
                     <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 8%;">STT</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; width: 15%;">Mã GD</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 45%;">Nội dung giao dịch</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 17%;">Danh mục</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 15%;">Số tiền</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 40%;">Nội dung</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 22%;">Danh mục</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
+                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
                 </tr>
             </thead>
             <tbody>
@@ -1166,23 +1247,47 @@ window.exportToPDF = function() {
             </tbody>
         </table>
         
-        <div style="margin-top: 40px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic;">
-            <span>Chữ ký số: Hệ thống FinTech tự động</span>
+        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid;">
+            <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
             <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
         </div>
     `;
 
+    const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
+    
     const opt = {
-        margin:       12,
-        filename:     `Bao_Cao_Chi_Tieu_${formatDateToYYYYMMDD(new Date())}.pdf`,
+        margin:       [15, 12, 15, 12],
+        filename:     fileName,
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2, useCORS: true },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    html2pdf().set(opt).from(element).save().then(() => {
-        triggerHapticNotification('success');
-        showToast("Đã xuất file PDF báo cáo thành công!", "success");
+    // Tạo PDF dưới dạng Blob thay vì tải trực tiếp (TƯƠNG THÍCH ĐIỆN THOẠI)
+    html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        
+        // Mở popup lưu/share của điện thoại
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: fileName,
+                });
+                triggerHapticNotification('success');
+            } catch (error) {
+                console.log("Hủy chia sẻ hoặc lỗi:", error);
+            }
+        } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            triggerHapticNotification('success');
+            showToast("Đã xuất file PDF báo cáo thành công!", "success");
+        }
     }).catch(err => {
         showToast("Lỗi tạo PDF: " + err.message, "error");
     });
