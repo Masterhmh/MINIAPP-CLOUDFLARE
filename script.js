@@ -29,7 +29,6 @@ let currentFilterMode = 'weekly', activePeriodDate = new Date();
 let savedScrollPositionTab2 = 0;
 
 // Khởi tạo phím cứng MainButton từ Telegram SDK
-const mainButton = window.Telegram?.WebApp?.MainButton;
 
 // ---------------- UTILITIES ----------------
 function triggerHaptic(style = 'light') {
@@ -872,13 +871,6 @@ window.selectType = function(formId, type, el) {
 };
 
 // Hàm điều hướng tương tác cho nút SDK Telegram cứng
-function handleMainButtonClick() {
-    triggerHaptic('medium');
-    if (document.getElementById('addModal').classList.contains('show')) {
-        document.getElementById('addForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    } else if (document.getElementById('editModal').classList.contains('show')) {
-        document.getElementById('editForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-    }
 }
 
 window.openAddForm = async function() {
@@ -886,13 +878,7 @@ window.openAddForm = async function() {
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('addModal').classList.add('show'), 10);
   
-  if (mainButton) {
-      mainButton.setText("LƯU GIAO DỊCH MỚI");
-      mainButton.show();
-      mainButton.offClick(handleMainButtonClick);
-      mainButton.onClick(handleMainButtonClick);
-  }
-
+  
   document.querySelectorAll('#addModal .type-pill').forEach(p => {
      if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
      else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu';
@@ -906,7 +892,6 @@ window.openAddForm = async function() {
 };
 
 window.closeAddForm = function() { 
-  if(mainButton) mainButton.hide();
   document.getElementById('addModal').classList.remove('show'); 
   setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
 };
@@ -917,13 +902,7 @@ window.openEditForm = async function(tx) {
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('editModal').classList.add('show'), 10);
   
-  if (mainButton) {
-      mainButton.setText("CẬP NHẬT GIAO DỊCH");
-      mainButton.show();
-      mainButton.offClick(handleMainButtonClick);
-      mainButton.onClick(handleMainButtonClick);
-  }
-
+  
   const pills = document.querySelectorAll('#editModal .type-pill');
   pills.forEach(p => {
      if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
@@ -946,7 +925,6 @@ window.openEditForm = async function(tx) {
 };
 
 window.closeEditForm = function() { 
-  if(mainButton) mainButton.hide();
   document.getElementById('editModal').classList.remove('show'); 
   setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
 };
@@ -1061,6 +1039,7 @@ window.deleteTransaction = function(id) {
 
 
 
+
 // 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (CHỌN LỌC PC / MOBILE)
 window.exportToCSV = async function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
@@ -1110,7 +1089,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (TÍCH HỢP XEM TRƯỚC VÀ CHIA SẺ TRONG APP)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX DỮ LIỆU, FIX MOBILE SCROLL, TÁCH LOGIC PC/MOBILE)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1138,17 +1117,19 @@ window.exportToPDF = function() {
     let tableRows = '';
     let totalIncome = 0, totalExpense = 0;
     
+    // Đảm bảo dữ liệu đã được nạp đủ và tạo cột Mã GD (GDxxxx)
     data.forEach((t, idx) => {
         const isInc = t.type === 'Thu nhập';
         if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
         
         tableRows += `
             <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                <td style="padding: 10px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                <td style="padding: 10px; font-size: 11px; font-weight: 600;">${t.content}</td>
-                <td style="padding: 10px; font-size: 11px; color: #475569;">${t.category}</td>
-                <td style="padding: 10px; font-size: 11px; color: #94A3B8;">${t.date.substring(0,5)}</td>
-                <td style="padding: 10px; font-size: 11px; font-weight: 700; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                <td style="padding: 10px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 10px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
+                <td style="padding: 10px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
+                <td style="padding: 10px 4px; font-size: 11px; color: #475569;">${t.category}</td>
+                <td style="padding: 10px 4px; font-size: 11px; color: #94A3B8;">${t.date.substring(0,5)}</td>
+                <td style="padding: 10px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                     ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                 </td>
             </tr>
@@ -1237,11 +1218,12 @@ window.exportToPDF = function() {
             <table>
                 <thead>
                     <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 8%;">STT</th>
-                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 40%;">Nội dung</th>
-                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 22%;">Danh mục</th>
-                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
-                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%;">STT</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 14%;">Mã GD</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 20%;">Danh mục</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 16%;">Số tiền</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1258,22 +1240,22 @@ window.exportToPDF = function() {
 
     const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
+    // Thêm windowWidth: 800 để html2canvas không bị bóp nghẹt content gây thiếu dữ liệu
     const opt = {
-        margin:       [15, 12, 15, 12],
+        margin:       [10, 8, 10, 8],
         filename:     fileName,
         image:        { type: 'jpeg', quality: 1 },
-        html2canvas:  { scale: 3, useCORS: true, letterRendering: true },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 800 },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:    { mode: ['css', 'legacy'] }
     };
 
-    // Tạo file PDF dạng Blob thay vì tải ngay
     html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
         triggerHapticNotification('success');
         
         const pdfUrl = URL.createObjectURL(blob);
         
-        // TẠO GIAO DIỆN MODAL XEM TRƯỚC PDF NGAY TRONG APP
+        // Giao diện Modal xem trước
         const overlay = document.createElement('div');
         overlay.className = 'overlay show';
         overlay.style.zIndex = '9999';
@@ -1289,21 +1271,21 @@ window.exportToPDF = function() {
             <div class="modal-handle"></div>
             <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-size: 1.1rem;"><i class="fas fa-file-pdf" style="color: #FF4444; margin-right: 6px;"></i> Xem trước báo cáo</span>
-                <button id="fullscreenPdfBtn" style="background: none; border: none; color: var(--text-2); font-size: 1.2rem; cursor: pointer; padding: 4px;" title="Mở qua trình duyệt"><i class="fas fa-external-link-alt"></i></button>
+                <button id="fullscreenPdfBtn" style="background: none; border: none; color: var(--text-2); font-size: 1.2rem; cursor: pointer; padding: 4px;" title="Mở rộng"><i class="fas fa-expand"></i></button>
             </div>
-            <div style="flex: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #E2E8F0; margin-bottom: 16px; position: relative;">
-                <iframe src="${pdfUrl}#toolbar=0&view=FitH" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+            <div style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #E2E8F0; margin-bottom: 16px; position: relative; overflow: hidden; -webkit-overflow-scrolling: touch;">
+                <!-- Fix iOS Safari iframe horizontal scroll: Bọc khung và overflow -->
+                <iframe src="${pdfUrl}#view=FitH&scrollbar=0&toolbar=0&navpanes=0" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
             </div>
             <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
                 <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
-                <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3);"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu máy</button>
+                <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3);"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu</button>
             </div>
         `;
         
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
         
-        // Nút mở qua trình duyệt native (hỗ trợ in/xem full tab trên PC)
         document.getElementById('fullscreenPdfBtn').onclick = () => {
             triggerHaptic('light');
             const a = document.createElement('a');
@@ -1312,7 +1294,6 @@ window.exportToPDF = function() {
             a.click();
         };
         
-        // Nút Đóng Modal
         document.getElementById('closePdfBtn').onclick = () => {
             triggerHaptic('light');
             modal.classList.remove('show');
@@ -1322,13 +1303,14 @@ window.exportToPDF = function() {
             }, 300);
         };
         
-        // Nút Chia sẻ / Tải xuống
         document.getElementById('sharePdfBtn').onclick = async () => {
             triggerHaptic('medium');
             const file = new File([blob], fileName, { type: 'application/pdf' });
             
-            // Gọi Web Share API hệ thống
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            const platform = window.Telegram?.WebApp?.platform || 'unknown';
+            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({ files: [file], title: fileName });
                     triggerHapticNotification('success');
@@ -1336,7 +1318,7 @@ window.exportToPDF = function() {
                     console.log("Hủy share:", error); 
                 }
             } else {
-                // PC / Thiết bị không hỗ trợ share -> Fallback Tải xuống File
+                // Nếu PC hoặc HĐH không hỗ trợ Share -> Ép tải xuống trực tiếp
                 const a = document.createElement('a');
                 a.href = pdfUrl;
                 a.download = fileName;
