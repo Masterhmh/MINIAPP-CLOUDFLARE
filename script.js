@@ -871,8 +871,6 @@ window.selectType = function(formId, type, el) {
 };
 
 // Hàm điều hướng tương tác cho nút SDK Telegram cứng
-}
-
 window.openAddForm = async function() {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
@@ -1502,7 +1500,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   ['addAmount','editAmount','searchAmount'].forEach(id => { const el = document.getElementById(id); if(el) el.oninput = function() { this.value = formatNumberWithCommas(this.value); }; });
   
-  async function initCategories() {
+ async function initCategories() {
     try {
       const cats = await fetchCategories();
       const sCat = document.getElementById('searchCategory'); const kCat = document.getElementById('keywordCategory');
