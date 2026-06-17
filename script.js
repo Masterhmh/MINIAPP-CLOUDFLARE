@@ -161,6 +161,7 @@ window.fetchTransactions = async function(forceRefresh = false) {
   if (!tDate) return;
   const [y, m, d] = tDate.split('-');
   
+  // TÍNH TOÁN HIỂN THỊ TEXT "HÔM NAY", "HÔM QUA" THÔNG MINH
   const selectedDateObj = new Date(y, m - 1, d);
   const todayObj = new Date();
   todayObj.setHours(0,0,0,0);
@@ -399,8 +400,6 @@ function drawMonthlyPieChart(data) {
     type: 'doughnut', 
     data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
     options: { 
-        responsive: true,
-        maintainAspectRatio: true, // Fix méo biểu đồ
         cutout:'75%', 
         layout: {padding: 8}, 
         plugins: { 
@@ -872,6 +871,7 @@ window.selectType = function(formId, type, el) {
   if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active');
 };
 
+// Hàm điều hướng tương tác cho nút SDK Telegram cứng
 function handleMainButtonClick() {
     triggerHaptic('medium');
     if (document.getElementById('addModal').classList.contains('show')) {
@@ -950,14 +950,10 @@ window.closeEditForm = function() {
   document.getElementById('editModal').classList.remove('show'); 
   setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
 };
-
 window.closeAllModals = function() { 
   closeAddForm(); 
   closeEditForm(); 
   document.getElementById('confirmDeleteModal').classList.remove('show'); 
-  if(document.getElementById('pdfPreviewModal').classList.contains('show')) {
-      closePdfPreview();
-  }
 };
 window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
 
@@ -975,6 +971,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
   await submitTx(tx); 
 };
 
+// ⚡ LƯU GIAO DỊCH TRỰC TIẾP LÊN FIREBASE
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -1024,6 +1021,7 @@ async function submitTx(tx) {
   } catch(e) { showToast(e.message, "error"); }
 }
 
+// ⚡ XÓA TRỰC TIẾP TRÊN FIREBASE
 window.deleteTransaction = function(id) {
   closeEditForm(); 
   triggerHaptic('medium');
@@ -1061,6 +1059,9 @@ window.deleteTransaction = function(id) {
   };
 };
 
+
+
+// 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (CHỌN LỌC PC / MOBILE)
 window.exportToCSV = async function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1070,51 +1071,46 @@ window.exportToCSV = async function() {
     }
     
     triggerHaptic('light');
-    let csvContent = "\uFEFF"; 
-    csvContent += "Mã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
+    let csvContent = "\uFEFFMã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
     
     dataToExport.forEach(t => {
         let content = t.content ? t.content.replace(/,/g, " ") : "";
         let note = t.note ? t.note.replace(/,/g, " ") : "";
-        let row = `${t.id},${t.date},${t.type},${t.category},${t.amount},${content},${note}`;
-        csvContent += row + "\n";
+        csvContent += `${t.id},${t.date},${t.type},${t.category},${t.amount},${content},${note}\n`;
     });
 
     const reportName = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
     const fileName = `Giao_Dich_${reportName}.csv`;
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const file = new File([blob], fileName, { type: 'text/csv' });
+    const platform = window.Telegram?.WebApp?.platform || 'unknown';
+    const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
 
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (isMobile && navigator.canShare) {
         try {
-            await navigator.share({
-                files: [file],
-                title: fileName,
-            });
-            triggerHapticNotification('success');
-        } catch (error) {
-            console.log("Người dùng hủy hoặc lỗi:", error);
-        }
-    } else {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        triggerHapticNotification('success');
-        showToast("Đã xuất file CSV thành công!", "success");
-    }
+            const file = new File([blob], fileName, { type: 'text/csv' });
+            if (navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: fileName });
+                triggerHapticNotification('success');
+                return;
+            }
+        } catch (error) { console.log("Hủy share:", error); }
+    } 
+    
+    // PC (hoặc fallback Mobile): Tải file (Sẽ hiện hộp thoại Save As trên máy tính)
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    triggerHapticNotification('success');
+    showToast("Đã tải file CSV!", "success");
 };
 
-// --------------------------------------------------------------------------
-// HỆ THỐNG XUẤT VÀ XEM TRƯỚC PDF
-// --------------------------------------------------------------------------
-window.currentPdfBlob = null;
-window.currentPdfFileName = "";
-
+// 💎 XUẤT FILE BÁO CÁO PDF (TÍCH HỢP XEM TRƯỚC VÀ CHIA SẺ TRONG APP)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1127,15 +1123,14 @@ window.exportToPDF = function() {
     }
     
     triggerHaptic('medium');
-    showToast("Đang lập báo cáo PDF...", "info");
+    showToast("Đang lập báo cáo PDF, vui lòng chờ...", "info");
 
     let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
     if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
-    
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    element.style.padding = '24px';
+    element.style.padding = '20px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
@@ -1162,8 +1157,8 @@ window.exportToPDF = function() {
 
     let chartsHTML = '';
     if (isTab2 && window.mChart && window.pChart) {
-        const barChartImg = window.mChart.toBase64Image('image/png', 1.0);
-        const pieChartImg = window.pChart.toBase64Image('image/png', 1.0);
+        const barChartImg = window.mChart.toBase64Image();
+        const pieChartImg = window.pChart.toBase64Image();
         
         const catMap = {};
         data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
@@ -1188,13 +1183,15 @@ window.exportToPDF = function() {
             <div style="margin-top: 20px; page-break-inside: avoid;">
                 <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
                 <div style="text-align: center; margin-top: 10px;">
-                    <img src="${barChartImg}" style="width: 100%; max-height: 220px; object-fit: contain;" />
+                    <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
                 </div>
             </div>
             <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px;">
                 <div style="flex: 1;">
                     <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
-                    <img src="${pieChartImg}" style="width: 100%; max-height: 220px; object-fit: contain;" />
+                    <div style="text-align: center;">
+                        <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
+                    </div>
                 </div>
                 <div style="flex: 1; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center;">
                     ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
@@ -1205,6 +1202,12 @@ window.exportToPDF = function() {
     }
 
     element.innerHTML = `
+        <style>
+            table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+        </style>
         <div style="text-align: center; margin-bottom: 24px;">
             <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
             <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
@@ -1229,21 +1232,23 @@ window.exportToPDF = function() {
 
         ${chartsHTML}
 
-        <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-after: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 8%;">STT</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 40%;">Nội dung</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 22%;">Danh mục</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
-                    <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${tableRows}
-            </tbody>
-        </table>
+        <div style="page-break-before: auto;">
+            <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
+            <table>
+                <thead>
+                    <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
+                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 8%;">STT</th>
+                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 40%;">Nội dung</th>
+                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 22%;">Danh mục</th>
+                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
+                        <th style="padding: 12px 10px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRows}
+                </tbody>
+            </table>
+        </div>
         
         <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid;">
             <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
@@ -1251,76 +1256,99 @@ window.exportToPDF = function() {
         </div>
     `;
 
-    window.currentPdfFileName = `Bao_Cao_${reportNameForFile}.pdf`;
+    const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
     const opt = {
         margin:       [15, 12, 15, 12],
-        filename:     window.currentPdfFileName,
-        image:        { type: 'jpeg', quality: 1.0 },
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 1 },
         html2canvas:  { scale: 3, useCORS: true, letterRendering: true },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak:    { mode: ['css', 'legacy'] }
     };
 
-    html2pdf().set(opt).from(element).output('blob').then(function(blob) {
-        window.currentPdfBlob = blob;
-        const url = URL.createObjectURL(blob);
+    // Tạo file PDF dạng Blob thay vì tải ngay
+    html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+        triggerHapticNotification('success');
         
-        document.getElementById('modalOverlay').classList.add('show');
-        document.getElementById('pdfPreviewModal').classList.add('show');
+        const pdfUrl = URL.createObjectURL(blob);
         
-        const iframe = document.getElementById('pdfIframe');
-        iframe.src = url + "#toolbar=0"; 
+        // TẠO GIAO DIỆN MODAL XEM TRƯỚC PDF NGAY TRONG APP
+        const overlay = document.createElement('div');
+        overlay.className = 'overlay show';
+        overlay.style.zIndex = '9999';
         
-        iframe.onload = function() {
-            document.getElementById('pdfLoadingOverlay').style.display = 'none';
+        const modal = document.createElement('div');
+        modal.className = 'modal-sheet show';
+        modal.style.height = '92vh';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.padding = '20px 16px 30px';
+        
+        modal.innerHTML = `
+            <div class="modal-handle"></div>
+            <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1.1rem;"><i class="fas fa-file-pdf" style="color: #FF4444; margin-right: 6px;"></i> Xem trước báo cáo</span>
+                <button id="fullscreenPdfBtn" style="background: none; border: none; color: var(--text-2); font-size: 1.2rem; cursor: pointer; padding: 4px;" title="Mở qua trình duyệt"><i class="fas fa-external-link-alt"></i></button>
+            </div>
+            <div style="flex: 1; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #E2E8F0; margin-bottom: 16px; position: relative;">
+                <iframe src="${pdfUrl}#toolbar=0&view=FitH" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+            </div>
+            <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
+                <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
+                <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3);"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu máy</button>
+            </div>
+        `;
+        
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+        
+        // Nút mở qua trình duyệt native (hỗ trợ in/xem full tab trên PC)
+        document.getElementById('fullscreenPdfBtn').onclick = () => {
+            triggerHaptic('light');
+            const a = document.createElement('a');
+            a.href = pdfUrl;
+            a.target = '_blank';
+            a.click();
         };
+        
+        // Nút Đóng Modal
+        document.getElementById('closePdfBtn').onclick = () => {
+            triggerHaptic('light');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                overlay.remove();
+                URL.revokeObjectURL(pdfUrl);
+            }, 300);
+        };
+        
+        // Nút Chia sẻ / Tải xuống
+        document.getElementById('sharePdfBtn').onclick = async () => {
+            triggerHaptic('medium');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            
+            // Gọi Web Share API hệ thống
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: fileName });
+                    triggerHapticNotification('success');
+                } catch (error) { 
+                    console.log("Hủy share:", error); 
+                }
+            } else {
+                // PC / Thiết bị không hỗ trợ share -> Fallback Tải xuống File
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = fileName;
+                a.click();
+                showToast("Đã tải file PDF xuống máy!", "success");
+            }
+        };
+        
     }).catch(err => {
         showToast("Lỗi tạo PDF: " + err.message, "error");
     });
 };
-
-window.closePdfPreview = function() {
-    triggerHaptic('light');
-    document.getElementById('pdfPreviewModal').classList.remove('show');
-    setTimeout(() => {
-        document.getElementById('modalOverlay').classList.remove('show');
-        document.getElementById('pdfIframe').src = '';
-        document.getElementById('pdfLoadingOverlay').style.display = 'flex';
-    }, 300);
-};
-
-document.getElementById('btnDownloadPdf')?.addEventListener('click', function() {
-    triggerHaptic('light');
-    const url = URL.createObjectURL(window.currentPdfBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = window.currentPdfFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast("Đã tải xuống file PDF!", "success");
-});
-
-document.getElementById('btnSharePdf')?.addEventListener('click', async function() {
-    triggerHaptic('light');
-    const file = new File([window.currentPdfBlob], window.currentPdfFileName, { type: 'application/pdf' });
-    
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-            await navigator.share({
-                files: [file],
-                title: window.currentPdfFileName,
-            });
-            showToast("Đã chia sẻ thành công!", "success");
-        } catch (error) {
-            console.log("Người dùng hủy chia sẻ hoặc lỗi:", error);
-        }
-    } else {
-        showToast("Nền tảng này không hỗ trợ chia sẻ trực tiếp. Hãy ấn 'Lưu máy tính'!", "warning");
-    }
-});
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1328,6 +1356,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
+  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY (Đã sửa tối ưu loại trừ phần tử con)
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
   if(heroCardTab1) {
       heroCardTab1.style.cursor = 'pointer';
@@ -1343,6 +1372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
+  // 2. TÍNH NĂNG VUỐT XUỐNG ĐỂ LÀM MỚI DỮ LIỆU (SWIPE TO REFRESH)
   let startY = 0;
   const tab1Content = document.getElementById('tab1');
   if (tab1Content) {
