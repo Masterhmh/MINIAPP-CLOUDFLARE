@@ -376,6 +376,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
           { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 0, maxBarThickness: 20 }
       ]},
       options: { 
+          devicePixelRatio: 4, // 🚀 FIX MỜ ẢNH BÁO CÁO (Tăng độ phân giải lên 4K)
           responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
           scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, 
                     y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => v >= 1000 ? (v/1000)+'K' : v } } }, 
@@ -399,6 +400,7 @@ function drawMonthlyPieChart(data) {
     type: 'doughnut', 
     data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
     options: { 
+        devicePixelRatio: 4, // 🚀 FIX MỜ ẢNH BÁO CÁO (Tăng độ phân giải lên 4K)
         cutout:'75%', 
         layout: {padding: 8}, 
         plugins: { 
@@ -1085,7 +1087,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (DÙNG ICON DANH MỤC + ĐỒNG BỘ MÀU BIỂU ĐỒ)
+// 💎 XUẤT FILE BÁO CÁO PDF (DÙNG ICON DANH MỤC + ĐỒNG BỘ MÀU BIỂU ĐỒ + BIỂU ĐỒ NÉT CĂNG)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1393,7 +1395,7 @@ window.exportToPDF = function() {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 740 }, 
+            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, // 🚀 TĂNG SCALE ĐỂ CHỮ NÉT CĂNG
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] }
         };
@@ -1426,13 +1428,14 @@ window.exportToPDF = function() {
         });
     };
 };
+
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
 document.addEventListener('DOMContentLoaded', async () => {
   const currentMonthValue = new Date().getMonth() + 1;
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
-  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY (Đã sửa tối ưu loại trừ phần tử con)
+  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
   if(heroCardTab1) {
       heroCardTab1.style.cursor = 'pointer';
