@@ -65,37 +65,64 @@ function formatNumberWithCommas(value) { return value.replace(/[^0-9]/g, '').rep
 function parseNumber(value) { return parseInt(value.replace(/[^0-9]/g, '')) || 0; }
 function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#8B5CF6']; return c[i % c.length]; }
 
-// 🌟 THUẬT TOÁN GET ICON 
+// 🌟 THUẬT TOÁN GET ICON - PHIÊN DỊCH EMOJI SANG FLAT ICON
 function getCategoryIcon(cat) {
     if (!cat) return '<i class="fas fa-box-open"></i>';
     const categoryName = cat.trim();
     
     // Ưu tiên 1: Icon cấu hình trên App
     if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
-        let iconCode = window.customCategoryIcons[categoryName];
-        if (!iconCode.includes('fa-')) iconCode = `fa-${iconCode}`;
-        if (!iconCode.includes('fas ')) iconCode = `fas ${iconCode}`;
-        return `<i class="${iconCode}"></i>`;
+        let iconCode = window.customCategoryIcons[categoryName].trim();
+        if (iconCode) {
+            if (!iconCode.includes('fa-')) iconCode = `fa-${iconCode}`;
+            if (!iconCode.includes('fas ')) iconCode = `fas ${iconCode}`;
+            return `<i class="${iconCode}"></i>`;
+        }
     }
     
-    // Ưu tiên 2: Icon cấu hình trên Sheet
-    if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
-        let dynamicIcon = window.categoryIconMap[categoryName];
-        if (!dynamicIcon.includes('fa-')) dynamicIcon = `fa-${dynamicIcon}`;
-        if (!dynamicIcon.includes('fas ')) dynamicIcon = `fas ${dynamicIcon}`;
-        return `<i class="${dynamicIcon}"></i>`;
-    }
-    
-    // Ưu tiên 3: Bộ Icon mặc định
+    // Ưu tiên 2: Tự động bắt Tên Danh Mục ra Icon phẳng
     const faMap = {
-        'Ăn uống': 'fa-utensils', 'Bảo hiểm': 'fa-shield-halved', 'Công nghệ': 'fa-laptop', 'Công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
-        'Đi lại': 'fa-car-side', 'Giải trí': 'fa-clapperboard', 'Giáo dục': 'fa-graduation-cap', 'Gia đình': 'fa-house-user', 'Hóa đơn': 'fa-file-invoice-dollar', 'Chăm sóc': 'fa-spa', 
-        'Làm đẹp': 'fa-spa', 'Mua sắm': 'fa-bag-shopping', 'Quà tặng': 'fa-gift', 'Sức khỏe': 'fa-dumbbell', 'Tiết kiệm': 'fa-chart-line', 'Đầu tư': 'fa-chart-line', 'Y tế': 'fa-pills', 'Khác': 'fa-layer-group'
+        'ăn uống': 'fa-utensils', 'bảo hiểm': 'fa-shield-halved', 'công nghệ': 'fa-laptop', 'công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
+        'đi lại': 'fa-car-side', 'giải trí': 'fa-clapperboard', 'giáo dục': 'fa-graduation-cap', 'gia đình': 'fa-house-user', 'hóa đơn': 'fa-file-invoice-dollar', 'chăm sóc': 'fa-spa', 
+        'làm đẹp': 'fa-spa', 'mua sắm': 'fa-bag-shopping', 'quà tặng': 'fa-gift', 'sức khỏe': 'fa-dumbbell', 'tiết kiệm': 'fa-chart-line', 'đầu tư': 'fa-chart-line', 'y tế': 'fa-pills',
+        'nhà cửa': 'fa-house', 'xăng': 'fa-gas-pump', 'lương': 'fa-money-bill-wave', 'thưởng': 'fa-gift', 'khác': 'fa-layer-group'
     };
-    for (let key in faMap) { if (categoryName.toLowerCase().includes(key.toLowerCase())) return `<i class="fas ${faMap[key]}"></i>`; }
+    for (let key in faMap) { 
+        if (categoryName.toLowerCase().includes(key)) return `<i class="fas ${faMap[key]}"></i>`; 
+    }
+
+    // Ưu tiên 3: Tự động dịch Emoji trên Sheet sang Icon Phẳng
+    const emojiToFa = {
+        '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty',
+        '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump',
+        '🏠': 'fa-house', '🏢': 'fa-building', '🛒': 'fa-cart-shopping', '🛍️': 'fa-bag-shopping', '👕': 'fa-shirt', '👗': 'fa-shirt',
+        '💻': 'fa-laptop', '📱': 'fa-mobile-screen', '🎮': 'fa-gamepad', '🎧': 'fa-headphones',
+        '💡': 'fa-bolt', '💧': 'fa-droplet', '🔥': 'fa-fire', '📶': 'fa-wifi',
+        '💊': 'fa-pills', '🩺': 'fa-stethoscope', '🏥': 'fa-house-medical', '💪': 'fa-dumbbell',
+        '🎓': 'fa-graduation-cap', '📚': 'fa-book', '💼': 'fa-briefcase',
+        '📈': 'fa-chart-line', '💰': 'fa-money-bill-wave', '🏦': 'fa-building-columns', '💳': 'fa-credit-card',
+        '🎁': 'fa-gift', '🎂': 'fa-cake-candles', '🐶': 'fa-paw', '🐱': 'fa-cat', '👶': 'fa-baby',
+        '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol',
+        '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench'
+    };
+
+    if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
+        let sheetIcon = window.categoryIconMap[categoryName].trim();
+        const firstChar = Array.from(sheetIcon)[0];
+        
+        if (emojiToFa[firstChar]) return `<i class="fas ${emojiToFa[firstChar]}"></i>`;
+        if (emojiToFa[sheetIcon]) return `<i class="fas ${emojiToFa[sheetIcon]}"></i>`;
+        
+        if (!/[^\x00-\x7F]/.test(sheetIcon)) {
+            if (!sheetIcon.includes('fa-')) sheetIcon = `fa-${sheetIcon}`;
+            if (!sheetIcon.includes('fas ')) sheetIcon = `fas ${sheetIcon}`;
+            return `<i class="${sheetIcon}"></i>`;
+        }
+    }
     
     // Ưu tiên 4: Fallback chữ cái đầu
-    return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif;">${categoryName.charAt(0).toUpperCase()}</span>`;
+    const firstLetter = Array.from(categoryName)[0].toUpperCase();
+    return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
@@ -296,7 +323,6 @@ function drawMonthlyPieChart(data) {
 
     if (leg) { 
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; 
-        // ✨ ĐÃ SỬA: Thay thế chấm tròn bằng Icon trong bảng chú thích Miniapp
         divLeg.innerHTML = `
           <div class="legend-item-left">
              <span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span>
@@ -483,7 +509,7 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF
+// 💎 XUẤT FILE BÁO CÁO PDF (ĐÃ FIX TÀNG HÌNH ICON BẰNG CSS FONT AWESOME)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -661,7 +687,7 @@ window.exportToPDF = function() {
         `;
     }
 
-    // Ép HTML tải FontAwesome từ bên ngoài vào
+    // 🚀 BẮT BUỘC CÓ THẺ LINK NÀY ĐỂ HTML2PDF LOAD ĐƯỢC FONT AWESOME TRƯỚC KHI CHỤP!
     element.innerHTML = `
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
         <style>
@@ -786,7 +812,7 @@ window.exportToPDF = function() {
     };
 };
 
-// 🌟 XÂY DỰNG TÍNH NĂNG CỬA SỔ "ICON PICKER" ĐỂ CẤU HÌNH DANH MỤC
+// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER"
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -867,7 +893,6 @@ window.closeIconPickerModal = function() {
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
     
-  // ✨ TỰ ĐỘNG IN HOA TẤT CẢ CÁC TIÊU ĐỀ MODAL BẰNG CSS
   document.querySelectorAll('.modal-title').forEach(title => {
       title.style.textTransform = 'uppercase';
   });
