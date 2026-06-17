@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mini App Tổng Quan Chi Tiêu</title>
+  <title>Mini App Tổng Overview Chi Tiêu</title>
   
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   
@@ -21,6 +21,8 @@
   <link rel="stylesheet" href="styles.css">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <!-- Thêm thư viện html2pdf.js để xuất file PDF hỗ trợ font Tiếng Việt mượt mà -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
   <div class="content-wrapper">
@@ -146,6 +148,12 @@
               <div class="stat-num balance" id="tab2Balance">0đ</div>
               <div class="stat-compare" id="tab2BalanceCompare">-</div>
             </div>
+          </div>
+
+          <!-- Khu vực nút bấm Xuất dữ liệu đa nền tảng -->
+          <div class="field-group mb-3" style="display: flex; gap: 10px;">
+            <button class="btn-soft" onclick="exportToCSV()" style="margin: 0; flex: 1;"><i class="fas fa-file-csv" style="color: #00D26A;"></i> Xuất dữ liệu CSV</button>
+            <button class="btn-soft" onclick="exportToPDF()" style="margin: 0; flex: 1;"><i class="fas fa-file-pdf" style="color: #FF4444;"></i> Xuất báo cáo PDF</button>
           </div>
 
           <p id="placeholderTab2" class="empty-text" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</p>
@@ -323,7 +331,8 @@
           <div class="field-label">Ghi chú (nếu có)</div>
           <input type="text" id="addNote" class="field-input" placeholder="Tùy chọn">
         </div>
-        <div class="modal-actions">
+        <!-- Nút dự phòng nếu không chạy trong môi trường Telegram App -->
+        <div class="modal-actions fallback-actions">
           <button type="button" class="btn-cancel" onclick="closeAddForm()">Hủy</button>
           <button type="submit" class="btn-save"><i class="fas fa-save"></i> Lưu</button>
         </div>
@@ -363,7 +372,8 @@
           <div class="field-label">Ghi chú</div>
           <input type="text" id="editNote" class="field-input">
         </div>
-        <div class="modal-actions">
+        <!-- Nút dự phòng nếu không chạy trong môi trường Telegram App -->
+        <div class="modal-actions fallback-actions">
           <button type="button" class="btn-danger-outline flex-1" onclick="deleteTransaction(document.getElementById('editTransactionId').value)"><i class="fas fa-trash"></i> Xóa</button>
           <button type="submit" class="btn-save"><i class="fas fa-save"></i> Lưu</button>
         </div>
