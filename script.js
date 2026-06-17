@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (ĐỒNG BỘ MÀU DANH MỤC VỚI BIỂU ĐỒ)
+// 💎 XUẤT FILE BÁO CÁO PDF (DÙNG ICON DANH MỤC + ĐỒNG BỘ MÀU BIỂU ĐỒ)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1159,16 +1159,18 @@ window.exportToPDF = function() {
             if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
             else { totalExpense += t.amount; monthExp += t.amount; }
             
-            // Nếu là chi tiêu, lấy màu y hệt biểu đồ tròn. Thu nhập mặc định xanh ngọc (#10B981)
+            // Lấy màu và lấy ICON từ hệ thống
             const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
+            const catIconHTML = getCategoryIcon(t.category);
             
+            // Dùng ICON thay vì thẻ span tạo màu
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
                     <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
                     <td style="padding: 12px 10px; font-size: 11px; color: ${catColor}; font-weight: 700; text-align: left;">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${catColor};margin-right:6px;vertical-align:middle;margin-top:-2px;"></span>${t.category}
+                        <span style="display:inline-block; width:16px; text-align:center; margin-right:4px; font-size:12px;">${catIconHTML}</span>${t.category}
                     </td>
                     <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
                     <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
@@ -1235,10 +1237,13 @@ window.exportToPDF = function() {
         catArr.forEach((c, idx) => {
             const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
             const color = getColorByIndex(idx);
+            const catIconHTML = getCategoryIcon(c.category); // Lấy icon cho Legend
+            
+            // Dùng ICON cho khu vực tỷ trọng (Thay cho dấu chấm vuông)
             pieLegendHTML += `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
                     <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;"></span>
+                        <span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>
                         ${c.category}
                     </span>
                     <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
