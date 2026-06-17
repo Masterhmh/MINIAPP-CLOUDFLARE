@@ -63,15 +63,7 @@ function formatDateToYYYYMMDD(date) { return `${date.getFullYear()}-${String(dat
 function formatDateToDDMMYYYY(date) { return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth() + 1).padStart(2,'0')}/${date.getFullYear()}`; }
 function formatNumberWithCommas(value) { return value.replace(/[^0-9]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseNumber(value) { return parseInt(value.replace(/[^0-9]/g, '')) || 0; }
-function getColorByIndex(i) { 
-    const c = [
-        '#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#06B6D4', 
-        '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', 
-        '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', 
-        '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3'
-    ]; 
-    return c[i % c.length]; 
-}
+function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#3B82F6', '#EC4899', '#14B8A6', '#8B5CF6']; return c[i % c.length]; }
 
 // 🌟 THUẬT TOÁN GET ICON - PHIÊN DỊCH EMOJI SANG FLAT ICON
 function getCategoryIcon(cat) {
@@ -784,12 +776,6 @@ window.exportToPDF = function() {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
         
-        // Gắn tạm element gốc vào DOM (ẩn đi) để thư viện có thể quét toàn bộ dữ liệu
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '0';
-        document.body.appendChild(element);
-
         const opt = {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
@@ -800,25 +786,17 @@ window.exportToPDF = function() {
         };
 
         html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-            // Xóa element ảo khỏi DOM ngay sau khi kết xuất thành công
-            if (document.body.contains(element)) {
-                document.body.removeChild(element);
-            }
-            
             triggerHapticNotification('success');
             const file = new File([blob], fileName, { type: 'application/pdf' });
             
             const platform = window.Telegram?.WebApp?.platform || 'unknown';
             const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
 
-            // Xử lý tải xuống hoặc chia sẻ tùy theo thiết bị
             if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({ files: [file], title: fileName });
                     triggerHapticNotification('success');
-                } catch (error) {
-                    console.log("Hủy chia sẻ:", error);
-                }
+                } catch (error) {}
             } else {
                 const pdfUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -829,13 +807,10 @@ window.exportToPDF = function() {
                 showToast("Đã tải file PDF xuống máy!", "success");
             }
         }).catch(err => {
-            // Đảm bảo dọn dẹp element nếu quá trình tạo PDF gặp lỗi
-            if (document.body.contains(element)) {
-                document.body.removeChild(element);
-            }
             showToast("Lỗi tạo PDF: " + err.message, "error");
         });
     };
+};
 
 // 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER"
 window.openIconPickerModal = function() {
