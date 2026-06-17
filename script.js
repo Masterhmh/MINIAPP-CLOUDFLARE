@@ -161,7 +161,6 @@ window.fetchTransactions = async function(forceRefresh = false) {
   if (!tDate) return;
   const [y, m, d] = tDate.split('-');
   
-  // TÍNH TOÁN HIỂN THỊ TEXT "HÔM NAY", "HÔM QUA" THÔNG MINH
   const selectedDateObj = new Date(y, m - 1, d);
   const todayObj = new Date();
   todayObj.setHours(0,0,0,0);
@@ -400,6 +399,8 @@ function drawMonthlyPieChart(data) {
     type: 'doughnut', 
     data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
     options: { 
+        responsive: true,
+        maintainAspectRatio: true, // Fix méo biểu đồ
         cutout:'75%', 
         layout: {padding: 8}, 
         plugins: { 
@@ -871,7 +872,6 @@ window.selectType = function(formId, type, el) {
   if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active');
 };
 
-// Hàm điều hướng tương tác cho nút SDK Telegram cứng
 function handleMainButtonClick() {
     triggerHaptic('medium');
     if (document.getElementById('addModal').classList.contains('show')) {
@@ -950,10 +950,14 @@ window.closeEditForm = function() {
   document.getElementById('editModal').classList.remove('show'); 
   setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); 
 };
+
 window.closeAllModals = function() { 
   closeAddForm(); 
   closeEditForm(); 
   document.getElementById('confirmDeleteModal').classList.remove('show'); 
+  if(document.getElementById('pdfPreviewModal').classList.contains('show')) {
+      closePdfPreview();
+  }
 };
 window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
 
@@ -971,7 +975,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
   await submitTx(tx); 
 };
 
-// ⚡ LƯU GIAO DỊCH TRỰC TIẾP LÊN FIREBASE
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -1021,7 +1024,6 @@ async function submitTx(tx) {
   } catch(e) { showToast(e.message, "error"); }
 }
 
-// ⚡ XÓA TRỰC TIẾP TRÊN FIREBASE
 window.deleteTransaction = function(id) {
   closeEditForm(); 
   triggerHaptic('medium');
@@ -1059,10 +1061,7 @@ window.deleteTransaction = function(id) {
   };
 };
 
-
-// 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (HỖ TRỢ CHỌN NƠI LƯU TRÊN ĐIỆN THOẠI)
 window.exportToCSV = async function() {
-    // Tự động nhận diện dữ liệu: Đang ở Tab Báo Cáo thì xuất dữ liệu của báo cáo (Tuần/Tháng/Năm), ở Tab Giao Dịch thì xuất dữ liệu ngày.
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
     
@@ -1071,7 +1070,7 @@ window.exportToCSV = async function() {
     }
     
     triggerHaptic('light');
-    let csvContent = "\uFEFF"; // Thêm BOM để không lỗi Tiếng Việt Excel
+    let csvContent = "\uFEFF"; 
     csvContent += "Mã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
     
     dataToExport.forEach(t => {
@@ -1087,7 +1086,6 @@ window.exportToCSV = async function() {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const file = new File([blob], fileName, { type: 'text/csv' });
 
-    // CỐT LÕI: Dùng Web Share API để mở menu lưu/chia sẻ gốc của iOS/Android (Save to Files, Zalo, Drive...)
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
         try {
             await navigator.share({
@@ -1099,7 +1097,6 @@ window.exportToCSV = async function() {
             console.log("Người dùng hủy hoặc lỗi:", error);
         }
     } else {
-        // Fallback tải xuống truyền thống cho Máy tính
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
@@ -1112,7 +1109,12 @@ window.exportToCSV = async function() {
     }
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF CÓ BIỂU ĐỒ & HỖ TRỢ CHỌN NƠI LƯU TRÊN ĐIỆN THOẠI
+// --------------------------------------------------------------------------
+// HỆ THỐNG XUẤT VÀ XEM TRƯỚC PDF
+// --------------------------------------------------------------------------
+window.currentPdfBlob = null;
+window.currentPdfFileName = "";
+
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1141,7 +1143,6 @@ window.exportToPDF = function() {
     let tableRows = '';
     let totalIncome = 0, totalExpense = 0;
     
-    // Tạo bảng dữ liệu
     data.forEach((t, idx) => {
         const isInc = t.type === 'Thu nhập';
         if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
@@ -1159,14 +1160,11 @@ window.exportToPDF = function() {
         `;
     });
 
-    // CHỤP BIỂU ĐỒ (Chỉ khi xuất từ Tab Báo Cáo)
     let chartsHTML = '';
     if (isTab2 && window.mChart && window.pChart) {
-        // Biến biểu đồ Canvas trên màn hình thành ảnh Base64
-        const barChartImg = window.mChart.toBase64Image();
-        const pieChartImg = window.pChart.toBase64Image();
+        const barChartImg = window.mChart.toBase64Image('image/png', 1.0);
+        const pieChartImg = window.pChart.toBase64Image('image/png', 1.0);
         
-        // Tạo chú thích phần trăm cho biểu đồ tròn để ghép vào PDF
         const catMap = {};
         data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
         const catArr = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
@@ -1231,7 +1229,7 @@ window.exportToPDF = function() {
 
         ${chartsHTML}
 
-        <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; page-break-inside: avoid; margin-bottom: 10px;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
+        <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-after: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
@@ -1253,45 +1251,76 @@ window.exportToPDF = function() {
         </div>
     `;
 
-    const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
+    window.currentPdfFileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
     const opt = {
         margin:       [15, 12, 15, 12],
-        filename:     fileName,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        filename:     window.currentPdfFileName,
+        image:        { type: 'jpeg', quality: 1.0 },
+        html2canvas:  { scale: 3, useCORS: true, letterRendering: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'] }
     };
 
-    // Tạo PDF dưới dạng Blob thay vì tải trực tiếp (TƯƠNG THÍCH ĐIỆN THOẠI)
-    html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-        const file = new File([blob], fileName, { type: 'application/pdf' });
+    html2pdf().set(opt).from(element).output('blob').then(function(blob) {
+        window.currentPdfBlob = blob;
+        const url = URL.createObjectURL(blob);
         
-        // Mở popup lưu/share của điện thoại
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            try {
-                await navigator.share({
-                    files: [file],
-                    title: fileName,
-                });
-                triggerHapticNotification('success');
-            } catch (error) {
-                console.log("Hủy chia sẻ hoặc lỗi:", error);
-            }
-        } else {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-            triggerHapticNotification('success');
-            showToast("Đã xuất file PDF báo cáo thành công!", "success");
-        }
+        document.getElementById('modalOverlay').classList.add('show');
+        document.getElementById('pdfPreviewModal').classList.add('show');
+        
+        const iframe = document.getElementById('pdfIframe');
+        iframe.src = url + "#toolbar=0"; 
+        
+        iframe.onload = function() {
+            document.getElementById('pdfLoadingOverlay').style.display = 'none';
+        };
     }).catch(err => {
         showToast("Lỗi tạo PDF: " + err.message, "error");
     });
 };
+
+window.closePdfPreview = function() {
+    triggerHaptic('light');
+    document.getElementById('pdfPreviewModal').classList.remove('show');
+    setTimeout(() => {
+        document.getElementById('modalOverlay').classList.remove('show');
+        document.getElementById('pdfIframe').src = '';
+        document.getElementById('pdfLoadingOverlay').style.display = 'flex';
+    }, 300);
+};
+
+document.getElementById('btnDownloadPdf')?.addEventListener('click', function() {
+    triggerHaptic('light');
+    const url = URL.createObjectURL(window.currentPdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = window.currentPdfFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast("Đã tải xuống file PDF!", "success");
+});
+
+document.getElementById('btnSharePdf')?.addEventListener('click', async function() {
+    triggerHaptic('light');
+    const file = new File([window.currentPdfBlob], window.currentPdfFileName, { type: 'application/pdf' });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+            await navigator.share({
+                files: [file],
+                title: window.currentPdfFileName,
+            });
+            showToast("Đã chia sẻ thành công!", "success");
+        } catch (error) {
+            console.log("Người dùng hủy chia sẻ hoặc lỗi:", error);
+        }
+    } else {
+        showToast("Nền tảng này không hỗ trợ chia sẻ trực tiếp. Hãy ấn 'Lưu máy tính'!", "warning");
+    }
+});
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1299,7 +1328,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
-  // 1. SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ NGÀY HÔM NAY (Đã sửa tối ưu loại trừ phần tử con)
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
   if(heroCardTab1) {
       heroCardTab1.style.cursor = 'pointer';
@@ -1315,7 +1343,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
-  // 2. TÍNH NĂNG VUỐT XUỐNG ĐỂ LÀM MỚI DỮ LIỆU (SWIPE TO REFRESH)
   let startY = 0;
   const tab1Content = document.getElementById('tab1');
   if (tab1Content) {
