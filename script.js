@@ -871,6 +871,7 @@ window.selectType = function(formId, type, el) {
 };
 
 // Hàm điều hướng tương tác cho nút SDK Telegram cứng
+
 window.openAddForm = async function() {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
@@ -1035,9 +1036,6 @@ window.deleteTransaction = function(id) {
   };
 };
 
-
-
-
 // 💎 XUẤT FILE DATA CSV ĐA NỀN TẢNG (CHỌN LỌC PC / MOBILE)
 window.exportToCSV = async function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
@@ -1087,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX DỮ LIỆU, FIX MOBILE SCROLL, TÁCH LOGIC PC/MOBILE)
+// 💎 XUẤT FILE BÁO CÁO PDF (XEM ĐẦY ĐỦ CÁC TRANG TRÊN MOBILE & FIX CẮT BẢNG)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1100,13 +1098,15 @@ window.exportToPDF = function() {
     }
     
     triggerHaptic('medium');
-    showToast("Đang lập báo cáo PDF, vui lòng chờ...", "info");
+    showToast("Đang chuẩn bị bản xem trước...", "info");
 
     let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
     if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
+    // Tạo phần tử cha chứa nội dung in PDF
     const element = document.createElement('div');
+    element.style.width = '780px';
     element.style.padding = '20px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
@@ -1115,19 +1115,18 @@ window.exportToPDF = function() {
     let tableRows = '';
     let totalIncome = 0, totalExpense = 0;
     
-    // Đảm bảo dữ liệu đã được nạp đủ và tạo cột Mã GD (GDxxxx)
     data.forEach((t, idx) => {
         const isInc = t.type === 'Thu nhập';
         if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
         
         tableRows += `
             <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                <td style="padding: 10px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                <td style="padding: 10px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
-                <td style="padding: 10px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
-                <td style="padding: 10px 4px; font-size: 11px; color: #475569;">${t.category}</td>
-                <td style="padding: 10px 4px; font-size: 11px; color: #94A3B8;">${t.date.substring(0,5)}</td>
-                <td style="padding: 10px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                <td style="padding: 12px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
+                <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
+                <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
+                <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
+                <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                     ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                 </td>
             </tr>
@@ -1182,7 +1181,9 @@ window.exportToPDF = function() {
 
     element.innerHTML = `
         <style>
-            table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+            * { box-sizing: border-box; }
+            table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; }
+            th, td { word-wrap: break-word; overflow-wrap: break-word; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
@@ -1217,11 +1218,11 @@ window.exportToPDF = function() {
                 <thead>
                     <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
                         <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%;">STT</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 14%;">Mã GD</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 20%;">Danh mục</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 10%;">Ngày</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 16%;">Số tiền</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 13%;">Mã GD</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 32%;">Nội dung</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 18%;">Danh mục</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 11%;">Ngày</th>
+                        <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1238,71 +1239,79 @@ window.exportToPDF = function() {
 
     const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
-    // Thêm windowWidth: 800 để html2canvas không bị bóp nghẹt content gây thiếu dữ liệu
-    const opt = {
-        margin:       [10, 8, 10, 8],
-        filename:     fileName,
-        image:        { type: 'jpeg', quality: 1 },
-        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 800 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak:    { mode: ['css', 'legacy'] }
-    };
+    // Giao diện Modal xem trước NATIVE HTML giúp cuộn xem ĐẦY ĐỦ CÁC TRANG mượt mà
+    const overlay = document.createElement('div');
+    overlay.className = 'overlay show';
+    overlay.style.zIndex = '9999';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-sheet show';
+    modal.style.height = '92vh';
+    modal.style.display = 'flex';
+    modal.style.flexDirection = 'column';
+    modal.style.padding = '20px 16px 30px';
+    
+    modal.innerHTML = `
+        <div class="modal-handle"></div>
+        <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 1.1rem;"><i class="fas fa-file-invoice" style="color: #0891B2; margin-right: 6px;"></i> Xem trước báo cáo (Toàn bộ trang)</span>
+        </div>
+        <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: flex; justify-content: center; align-items: flex-start;">
+            </div>
+        <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
+            <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
+            <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3); font-weight: 800;"><i class="fas fa-share-nodes"></i> Chia sẻ / Tải PDF</button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
 
-    html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-        triggerHapticNotification('success');
+    // Đưa bản sao HTML vào khung để hiển thị mượt mà
+    const previewContainer = modal.querySelector('#pdfPreviewContainer');
+    const clonedElement = element.cloneNode(true);
+    clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+    clonedElement.style.borderRadius = '8px';
+    clonedElement.style.transformOrigin = 'top center';
+    previewContainer.appendChild(clonedElement);
+
+    // Tính toán tự động co giãn tỷ lệ (Scale) tương thích với chiều rộng của từng dòng điện thoại
+    function adjustPreviewSize() {
+        const containerWidth = previewContainer.clientWidth - 4; // Bỏ bớt khoảng đệm viền
+        const scale = containerWidth / 780;
+        if (scale < 1) {
+            clonedElement.style.transform = `scale(${scale})`;
+            // Bù trừ khoảng trống sụt giảm do transform scale để thanh cuộn dọc (Scrollbar) chuẩn xác
+            clonedElement.style.marginBottom = `-${780 * (1 - scale)}px`; 
+        }
+    }
+    
+    // Gọi tính toán scale ngay sau khi modal xuất hiện
+    setTimeout(adjustPreviewSize, 50);
+    window.addEventListener('resize', adjustPreviewSize);
+    
+    document.getElementById('closePdfBtn').onclick = () => {
+        triggerHaptic('light');
+        window.removeEventListener('resize', adjustPreviewSize);
+        modal.classList.remove('show');
+        setTimeout(() => { overlay.remove(); }, 300);
+    };
+    
+    document.getElementById('sharePdfBtn').onclick = async () => {
+        triggerHaptic('medium');
+        showToast("Đang kết xuất file PDF chuẩn...", "info");
         
-        const pdfUrl = URL.createObjectURL(blob);
-        
-        // Giao diện Modal xem trước
-        const overlay = document.createElement('div');
-        overlay.className = 'overlay show';
-        overlay.style.zIndex = '9999';
-        
-        const modal = document.createElement('div');
-        modal.className = 'modal-sheet show';
-        modal.style.height = '92vh';
-        modal.style.display = 'flex';
-        modal.style.flexDirection = 'column';
-        modal.style.padding = '20px 16px 30px';
-        
-        modal.innerHTML = `
-            <div class="modal-handle"></div>
-            <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <span style="font-size: 1.1rem;"><i class="fas fa-file-pdf" style="color: #FF4444; margin-right: 6px;"></i> Xem trước báo cáo</span>
-                <button id="fullscreenPdfBtn" style="background: none; border: none; color: var(--text-2); font-size: 1.2rem; cursor: pointer; padding: 4px;" title="Mở rộng"><i class="fas fa-expand"></i></button>
-            </div>
-            <div style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #E2E8F0; margin-bottom: 16px; position: relative; overflow: hidden; -webkit-overflow-scrolling: touch;">
-                <!-- Fix iOS Safari iframe horizontal scroll: Bọc khung và overflow -->
-                <iframe src="${pdfUrl}#view=FitH&scrollbar=0&toolbar=0&navpanes=0" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
-            </div>
-            <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
-                <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
-                <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3);"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu</button>
-            </div>
-        `;
-        
-        overlay.appendChild(modal);
-        document.body.appendChild(overlay);
-        
-        document.getElementById('fullscreenPdfBtn').onclick = () => {
-            triggerHaptic('light');
-            const a = document.createElement('a');
-            a.href = pdfUrl;
-            a.target = '_blank';
-            a.click();
+        const opt = {
+            margin:       [10, 5, 10, 5],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 800 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['css', 'legacy'] }
         };
-        
-        document.getElementById('closePdfBtn').onclick = () => {
-            triggerHaptic('light');
-            modal.classList.remove('show');
-            setTimeout(() => {
-                overlay.remove();
-                URL.revokeObjectURL(pdfUrl);
-            }, 300);
-        };
-        
-        document.getElementById('sharePdfBtn').onclick = async () => {
-            triggerHaptic('medium');
+
+        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+            triggerHapticNotification('success');
             const file = new File([blob], fileName, { type: 'application/pdf' });
             
             const platform = window.Telegram?.WebApp?.platform || 'unknown';
@@ -1316,18 +1325,18 @@ window.exportToPDF = function() {
                     console.log("Hủy share:", error); 
                 }
             } else {
-                // Nếu PC hoặc HĐH không hỗ trợ Share -> Ép tải xuống trực tiếp
+                const pdfUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = pdfUrl;
                 a.download = fileName;
                 a.click();
+                URL.revokeObjectURL(pdfUrl);
                 showToast("Đã tải file PDF xuống máy!", "success");
             }
-        };
-        
-    }).catch(err => {
-        showToast("Lỗi tạo PDF: " + err.message, "error");
-    });
+        }).catch(err => {
+            showToast("Lỗi tạo PDF: " + err.message, "error");
+        });
+    };
 };
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
@@ -1500,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   ['addAmount','editAmount','searchAmount'].forEach(id => { const el = document.getElementById(id); if(el) el.oninput = function() { this.value = formatNumberWithCommas(this.value); }; });
   
- async function initCategories() {
+  async function initCategories() {
     try {
       const cats = await fetchCategories();
       const sCat = document.getElementById('searchCategory'); const kCat = document.getElementById('keywordCategory');
