@@ -110,7 +110,7 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-base);
 h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1.5rem 0 1rem; text-align: center; text-transform: uppercase; }
 
 /* 🌟 CẬP NHẬT TRẠNG THÁI TRỐNG (EMPTY STATE) ĐỒNG BỘ */
-.empty-state { text-align: center; color: var(--text-3); font-style: italic; padding: 20px 0; font-size: 0.9rem; width: 100%; }
+.empty-state { text-align: center; color: var(--text-3); font-style: italic; padding: 8px 0 24px; font-size: 0.9rem; width: 100%; }
 
 .hero-card { background: var(--grad-primary); border-radius: var(--radius-xl); padding: 20px 20px 18px; margin-top: 16px; margin-bottom: 16px; box-shadow: var(--shadow-glow); position: relative; overflow: hidden; }
 .hero-card::before { content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.06); top: -60px; right: -40px; }
