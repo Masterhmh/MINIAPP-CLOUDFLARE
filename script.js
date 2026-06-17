@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỖI LỆCH TRÁI, XUỐNG DÒNG VÀ CẮT LỀ)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỆCH TRÁI + CHIA BẢNG THEO TỪNG THÁNG)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1113,25 +1113,100 @@ window.exportToPDF = function() {
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
     
-    let tableRows = '';
+    let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
     
-    data.forEach((t, idx) => {
-        const isInc = t.type === 'Thu nhập';
-        if (isInc) totalIncome += t.amount; else totalExpense += t.amount;
+    // 1. NHÓM DỮ LIỆU THEO TỪNG THÁNG
+    const groupedData = {};
+    data.forEach(t => {
+        const parts = t.date.split('/');
+        const monthYear = parts.length === 3 ? `${parts[1]}/${parts[2]}` : 'Khác';
+        if (!groupedData[monthYear]) groupedData[monthYear] = [];
+        groupedData[monthYear].push(t);
+    });
+
+    // 2. SẮP XẾP THÁNG TĂNG DẦN (VD: 01/2026 -> 02/2026)
+    const sortedKeys = Object.keys(groupedData).sort((a, b) => {
+        if (a === 'Khác') return 1;
+        if (b === 'Khác') return -1;
+        const [mA, yA] = a.split('/').map(Number);
+        const [mB, yB] = b.split('/').map(Number);
+        if (yA !== yB) return yA - yB;
+        return mA - mB;
+    });
+
+    // Quyết định có hiển thị thanh Header "Tháng X" hay không (Chỉ hiện khi ở Tab Báo cáo)
+    const showMonthHeader = isTab2 && sortedKeys.length >= 1;
+
+    // 3. TẠO HTML BẢNG CHO TỪNG NHÓM THÁNG
+    sortedKeys.forEach(key => {
+        let monthRows = '';
+        let monthInc = 0, monthExp = 0;
         
-        tableRows += `
-            <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                <td style="padding: 12px 4px; font-size: 11px; text-align: center; white-space: nowrap;">${idx + 1}</td>
-                <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700; white-space: nowrap;">${t.id || '---'}</td>
-                <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
-                <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
-                <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center; white-space: nowrap;">${t.date.substring(0,5)}</td>
-                <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right; white-space: nowrap;">
-                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
-                </td>
-            </tr>
-        `;
+        groupedData[key].forEach((t, idx) => {
+            const isInc = t.type === 'Thu nhập';
+            if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
+            else { totalExpense += t.amount; monthExp += t.amount; }
+            
+            monthRows += `
+                <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
+                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; white-space: nowrap;">${idx + 1}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700; white-space: nowrap;">${t.id || '---'}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center; white-space: nowrap;">${t.date.substring(0,5)}</td>
+                    <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right; white-space: nowrap;">
+                        ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
+                    </td>
+                </tr>
+            `;
+        });
+
+        // Nếu là báo cáo nhiều tháng/tuần -> Ghép Header Tóm tắt của tháng đó vào trên bảng
+        if (showMonthHeader) {
+            tablesHTML += `
+                <div style="margin-bottom: 24px; page-break-inside: auto;">
+                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid;">
+                        <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
+                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> <span style="margin: 0 6px; color: #CBD5E1;">|</span> Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span></span>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 0;">
+                        <thead>
+                            <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
+                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
+                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
+                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; width: 34%;">Nội dung</th>
+                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; width: 18%;">Danh mục</th>
+                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
+                                <th style="padding: 10px 6px 10px 4px; font-size: 10px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${monthRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            // Dành cho Tab 1 (Giao dịch trong ngày) - Không cần chia header
+            tablesHTML += `
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
+                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
+                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
+                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
+                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 18%;">Danh mục</th>
+                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
+                            <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${monthRows}
+                    </tbody>
+                </table>
+            `;
+        }
     });
 
     let chartsHTML = '';
@@ -1215,22 +1290,7 @@ window.exportToPDF = function() {
 
         <div style="page-break-before: auto;">
             <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
-            <table>
-                <thead>
-                    <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 18%;">Danh mục</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
-                        <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tableRows}
-                </tbody>
-            </table>
-        </div>
+            ${tablesHTML} </div>
         
         <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid;">
             <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
@@ -1271,18 +1331,15 @@ window.exportToPDF = function() {
     const clonedElement = element.cloneNode(true);
     clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
     clonedElement.style.borderRadius = '8px';
-    // FIX: Đổi tâm scale về góc trái trên cùng
     clonedElement.style.transformOrigin = 'top left';
     previewContainer.appendChild(clonedElement);
 
     function adjustPreviewSize() {
-        const containerWidth = previewContainer.clientWidth - 20; // Trừ hao 20px padding
+        const containerWidth = previewContainer.clientWidth - 20; 
         const scale = containerWidth / 800; 
         
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
-            
-            // FIX: Cắt phần khoảng trắng thừa ra sau khi thu nhỏ bằng margin âm
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
             const widthDiff = 800 * (1 - scale);
             
@@ -1293,7 +1350,7 @@ window.exportToPDF = function() {
             clonedElement.style.transform = 'none';
             clonedElement.style.marginBottom = '0px';
             clonedElement.style.marginRight = '0px';
-            clonedElement.style.marginLeft = 'auto'; // Căn giữa nếu màn hình to hơn 800px
+            clonedElement.style.marginLeft = 'auto'; 
             clonedElement.style.marginRight = 'auto';
         }
     }
