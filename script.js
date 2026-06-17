@@ -73,12 +73,9 @@ function getColorByIndex(i) {
     return c[i % c.length]; 
 }
 
-// 🌟 THUẬT TOÁN GET ICON - PHIÊN DỊCH EMOJI SANG FLAT ICON
 function getCategoryIcon(cat) {
     if (!cat) return '<i class="fas fa-box-open"></i>';
     const categoryName = cat.trim();
-    
-    // Ưu tiên 1: Icon cấu hình trên App
     if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
         let iconCode = window.customCategoryIcons[categoryName].trim();
         if (iconCode) {
@@ -87,8 +84,6 @@ function getCategoryIcon(cat) {
             return `<i class="${iconCode}"></i>`;
         }
     }
-    
-    // Ưu tiên 2: Tự động bắt Tên Danh Mục ra Icon phẳng
     const faMap = {
         'ăn uống': 'fa-utensils', 'bảo hiểm': 'fa-shield-halved', 'công nghệ': 'fa-laptop', 'công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
         'đi lại': 'fa-car-side', 'giải trí': 'fa-clapperboard', 'giáo dục': 'fa-graduation-cap', 'gia đình': 'fa-house-user', 'hóa đơn': 'fa-file-invoice-dollar', 'chăm sóc': 'fa-spa', 
@@ -98,8 +93,6 @@ function getCategoryIcon(cat) {
     for (let key in faMap) { 
         if (categoryName.toLowerCase().includes(key)) return `<i class="fas ${faMap[key]}"></i>`; 
     }
-
-    // Ưu tiên 3: Tự động dịch Emoji trên Sheet sang Icon Phẳng
     const emojiToFa = {
         '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty',
         '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump',
@@ -113,22 +106,17 @@ function getCategoryIcon(cat) {
         '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol',
         '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench'
     };
-
     if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
         let sheetIcon = window.categoryIconMap[categoryName].trim();
         const firstChar = Array.from(sheetIcon)[0];
-        
         if (emojiToFa[firstChar]) return `<i class="fas ${emojiToFa[firstChar]}"></i>`;
         if (emojiToFa[sheetIcon]) return `<i class="fas ${emojiToFa[sheetIcon]}"></i>`;
-        
         if (!/[^\x00-\x7F]/.test(sheetIcon)) {
             if (!sheetIcon.includes('fa-')) sheetIcon = `fa-${sheetIcon}`;
             if (!sheetIcon.includes('fas ')) sheetIcon = `fas ${sheetIcon}`;
             return `<i class="${sheetIcon}"></i>`;
         }
     }
-    
-    // Ưu tiên 4: Fallback chữ cái đầu
     const firstLetter = Array.from(categoryName)[0].toUpperCase();
     return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
@@ -449,11 +437,33 @@ function displayKeywords() {
    if(!cachedKeywords || cachedKeywords.length === 0) { document.getElementById('placeholderTab4').style.display = 'block'; return; }
    document.getElementById('placeholderTab4').style.display = 'none';
    const groupedKeywords = {}; cachedKeywords.forEach(item => { const category = item.category || 'Khác'; if (!groupedKeywords[category]) groupedKeywords[category] = { keywords: [] }; if (item.keywords && typeof item.keywords === 'string') { const kwsArray = item.keywords.split(',').map(k => k.trim()).filter(k => k !== ''); kwsArray.forEach(kw => { if (!groupedKeywords[category].keywords.includes(kw)) groupedKeywords[category].keywords.push(kw); }); } });
-   Object.keys(groupedKeywords).forEach(category => { const group = groupedKeywords[category]; let tagsHTML = ''; group.keywords.forEach(kw => { tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; }); const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:14px; margin-bottom:16px; flex-direction:column; align-items:flex-start; gap:10px;'; div.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%;"><div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div><div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div></div></div><div style="width:100%; display:flex; flex-wrap:wrap; margin-top:4px;">${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}</div>`; container.appendChild(div); });
+   
+   // Sắp xếp danh mục từ khóa hiển thị A-Z
+   Object.keys(groupedKeywords).sort((a,b) => a.localeCompare(b, 'vi')).forEach(category => { 
+       const group = groupedKeywords[category]; 
+       let tagsHTML = ''; 
+       // Sắp xếp các từ khóa con A-Z
+       group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { 
+           tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; 
+       }); 
+       const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:14px; margin-bottom:16px; flex-direction:column; align-items:flex-start; gap:10px;'; div.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%;"><div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div><div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div></div></div><div style="width:100%; display:flex; flex-wrap:wrap; margin-top:4px;">${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}</div>`; container.appendChild(div); 
+   });
 }
 
 // ---------------- CÁC HÀM MODALS GIAO DỊCH ----------------
-async function fetchCategories() { try { const res = await fetch(`${FIREBASE_URL}/categories.json`); let cats = await res.json(); if(!cats) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); cats = await gasRes.json(); } return cats || []; } catch(e) { return []; } }
+async function fetchCategories() { 
+    try { 
+        const res = await fetch(`${FIREBASE_URL}/categories.json`); 
+        let cats = await res.json(); 
+        if(!cats) { 
+            const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); 
+            cats = await gasRes.json(); 
+        } 
+        if (cats && Array.isArray(cats)) cats.sort((a, b) => a.localeCompare(b, 'vi')); // Tự động sắp xếp A-Z
+        return cats || []; 
+    } catch(e) { return []; } 
+}
+
 window.selectType = function(formId, type, el) { triggerHaptic('light'); document.getElementById(formId + 'Type').value = type; const pills = el.parentElement.querySelectorAll('.type-pill'); pills.forEach(p => p.classList.remove('income-active', 'expense-active')); if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active'); };
 
 window.openAddForm = async function() {
@@ -517,7 +527,7 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF 
+// 💎 XUẤT FILE BÁO CÁO PDF ĐÃ FIX CỘT THU - CHI LINH HOẠT
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -574,6 +584,10 @@ window.exportToPDF = function() {
     });
 
     const showMonthHeader = isTab2 && sortedKeys.length >= 1;
+    
+    // TÍNH TOÁN LOGIC CỘT THU/CHI
+    const hasIncome = data.some(t => t.type === 'Thu nhập');
+    const hasExpense = data.some(t => t.type === 'Chi tiêu');
 
     sortedKeys.forEach(key => {
         let monthRows = '';
@@ -587,6 +601,19 @@ window.exportToPDF = function() {
             const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
             const catIconHTML = getCategoryIcon(t.category);
             
+            // XỬ LÝ LOGIC CỘT ĐỘNG TRONG TD
+            let tdAmountHTML = '';
+            if (hasIncome && hasExpense) {
+                tdAmountHTML = `
+                    <td style="padding: 12px 6px; font-size: 11px; font-weight: 800; color: #00D26A; text-align: right;">${isInc ? '+' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                `;
+            } else {
+                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
+                </td>`;
+            }
+
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
@@ -596,22 +623,31 @@ window.exportToPDF = function() {
                         <span style="display:inline-block; width:16px; text-align:center; margin-right:4px; font-size:12px;">${catIconHTML}</span>${t.category}
                     </td>
                     <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
-                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
-                        ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
-                    </td>
+                    ${tdAmountHTML}
                 </tr>
             `;
         });
+
+        // XỬ LÝ LOGIC CỘT ĐỘNG TRONG THEAD
+        let thAmountHTML = '';
+        if (hasIncome && hasExpense) {
+            thAmountHTML = `
+                <th style="padding: 12px 6px; width: 14%; text-align: right;">Thu nhập</th>
+                <th style="padding: 12px 14px 12px 6px; width: 14%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Chi tiêu</th>
+            `;
+        } else {
+            thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>`;
+        }
 
         const theadHTML = `
             <thead>
                 <tr style="background: #0891B2; color: #FFFFFF;">
                     <th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
                     <th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th>
-                    <th style="padding: 12px 10px; width: 32%; text-align: left;">Nội dung</th>
+                    <th style="padding: 12px 10px; width: 26%; text-align: left;">Nội dung</th>
                     <th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th>
                     <th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th>
-                    <th style="padding: 12px 14px 12px 6px; width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
+                    ${thAmountHTML}
                 </tr>
             </thead>
         `;
@@ -781,76 +817,41 @@ window.exportToPDF = function() {
     
     document.getElementById('sharePdfBtn').onclick = async () => {
         triggerHaptic('medium');
-        showToast("Đang chuẩn bị file PDF...", "info");
-
-        // KHẮC PHỤC LỖI TRẮNG FILE: Tạo bản sao và đưa vào vùng chứa tạm thời
-        const printElement = element.cloneNode(true);
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.top = '0';
-        tempContainer.style.left = '-9999px';
-        tempContainer.appendChild(printElement);
-        document.body.appendChild(tempContainer);
-
+        showToast("Đang kết xuất file PDF chuẩn...", "info");
+        
         const opt = {
             margin:       [10, 10, 10, 10],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 740 }, 
+            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] }
         };
 
-        try {
-            html2pdf().set(opt).from(printElement).output('blob').then(async function(blob) {
-                // Dọn dẹp DOM ngay lập tức để tránh lỗi giao diện
-                if (document.body.contains(tempContainer)) {
-                    document.body.removeChild(tempContainer);
-                }
+        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+            triggerHapticNotification('success');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            
+            const platform = window.Telegram?.WebApp?.platform || 'unknown';
+            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
 
-                triggerHapticNotification('success');
-                
-                let isShared = false;
-                const platform = window.Telegram?.WebApp?.platform || 'unknown';
-                const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
-
-                // Ưu tiên xử lý lệnh Share (Chia sẻ) gốc trên thiết bị Mobile
-                if (isMobile && navigator.canShare) {
-                    try {
-                        const file = new File([blob], fileName, { type: 'application/pdf' });
-                        if (navigator.canShare({ files: [file] })) {
-                            await navigator.share({ files: [file], title: fileName });
-                            isShared = true;
-                        }
-                    } catch (err) {
-                        console.log("Hủy chia sẻ, chuyển sang tải xuống gốc.");
-                    }
-                }
-
-                // Cưỡng chế tải xuống nếu không share được
-                if (!isShared) {
-                    const pdfUrl = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = pdfUrl;
-                    a.download = fileName;
-                    document.body.appendChild(a);
-                    a.click();
-                    
-                    setTimeout(() => {
-                        if (document.body.contains(a)) document.body.removeChild(a);
-                        URL.revokeObjectURL(pdfUrl);
-                    }, 100);
-                    showToast("Đã tải file PDF xuống máy!", "success");
-                }
-            }).catch(err => {
-                if (document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
-                showToast("Lỗi kết xuất PDF: " + err.message, "error");
-            });
-        } catch (fatalErr) {
-            if (document.body.contains(tempContainer)) document.body.removeChild(tempContainer);
-            showToast("Lỗi hệ thống: " + fatalErr.message, "error");
-        }
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: fileName });
+                    triggerHapticNotification('success');
+                } catch (error) {}
+            } else {
+                const pdfUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(pdfUrl);
+                showToast("Đã tải file PDF xuống máy!", "success");
+            }
+        }).catch(err => {
+            showToast("Lỗi tạo PDF: " + err.message, "error");
+        });
     };
 };
 
