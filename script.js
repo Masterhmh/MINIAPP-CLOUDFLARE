@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỖI CẮT LỀ VÀ XUỐNG DÒNG MOBILE)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỖI LỆCH TRÁI, XUỐNG DÒNG VÀ CẮT LỀ)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1104,12 +1104,10 @@ window.exportToPDF = function() {
     if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
-    // Tạo phần tử cha chứa nội dung in PDF
     const element = document.createElement('div');
-    // FIX CHIỀU RỘNG & BOX SIZING: Ép cứng khung đúng 800px, không bị phình to do padding
     element.style.width = '800px';
-    element.style.minWidth = '800px'; // Khóa cứng trên Mobile để tránh bóp gãy dòng
-    element.style.boxSizing = 'border-box'; // Rất quan trọng để fix lỗi cắt lề bên phải
+    element.style.minWidth = '800px'; 
+    element.style.boxSizing = 'border-box'; 
     element.style.padding = '20px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
@@ -1182,7 +1180,6 @@ window.exportToPDF = function() {
         `;
     }
 
-    // FIX TABLE CSS: Bỏ table-layout fixed, thêm white-space nowrap cho các cột cần thiết
     element.innerHTML = `
         <style>
             * { box-sizing: border-box; }
@@ -1257,9 +1254,9 @@ window.exportToPDF = function() {
     modal.innerHTML = `
         <div class="modal-handle"></div>
         <div class="modal-title" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 1.1rem;"><i class="fas fa-file-invoice" style="color: #0891B2; margin-right: 6px;"></i> Xem trước báo cáo (Toàn bộ trang)</span>
+            <span style="font-size: 1.1rem;"><i class="fas fa-file-invoice" style="color: #0891B2; margin-right: 6px;"></i> Xem trước báo cáo</span>
         </div>
-        <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: flex; justify-content: center; align-items: flex-start;">
+        <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: block;">
         </div>
         <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
             <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
@@ -1274,20 +1271,30 @@ window.exportToPDF = function() {
     const clonedElement = element.cloneNode(true);
     clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
     clonedElement.style.borderRadius = '8px';
-    clonedElement.style.transformOrigin = 'top center';
+    // FIX: Đổi tâm scale về góc trái trên cùng
+    clonedElement.style.transformOrigin = 'top left';
     previewContainer.appendChild(clonedElement);
 
-    // FIX SCROLL HEIGHT: Căn chỉnh lại bù trừ chiều cao chuẩn hơn
     function adjustPreviewSize() {
-        const containerWidth = previewContainer.clientWidth - 20; // Trừ hao padding
-        const scale = containerWidth / 800; // Map với 800px cứng
+        const containerWidth = previewContainer.clientWidth - 20; // Trừ hao 20px padding
+        const scale = containerWidth / 800; 
+        
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
+            
+            // FIX: Cắt phần khoảng trắng thừa ra sau khi thu nhỏ bằng margin âm
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
+            const widthDiff = 800 * (1 - scale);
+            
             clonedElement.style.marginBottom = `-${heightDiff}px`; 
+            clonedElement.style.marginRight = `-${widthDiff}px`;
+            clonedElement.style.marginLeft = '0px';
         } else {
             clonedElement.style.transform = 'none';
             clonedElement.style.marginBottom = '0px';
+            clonedElement.style.marginRight = '0px';
+            clonedElement.style.marginLeft = 'auto'; // Căn giữa nếu màn hình to hơn 800px
+            clonedElement.style.marginRight = 'auto';
         }
     }
     
