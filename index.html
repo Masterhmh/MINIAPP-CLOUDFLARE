@@ -21,7 +21,6 @@
   <link rel="stylesheet" href="styles.css">
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <!-- Thêm thư viện html2pdf.js để xuất file PDF hỗ trợ font Tiếng Việt mượt mà -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
@@ -85,7 +84,6 @@
     </div>
 
     <div id="tab2" class="tab-content">
-      
       <div id="tab2Overview">
           <div class="section-header">
             <span class="section-title">Báo Cáo Tài Chính</span>
@@ -150,7 +148,6 @@
             </div>
           </div>
 
-          <!-- Khu vực nút bấm Xuất dữ liệu đa nền tảng -->
           <div class="field-group mb-3" style="display: flex; gap: 10px;">
             <button class="btn-soft" onclick="exportToCSV()" style="margin: 0; flex: 1;"><i class="fas fa-file-csv" style="color: #00D26A;"></i> Xuất dữ liệu CSV</button>
             <button class="btn-soft" onclick="exportToPDF()" style="margin: 0; flex: 1;"><i class="fas fa-file-pdf" style="color: #FF4444;"></i> Xuất báo cáo PDF</button>
@@ -331,7 +328,6 @@
           <div class="field-label">Ghi chú (nếu có)</div>
           <input type="text" id="addNote" class="field-input" placeholder="Tùy chọn">
         </div>
-        <!-- Nút dự phòng nếu không chạy trong môi trường Telegram App -->
         <div class="modal-actions fallback-actions">
           <button type="button" class="btn-cancel" onclick="closeAddForm()">Hủy</button>
           <button type="submit" class="btn-save"><i class="fas fa-save"></i> Lưu</button>
@@ -372,7 +368,6 @@
           <div class="field-label">Ghi chú</div>
           <input type="text" id="editNote" class="field-input">
         </div>
-        <!-- Nút dự phòng nếu không chạy trong môi trường Telegram App -->
         <div class="modal-actions fallback-actions">
           <button type="button" class="btn-danger-outline flex-1" onclick="deleteTransaction(document.getElementById('editTransactionId').value)"><i class="fas fa-trash"></i> Xóa</button>
           <button type="submit" class="btn-save"><i class="fas fa-save"></i> Lưu</button>
@@ -390,6 +385,29 @@
         </div>
       </div>
     </div>
+
+    <div id="pdfPreviewModal" class="modal-sheet" style="height: 90vh; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-handle" onclick="closePdfPreview()"></div>
+      <div class="modal-title" style="margin-bottom: 12px; text-align: center;">Xem trước Báo cáo PDF</div>
+      
+      <div style="flex: 1; width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; position: relative;">
+          <iframe id="pdfIframe" style="width: 100%; height: 100%; border: none;"></iframe>
+          <div id="pdfLoadingOverlay" style="position: absolute; inset: 0; background: var(--bg-surface); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10;">
+              <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--primary);"></i>
+              <span style="margin-top: 10px; font-size: 0.85rem; color: var(--text-2);">Đang tải bản xem trước...</span>
+          </div>
+      </div>
+      
+      <div class="field-group" style="display: flex; gap: 10px; margin-bottom: 0;">
+        <button class="btn-soft" id="btnSharePdf" style="margin: 0; flex: 1; background: rgba(6, 182, 212, 0.1); color: var(--primary-light); border-color: transparent;">
+            <i class="fas fa-share-nodes"></i> Chia sẻ
+        </button>
+        <button class="btn-save" id="btnDownloadPdf" style="margin: 0; flex: 1;">
+            <i class="fas fa-download"></i> Lưu máy tính
+        </button>
+      </div>
+    </div>
+
   </div> 
 
   <div class="bottom-nav">
