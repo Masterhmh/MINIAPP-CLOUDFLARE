@@ -15,19 +15,19 @@
   --primary: #06B6D4;
   --primary-light: #67E8F9;
   --primary-dark: #0891B2;
-  --primary-alpha: rgba(6, 182, 212, 0.15); /* Nền mờ đồng bộ cho Active và Hover */
+  --primary-alpha: rgba(6, 182, 212, 0.15); 
   --grad-primary: linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%);
 
   /* Phân loại tài chính - MÀU TƯƠI RỰC RỠ (Đồng bộ Sáng & Tối) */
-  --income-color: #00D26A; /* Xanh lá tươi, trong trẻo */
+  --income-color: #00D26A; 
   --income: #00D26A;
   --income-bg: rgba(0, 210, 106, 0.15);
 
-  --expense-color: #FF4444; /* Đỏ tươi, sắc nét */
+  --expense-color: #FF4444; 
   --expense: #FF4444;
   --expense-bg: rgba(255, 68, 68, 0.15);
 
-  --balance-color: #FFB800; /* Vàng rực sáng, không bị xỉn hay ngả cam */
+  --balance-color: #FFB800; 
   --balance: #FFB800;
 
   /* Hệ thống chữ */
@@ -108,6 +108,9 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-base);
 .section-header { display: flex; align-items: center; justify-content: center; margin-top: 20px; margin-bottom: 12px; }
 .section-title { font-size: 1.15rem; font-weight: 800; color: var(--text-1); letter-spacing: -0.01em; text-transform: uppercase; text-align: center; }
 h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1.5rem 0 1rem; text-align: center; text-transform: uppercase; }
+
+/* 🌟 CẬP NHẬT TRẠNG THÁI TRỐNG (EMPTY STATE) ĐỒNG BỘ */
+.empty-state { text-align: center; color: var(--text-3); font-style: italic; padding: 20px 0; font-size: 0.9rem; width: 100%; }
 
 .hero-card { background: var(--grad-primary); border-radius: var(--radius-xl); padding: 20px 20px 18px; margin-top: 16px; margin-bottom: 16px; box-shadow: var(--shadow-glow); position: relative; overflow: hidden; }
 .hero-card::before { content: ''; position: absolute; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.06); top: -60px; right: -40px; }
@@ -197,11 +200,9 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .chart-placeholder { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 16px; position: relative; display: flex; justify-content: center; align-items: center; min-height: 250px; }
 .chart-title { font-size: 0.9rem; font-weight: 800; color: var(--primary-light); margin-bottom: 12px; letter-spacing: -0.01em; text-transform: uppercase; }
 
-/* -- FIX CHỐNG MÉO PIE CHART -- */
 .pie-layout-wrapper { display: flex; flex-direction: row; align-items: center; justify-content: space-between; padding: 16px; gap: 16px; }
 .pie-layout-wrapper .pie-chart-inner { flex: 0 0 140px; width: 140px; height: 140px; min-width: 140px !important; min-height: 140px !important; display: flex; justify-content: center; align-items: center; position: relative; }
 .chart-placeholder canvas { width: 100% !important; max-height: 100% !important; object-fit: contain; }
-/* -------------------------- */
 
 .compact-legend { flex: 1; display: flex; flex-direction: column; gap: 12px; max-height: 150px; overflow-y: auto; padding-right: 8px; min-width: 0; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: var(--text-3) transparent; }
 .compact-legend::-webkit-scrollbar { width: 4px; -webkit-appearance: none; }
@@ -232,10 +233,18 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); z-index: 1500; display: none; }
 .overlay.show { display: flex !important; }
+
 .modal-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-surface); border-radius: 28px 28px 0 0; padding: 20px 20px 40px; border-top: 1px solid var(--border); box-shadow: none; z-index: 2000; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; max-height: 90vh; overflow-y: auto; width: 100%; max-width: 600px; margin: 0 auto; }
 .modal-sheet.show { transform: translateY(0); box-shadow: 0 -8px 40px rgba(0,0,0,0.6); }
 .modal-handle { width: 40px; height: 5px; background: var(--text-2); opacity: 0.4; border-radius: 3px; margin: 0 auto 20px; }
-.modal-title { font-size: 1.15rem; font-weight: 800; color: var(--text-1); margin-bottom: 24px; letter-spacing: -0.02em; }
+
+/* 🌟 CẬP NHẬT IN HOA CHO MỌI TIÊU ĐỀ MODAL BẰNG CSS */
+.modal-title { font-size: 1.15rem; font-weight: 800; color: var(--text-1); margin-bottom: 24px; letter-spacing: -0.02em; text-transform: uppercase; display: flex; align-items: center; }
+
+/* 🌟 BỔ SUNG LƯỚI ICON CỦA TÍNH NĂNG ICON PICKER */
+.icon-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 16px; align-content: start; max-height: 40vh; overflow-y: auto; }
+.icon-item { font-size: 1.5rem; color: var(--text-2); padding: 12px; border-radius: 12px; background: var(--bg-card2); text-align: center; cursor: pointer; border: 2px solid transparent; transition: 0.2s; display: flex; justify-content: center; align-items: center; }
+.icon-item.selected { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
 .field-group { margin-bottom: 16px; }
 .field-label { font-size: 0.72rem; font-weight: 700; color: var(--text-2); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -248,7 +257,7 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .type-pill.expense-active { background: var(--expense-bg); color: var(--expense); border-color: rgba(255, 68, 68, 0.3); }
 .type-pill.income-active { background: var(--income-bg); color: var(--income); border-color: rgba(0, 210, 106, 0.3); }
 
-.modal-actions { display: flex; gap: 12px; margin-top: 24px; align-items: center;}
+.modal-actions { display: flex; gap: 12px; margin-top: 24px; align-items: center; flex-shrink: 0;}
 .btn-cancel, .btn-save, .btn-full { flex: 1; width: 100%; padding: 14px; border-radius: var(--radius-md); font-weight: 800; cursor: pointer; transition: 0.2s; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .btn-full { margin-top: 8px; }
 .btn-cancel { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-2); }
@@ -258,8 +267,6 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .btn-soft:hover { background: var(--bg-card2); border-color: var(--primary-light); }
 .btn-danger-outline { padding: 14px; background: rgba(255, 68, 68, 0.1); color: var(--expense); border: none; border-radius: var(--radius-md); font-weight: 800; cursor: pointer; transition: 0.2s; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;}
 .btn-edit-kw { background: var(--balance) !important; color: white !important; }
-
-.empty-text { text-align: center; font-size: 0.85rem; color: var(--text-3); font-style: italic; margin: 16px 0; width: 100%; }
 
 .toast { position: fixed; top: 20px; left: 16px; right: 16px; background: var(--bg-card2); border: 1px solid var(--border-color); padding: 14px 18px; border-radius: var(--radius-md); box-shadow: 0 8px 30px rgba(0,0,0,0.5); z-index: 4000; transform: translateY(-50px); opacity: 0; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600; text-align: left; font-size: 0.9rem; max-width: 568px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
 .toast.show { transform: translateY(0); opacity: 1; }
@@ -301,9 +308,6 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
 .nav-btn.active { background: transparent !important; }
 .nav-btn.active .nav-icon-wrap { background: var(--primary-alpha) !important; color: var(--primary-light) !important; transform: translateY(-2px); }
 .nav-btn.active .nav-label { color: var(--primary-light) !important; font-weight: 800; }
-
-.btn-save:hover, .btn-cancel:hover, .btn-soft:hover, .btn-back:hover, .qa-btn:hover, .pagination-btn:hover, .tx-btn:hover, .period-pill:hover { opacity: 0.85; transition: opacity 0.2s ease; }
-.btn-save:active, .btn-cancel:active, .btn-danger:active, .btn-danger-outline:active, .btn-soft:active, .btn-back:active, .qa-btn:active, .period-pill:active, .tx-card:active, .pagination-btn:active, .nav-btn:active { transform: scale(0.96) !important; transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1); }
 
 .slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 .slide-out-right { animation: slideOutRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
