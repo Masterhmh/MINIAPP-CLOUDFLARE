@@ -438,8 +438,12 @@ function displayKeywords() {
    document.getElementById('placeholderTab4').style.display = 'none';
    const groupedKeywords = {}; cachedKeywords.forEach(item => { const category = item.category || 'Khác'; if (!groupedKeywords[category]) groupedKeywords[category] = { keywords: [] }; if (item.keywords && typeof item.keywords === 'string') { const kwsArray = item.keywords.split(',').map(k => k.trim()).filter(k => k !== ''); kwsArray.forEach(kw => { if (!groupedKeywords[category].keywords.includes(kw)) groupedKeywords[category].keywords.push(kw); }); } });
    
-   // Sắp xếp danh mục từ khóa hiển thị A-Z
-   Object.keys(groupedKeywords).sort((a,b) => a.localeCompare(b, 'vi')).forEach(category => { 
+   // Sắp xếp danh mục từ khóa hiển thị A-Z, "Khác" xuống cuối
+   Object.keys(groupedKeywords).sort((a,b) => {
+       if (a.toLowerCase() === 'khác') return 1;
+       if (b.toLowerCase() === 'khác') return -1;
+       return a.localeCompare(b, 'vi');
+   }).forEach(category => { 
        const group = groupedKeywords[category]; 
        let tagsHTML = ''; 
        // Sắp xếp các từ khóa con A-Z
@@ -459,7 +463,14 @@ async function fetchCategories() {
             const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); 
             cats = await gasRes.json(); 
         } 
-        if (cats && Array.isArray(cats)) cats.sort((a, b) => a.localeCompare(b, 'vi')); // Tự động sắp xếp A-Z
+        // Sắp xếp A-Z, "Khác" xuống cuối
+        if (cats && Array.isArray(cats)) {
+            cats.sort((a, b) => {
+                if (a.toLowerCase() === 'khác') return 1;
+                if (b.toLowerCase() === 'khác') return -1;
+                return a.localeCompare(b, 'vi');
+            });
+        }
         return cats || []; 
     } catch(e) { return []; } 
 }
@@ -527,7 +538,6 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF ĐÃ FIX CỘT THU - CHI LINH HOẠT
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -585,7 +595,6 @@ window.exportToPDF = function() {
 
     const showMonthHeader = isTab2 && sortedKeys.length >= 1;
     
-    // TÍNH TOÁN LOGIC CỘT THU/CHI
     const hasIncome = data.some(t => t.type === 'Thu nhập');
     const hasExpense = data.some(t => t.type === 'Chi tiêu');
 
@@ -601,7 +610,6 @@ window.exportToPDF = function() {
             const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
             const catIconHTML = getCategoryIcon(t.category);
             
-            // XỬ LÝ LOGIC CỘT ĐỘNG TRONG TD
             let tdAmountHTML = '';
             if (hasIncome && hasExpense) {
                 tdAmountHTML = `
@@ -628,7 +636,6 @@ window.exportToPDF = function() {
             `;
         });
 
-        // XỬ LÝ LOGIC CỘT ĐỘNG TRONG THEAD
         let thAmountHTML = '';
         if (hasIncome && hasExpense) {
             thAmountHTML = `
@@ -855,7 +862,6 @@ window.exportToPDF = function() {
     };
 };
 
-// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER"
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -1104,6 +1110,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function initCategories() {
     try {
       const cats = await fetchCategories();
+      // Sắp xếp A-Z, Đặc cách Khác
+      cats.sort((a, b) => {
+          if (a.toLowerCase() === 'khác') return 1;
+          if (b.toLowerCase() === 'khác') return -1;
+          return a.localeCompare(b, 'vi');
+      });
       const sCat = document.getElementById('searchCategory'); 
       const kCat = document.getElementById('keywordCategory');
       cats.forEach(c => { sCat.appendChild(new Option(c, c)); kCat.appendChild(new Option(c, c)); });
