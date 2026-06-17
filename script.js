@@ -1131,3 +1131,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   initCategories();
 });
+// SỰ KIỆN CLICK VÀO HERO CARD ĐỂ QUAY VỀ HÔM NAY
+  const heroCardTab1 = document.querySelector('#tab1 .hero-card'); // Đảm bảo class này khớp với HTML của bạn
+  if(heroCardTab1) {
+      heroCardTab1.style.cursor = 'pointer'; // Hiển thị con trỏ chuột dạng nút bấm
+      heroCardTab1.onclick = () => {
+          const dateInput = document.getElementById('transactionDate');
+          if (dateInput) {
+              // Cập nhật input về ngày hôm nay
+              dateInput.value = formatDateToYYYYMMDD(new Date());
+              // Tải lại dữ liệu của ngày hôm nay
+              window.fetchTransactions(true);
+              showToast("Đã quay về dữ liệu hôm nay", "info"); // Hiện thông báo nhỏ cho mượt mà
+          }
+      };
+  }
