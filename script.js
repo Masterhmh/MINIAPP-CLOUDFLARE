@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX TRIỆT ĐỂ LỖI CẮT LỀ DO TRÀN NỘI DUNG)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX TRIỆT ĐỂ LỖI CẮT LỀ)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1105,14 +1105,16 @@ window.exportToPDF = function() {
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    // KHÓA CỨNG CHIỀU RỘNG CHUẨN A4
-    element.style.width = '780px';
-    element.style.minWidth = '780px'; 
+    // FIX CHIỀU RỘNG: Dùng kích thước an toàn 720px để luôn lọt thỏm trong khổ giấy A4
+    element.style.width = '720px';
+    element.style.minWidth = '720px'; 
+    element.style.maxWidth = '720px'; 
     element.style.boxSizing = 'border-box'; 
-    element.style.padding = '15px';
+    element.style.padding = '10px 15px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
+    element.style.overflow = 'hidden'; // Ngăn chặn tuyệt đối mọi thành phần con phình ra
     
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
@@ -1161,8 +1163,8 @@ window.exportToPDF = function() {
 
         if (showMonthHeader) {
             tablesHTML += `
-                <div style="margin-bottom: 24px; page-break-inside: auto;">
-                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid;">
+                <div style="margin-bottom: 24px; page-break-inside: auto; width: 100%; box-sizing: border-box;">
+                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                         <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
                         <span style="font-size: 11px; color: #64748B; font-weight: 600;">
                             Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
@@ -1174,11 +1176,11 @@ window.exportToPDF = function() {
                         <thead>
                             <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
                                 <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
-                                <th style="width: 12%; text-align: center;">Mã GD</th>
-                                <th style="width: 34%;">Nội dung</th>
-                                <th style="width: 18%;">Danh mục</th>
-                                <th style="width: 8%; text-align: center;">Ngày</th>
-                                <th style="width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
+                                <th style="width: 14%; text-align: center;">Mã GD</th>
+                                <th style="width: 32%;">Nội dung</th>
+                                <th style="width: 20%;">Danh mục</th>
+                                <th style="width: 10%; text-align: center;">Ngày</th>
+                                <th style="width: 18%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1193,11 +1195,11 @@ window.exportToPDF = function() {
                     <thead>
                         <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
                             <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
-                            <th style="width: 12%; text-align: center;">Mã GD</th>
-                            <th style="width: 34%;">Nội dung</th>
-                            <th style="width: 18%;">Danh mục</th>
-                            <th style="width: 8%; text-align: center;">Ngày</th>
-                            <th style="width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
+                            <th style="width: 14%; text-align: center;">Mã GD</th>
+                            <th style="width: 32%;">Nội dung</th>
+                            <th style="width: 20%;">Danh mục</th>
+                            <th style="width: 10%; text-align: center;">Ngày</th>
+                            <th style="width: 18%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1222,8 +1224,8 @@ window.exportToPDF = function() {
             const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
             const color = getColorByIndex(idx);
             pieLegendHTML += `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center;">
-                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
+                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
                         <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;"></span>
                         ${c.category}
                     </span>
@@ -1233,20 +1235,20 @@ window.exportToPDF = function() {
         });
 
         chartsHTML = `
-            <div style="margin-top: 20px; page-break-inside: avoid;">
+            <div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                 <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
                 <div style="text-align: center; margin-top: 10px;">
                     <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
                 </div>
             </div>
-            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px;">
-                <div style="flex: 1; min-width: 0;">
+            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 1; min-width: 0; max-width: 50%;">
                     <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
                     <div style="text-align: center;">
                         <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
                     </div>
                 </div>
-                <div style="flex: 1; min-width: 0; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center;">
+                <div style="flex: 1; min-width: 0; max-width: 50%; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
                     ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
                 </div>
             </div>
@@ -1257,20 +1259,19 @@ window.exportToPDF = function() {
     element.innerHTML = `
         <style>
             * { box-sizing: border-box; }
-            /* FIXED LỖI TRÀN BẢNG */
-            .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
-            .pdf-table th { padding: 10px 4px; font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+            .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
+            .pdf-table th { padding: 10px 4px; font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
         </style>
-        <div style="text-align: center; margin-bottom: 24px;">
+        <div style="text-align: center; margin-bottom: 24px; width: 100%; box-sizing: border-box;">
             <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
             <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
         </div>
         
-        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid;">
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
             <div style="flex: 1; min-width: 0;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
                 <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
@@ -1289,12 +1290,12 @@ window.exportToPDF = function() {
 
         ${chartsHTML}
 
-        <div style="page-break-before: auto;">
+        <div style="page-break-before: auto; width: 100%; box-sizing: border-box;">
             <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
             ${tablesHTML} 
         </div>
         
-        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid;">
+        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
             <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
             <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
         </div>
@@ -1338,12 +1339,12 @@ window.exportToPDF = function() {
 
     function adjustPreviewSize() {
         const containerWidth = previewContainer.clientWidth - 20; 
-        const scale = containerWidth / 780; 
+        const scale = containerWidth / 720; // Đã đổi theo kích thước gốc
         
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
-            const widthDiff = 780 * (1 - scale);
+            const widthDiff = 720 * (1 - scale);
             
             clonedElement.style.marginBottom = `-${heightDiff}px`; 
             clonedElement.style.marginRight = `-${widthDiff}px`;
@@ -1371,11 +1372,12 @@ window.exportToPDF = function() {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
         
+        // CẤU HÌNH CỐT LÕI: Margin rộng rãi & windowWidth 740 để bọc trọn 720px
         const opt = {
-            margin:       [10, 5, 10, 5],
+            margin:       [10, 10, 10, 10],
             filename:     fileName,
             image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 800 },
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 740 }, 
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak:    { mode: ['css', 'legacy'] }
         };
@@ -1408,7 +1410,6 @@ window.exportToPDF = function() {
         });
     };
 };
-
 // ---------------- INIT LẮNG NGHE SỰ KIỆN ----------------
 document.addEventListener('DOMContentLoaded', async () => {
   const currentMonthValue = new Date().getMonth() + 1;
