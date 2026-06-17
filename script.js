@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (XEM ĐẦY ĐỦ CÁC TRANG TRÊN MOBILE & FIX CẮT BẢNG)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỖI CẮT LỀ VÀ XUỐNG DÒNG MOBILE)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1106,7 +1106,10 @@ window.exportToPDF = function() {
 
     // Tạo phần tử cha chứa nội dung in PDF
     const element = document.createElement('div');
-    element.style.width = '780px';
+    // FIX CHIỀU RỘNG & BOX SIZING: Ép cứng khung đúng 800px, không bị phình to do padding
+    element.style.width = '800px';
+    element.style.minWidth = '800px'; // Khóa cứng trên Mobile để tránh bóp gãy dòng
+    element.style.boxSizing = 'border-box'; // Rất quan trọng để fix lỗi cắt lề bên phải
     element.style.padding = '20px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
@@ -1121,12 +1124,12 @@ window.exportToPDF = function() {
         
         tableRows += `
             <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                <td style="padding: 12px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
+                <td style="padding: 12px 4px; font-size: 11px; text-align: center; white-space: nowrap;">${idx + 1}</td>
+                <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700; white-space: nowrap;">${t.id || '---'}</td>
                 <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
                 <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
-                <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
-                <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center; white-space: nowrap;">${t.date.substring(0,5)}</td>
+                <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right; white-space: nowrap;">
                     ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                 </td>
             </tr>
@@ -1179,11 +1182,12 @@ window.exportToPDF = function() {
         `;
     }
 
+    // FIX TABLE CSS: Bỏ table-layout fixed, thêm white-space nowrap cho các cột cần thiết
     element.innerHTML = `
         <style>
             * { box-sizing: border-box; }
-            table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 10px; }
-            th, td { word-wrap: break-word; overflow-wrap: break-word; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { overflow-wrap: break-word; word-break: break-word; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
@@ -1217,12 +1221,12 @@ window.exportToPDF = function() {
             <table>
                 <thead>
                     <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%;">STT</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 13%;">Mã GD</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 32%;">Nội dung</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
                         <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 18%;">Danh mục</th>
-                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 11%;">Ngày</th>
-                        <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%;">Số tiền</th>
+                        <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
+                        <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1239,7 +1243,6 @@ window.exportToPDF = function() {
 
     const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
-    // Giao diện Modal xem trước NATIVE HTML giúp cuộn xem ĐẦY ĐỦ CÁC TRANG mượt mà
     const overlay = document.createElement('div');
     overlay.className = 'overlay show';
     overlay.style.zIndex = '9999';
@@ -1257,7 +1260,7 @@ window.exportToPDF = function() {
             <span style="font-size: 1.1rem;"><i class="fas fa-file-invoice" style="color: #0891B2; margin-right: 6px;"></i> Xem trước báo cáo (Toàn bộ trang)</span>
         </div>
         <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border); background: #F1F5F9; margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: flex; justify-content: center; align-items: flex-start;">
-            </div>
+        </div>
         <div style="display: flex; gap: 12px; margin-top: auto; flex-shrink: 0;">
             <button class="btn-cancel" id="closePdfBtn" style="flex: 1; padding: 14px; font-weight: 800;"><i class="fas fa-times"></i> Đóng</button>
             <button class="btn-save" id="sharePdfBtn" style="flex: 1.5; background: var(--income); box-shadow: 0 4px 15px rgba(0, 210, 106, 0.3); font-weight: 800;"><i class="fas fa-share-nodes"></i> Chia sẻ / Tải PDF</button>
@@ -1267,7 +1270,6 @@ window.exportToPDF = function() {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // Đưa bản sao HTML vào khung để hiển thị mượt mà
     const previewContainer = modal.querySelector('#pdfPreviewContainer');
     const clonedElement = element.cloneNode(true);
     clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
@@ -1275,18 +1277,20 @@ window.exportToPDF = function() {
     clonedElement.style.transformOrigin = 'top center';
     previewContainer.appendChild(clonedElement);
 
-    // Tính toán tự động co giãn tỷ lệ (Scale) tương thích với chiều rộng của từng dòng điện thoại
+    // FIX SCROLL HEIGHT: Căn chỉnh lại bù trừ chiều cao chuẩn hơn
     function adjustPreviewSize() {
-        const containerWidth = previewContainer.clientWidth - 4; // Bỏ bớt khoảng đệm viền
-        const scale = containerWidth / 780;
+        const containerWidth = previewContainer.clientWidth - 20; // Trừ hao padding
+        const scale = containerWidth / 800; // Map với 800px cứng
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
-            // Bù trừ khoảng trống sụt giảm do transform scale để thanh cuộn dọc (Scrollbar) chuẩn xác
-            clonedElement.style.marginBottom = `-${780 * (1 - scale)}px`; 
+            const heightDiff = clonedElement.offsetHeight * (1 - scale);
+            clonedElement.style.marginBottom = `-${heightDiff}px`; 
+        } else {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.marginBottom = '0px';
         }
     }
     
-    // Gọi tính toán scale ngay sau khi modal xuất hiện
     setTimeout(adjustPreviewSize, 50);
     window.addEventListener('resize', adjustPreviewSize);
     
