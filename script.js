@@ -1085,7 +1085,7 @@ window.exportToCSV = async function() {
     showToast("Đã tải file CSV!", "success");
 };
 
-// 💎 XUẤT FILE BÁO CÁO PDF (FIX LỆCH TRÁI + CHIA BẢNG THEO TỪNG THÁNG)
+// 💎 XUẤT FILE BÁO CÁO PDF (FIX TRIỆT ĐỂ LỖI CẮT LỀ DO TRÀN NỘI DUNG)
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
@@ -1105,10 +1105,11 @@ window.exportToPDF = function() {
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    element.style.width = '800px';
-    element.style.minWidth = '800px'; 
+    // KHÓA CỨNG CHIỀU RỘNG CHUẨN A4
+    element.style.width = '780px';
+    element.style.minWidth = '780px'; 
     element.style.boxSizing = 'border-box'; 
-    element.style.padding = '20px';
+    element.style.padding = '15px';
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
@@ -1116,7 +1117,6 @@ window.exportToPDF = function() {
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
     
-    // 1. NHÓM DỮ LIỆU THEO TỪNG THÁNG
     const groupedData = {};
     data.forEach(t => {
         const parts = t.date.split('/');
@@ -1125,7 +1125,6 @@ window.exportToPDF = function() {
         groupedData[monthYear].push(t);
     });
 
-    // 2. SẮP XẾP THÁNG TĂNG DẦN (VD: 01/2026 -> 02/2026)
     const sortedKeys = Object.keys(groupedData).sort((a, b) => {
         if (a === 'Khác') return 1;
         if (b === 'Khác') return -1;
@@ -1135,10 +1134,8 @@ window.exportToPDF = function() {
         return mA - mB;
     });
 
-    // Quyết định có hiển thị thanh Header "Tháng X" hay không (Chỉ hiện khi ở Tab Báo cáo)
     const showMonthHeader = isTab2 && sortedKeys.length >= 1;
 
-    // 3. TẠO HTML BẢNG CHO TỪNG NHÓM THÁNG
     sortedKeys.forEach(key => {
         let monthRows = '';
         let monthInc = 0, monthExp = 0;
@@ -1150,35 +1147,38 @@ window.exportToPDF = function() {
             
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; white-space: nowrap;">${idx + 1}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700; white-space: nowrap;">${t.id || '---'}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                    <td style="padding: 12px 4px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
                     <td style="padding: 12px 4px; font-size: 11px; font-weight: 700;">${t.content}</td>
                     <td style="padding: 12px 4px; font-size: 11px; color: #475569;">${t.category}</td>
-                    <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center; white-space: nowrap;">${t.date.substring(0,5)}</td>
-                    <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right; white-space: nowrap;">
+                    <td style="padding: 12px 4px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
+                    <td style="padding: 12px 6px 12px 4px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
                         ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                     </td>
                 </tr>
             `;
         });
 
-        // Nếu là báo cáo nhiều tháng/tuần -> Ghép Header Tóm tắt của tháng đó vào trên bảng
         if (showMonthHeader) {
             tablesHTML += `
                 <div style="margin-bottom: 24px; page-break-inside: auto;">
                     <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid;">
                         <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
-                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> <span style="margin: 0 6px; color: #CBD5E1;">|</span> Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span></span>
+                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">
+                            Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
+                            <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
+                            Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
+                        </span>
                     </div>
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 0;">
+                    <table class="pdf-table">
                         <thead>
                             <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
-                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
-                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; width: 34%;">Nội dung</th>
-                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; width: 18%;">Danh mục</th>
-                                <th style="padding: 10px 4px; font-size: 10px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
-                                <th style="padding: 10px 6px 10px 4px; font-size: 10px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
+                                <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
+                                <th style="width: 12%; text-align: center;">Mã GD</th>
+                                <th style="width: 34%;">Nội dung</th>
+                                <th style="width: 18%;">Danh mục</th>
+                                <th style="width: 8%; text-align: center;">Ngày</th>
+                                <th style="width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1188,17 +1188,16 @@ window.exportToPDF = function() {
                 </div>
             `;
         } else {
-            // Dành cho Tab 1 (Giao dịch trong ngày) - Không cần chia header
             tablesHTML += `
-                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <table class="pdf-table" style="margin-top: 10px;">
                     <thead>
                         <tr style="background: #0891B2; color: #FFFFFF; text-align: left;">
-                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px; width: 6%; white-space: nowrap;">STT</th>
-                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 12%; white-space: nowrap;">Mã GD</th>
-                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 34%;">Nội dung</th>
-                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; width: 18%;">Danh mục</th>
-                            <th style="padding: 12px 4px; font-size: 11px; text-transform: uppercase; text-align: center; width: 10%; white-space: nowrap;">Ngày</th>
-                            <th style="padding: 12px 6px 12px 4px; font-size: 11px; text-transform: uppercase; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px; width: 20%; white-space: nowrap;">Số tiền</th>
+                            <th style="width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
+                            <th style="width: 12%; text-align: center;">Mã GD</th>
+                            <th style="width: 34%;">Nội dung</th>
+                            <th style="width: 18%;">Danh mục</th>
+                            <th style="width: 8%; text-align: center;">Ngày</th>
+                            <th style="width: 22%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1224,11 +1223,11 @@ window.exportToPDF = function() {
             const color = getColorByIndex(idx);
             pieLegendHTML += `
                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center;">
-                    <span style="color: #475569; display: flex; align-items: center; gap: 8px;">
-                        <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};"></span>
+                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${color};flex-shrink:0;"></span>
                         ${c.category}
                     </span>
-                    <span style="font-weight: 800; color: ${color};">${pct}%</span>
+                    <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
                 </div>
             `;
         });
@@ -1241,13 +1240,13 @@ window.exportToPDF = function() {
                 </div>
             </div>
             <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px;">
-                <div style="flex: 1;">
+                <div style="flex: 1; min-width: 0;">
                     <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
                     <div style="text-align: center;">
                         <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
                     </div>
                 </div>
-                <div style="flex: 1; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center;">
+                <div style="flex: 1; min-width: 0; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center;">
                     ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
                 </div>
             </div>
@@ -1258,8 +1257,10 @@ window.exportToPDF = function() {
     element.innerHTML = `
         <style>
             * { box-sizing: border-box; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { overflow-wrap: break-word; word-break: break-word; }
+            /* FIXED LỖI TRÀN BẢNG */
+            .pdf-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
+            .pdf-table th { padding: 10px 4px; font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+            .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
             tr { page-break-inside: avoid; page-break-after: auto; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
@@ -1270,17 +1271,17 @@ window.exportToPDF = function() {
         </div>
         
         <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid;">
-            <div style="flex: 1;">
+            <div style="flex: 1; min-width: 0;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
-                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
+                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
             </div>
-            <div style="flex: 1; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span>
-                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
+                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
             </div>
-            <div style="flex: 1; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span>
-                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px;">
+                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     ${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ
                 </div>
             </div>
@@ -1290,7 +1291,8 @@ window.exportToPDF = function() {
 
         <div style="page-break-before: auto;">
             <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
-            ${tablesHTML} </div>
+            ${tablesHTML} 
+        </div>
         
         <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid;">
             <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
@@ -1336,12 +1338,12 @@ window.exportToPDF = function() {
 
     function adjustPreviewSize() {
         const containerWidth = previewContainer.clientWidth - 20; 
-        const scale = containerWidth / 800; 
+        const scale = containerWidth / 780; 
         
         if (scale < 1) {
             clonedElement.style.transform = `scale(${scale})`;
             const heightDiff = clonedElement.offsetHeight * (1 - scale);
-            const widthDiff = 800 * (1 - scale);
+            const widthDiff = 780 * (1 - scale);
             
             clonedElement.style.marginBottom = `-${heightDiff}px`; 
             clonedElement.style.marginRight = `-${widthDiff}px`;
