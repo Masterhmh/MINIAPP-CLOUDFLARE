@@ -64,24 +64,24 @@ window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) 
     if (!overlay) {
         overlay = document.createElement('div');
         overlay.id = 'customConfirmOverlay';
-        overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:999999; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s ease; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);';
+        overlay.className = 'custom-confirm-overlay';
         document.body.appendChild(overlay);
     }
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:var(--bg-card, #ffffff); width:85%; max-width:320px; border-radius:20px; box-shadow:0 15px 35px rgba(0,0,0,0.25); transform:scale(0.9); opacity:0; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); overflow:hidden; display:flex; flex-direction:column;';
+    modal.className = 'custom-confirm-modal';
     
     modal.innerHTML = `
         <div style="padding:24px 20px 20px; text-align:center;">
-            <div style="width:56px; height:56px; border-radius:50%; background:rgba(244,63,94,0.1); color:#f43f5e; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 16px;">
+            <div class="custom-confirm-icon">
                 <i class="fas fa-trash-alt"></i>
             </div>
-            <h3 style="margin:0 0 10px; font-size:1.15rem; color:var(--text-1, #1e293b); font-family:'Plus Jakarta Sans', sans-serif;">${title}</h3>
-            <p style="margin:0; font-size:0.95rem; color:var(--text-2, #64748b); line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">${messageHtml}</p>
+            <h3 class="custom-confirm-title">${title}</h3>
+            <p class="custom-confirm-message">${messageHtml}</p>
         </div>
-        <div style="display:flex; border-top:1px solid var(--border-color, #e2e8f0);">
-            <button id="customConfirmCancel" style="flex:1; padding:16px; background:transparent; border:none; border-right:1px solid var(--border-color, #e2e8f0); color:var(--text-2, #64748b); font-weight:600; font-size:1rem; cursor:pointer; font-family:'Plus Jakarta Sans', sans-serif; transition:0.2s;">Hủy</button>
-            <button id="customConfirmOk" style="flex:1; padding:16px; background:transparent; border:none; color:#f43f5e; font-weight:800; font-size:1rem; cursor:pointer; font-family:'Plus Jakarta Sans', sans-serif; transition:0.2s;">${confirmText}</button>
+        <div class="custom-confirm-actions">
+            <button id="customConfirmCancel" class="custom-confirm-cancel">Hủy</button>
+            <button id="customConfirmOk" class="custom-confirm-ok">${confirmText}</button>
         </div>
     `;
 
@@ -112,7 +112,6 @@ function processToastQueue() {
   const { message, type } = toastQueue.shift();
   
   const toast = document.createElement('div');
-  // Gắn class dựa trên type (success, error, info)
   toast.className = `premium-toast toast-${type}`;
   
   let icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
@@ -125,7 +124,6 @@ function processToastQueue() {
   
   document.body.appendChild(toast);
   
-  // Kích hoạt hiệu ứng xuất hiện
   void toast.offsetWidth;
   toast.classList.add('show');
   
@@ -271,7 +269,7 @@ function displayTransactions() {
   const pBal = pInc - pExp;
 
   const heroExpMain = document.getElementById('heroExpenseMain');
-  if(heroExpMain) heroExpMain.innerHTML = `${formatNumberWithCommas(tExp.toString())}<span style="font-size: 1.4rem; opacity: 0.8; margin-left: 2px;">đ</span>`;
+  if(heroExpMain) heroExpMain.innerHTML = `${formatNumberWithCommas(tExp.toString())}<span>đ</span>`;
   const heroInc = document.getElementById('heroIncome'); if(heroInc) heroInc.textContent = formatNumberWithCommas(tInc.toString()) + 'đ';
   const heroBalSub = document.getElementById('heroBalanceSub');
   if(heroBalSub) { let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); heroBalSub.textContent = `${sign}${formatNumberWithCommas(Math.abs(tBal).toString())}đ`; }
@@ -299,20 +297,20 @@ function displayTransactions() {
     
     const card = document.createElement('div'); card.className = `tx-card ${tCls}`;
     card.innerHTML = `
-      <div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div>
+      <div class="tx-icon-wrap ${tCls}">${icon}</div>
       <div class="tx-body">
         <div class="tx-title">${escapeHTML(item.content)}</div>
-        <div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-           <span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span>
-           <span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span>
+        <div class="tx-meta-row">
+           <span class="tx-date">${escapeHTML(formatDate(item.date))}</span>
+           <span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span>
            <span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>
         </div>
-        ${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}
-        <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;">
+        ${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}
+        <div class="tx-id-row">
            <span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span>
         </div>
       </div>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+      <div class="tx-right-col">
         <div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div>
         <div class="tx-actions">
            <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}" title="Sửa"><i class="fas fa-pen"></i></button>
@@ -400,7 +398,7 @@ function drawMonthlyPieChart(data) {
              <span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span>
           </div>
           <div class="legend-value-col">
-             <span class="legend-pct" style="color:${c}; font-size: 0.8rem; font-weight: 700;">${pct}%</span>
+             <span class="legend-pct" style="color:${c};">${pct}%</span>
           </div>
         `; 
         divLeg.onclick = () => { triggerHaptic('light'); currentPageCategory = 1; showCategoryDetail(i.category, i.amount, c); }; 
@@ -412,7 +410,7 @@ function drawMonthlyPieChart(data) {
         divProg.innerHTML = `
           <div class="cat-progress-header">
             <div class="cat-progress-info">
-              <div class="cat-progress-icon" style="background:${c}22; color:${c}; font-size: 1.3rem;">${catIconHTML}</div>
+              <div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div>
               <span class="cat-progress-title">${escapeHTML(i.category)}</span>
             </div>
             <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;">
@@ -461,7 +459,7 @@ function displayCategoryTransactionsList(txs) {
   if(txs.length === 0) { list.innerHTML = '<div class="empty-state">Không có giao dịch nào</div>'; document.getElementById('paginationCategoryDetail').style.display = 'none'; return; }
   document.getElementById('paginationCategoryDetail').style.display = 'flex';
   const tPages = Math.ceil(txs.length / itemsPerPage); const pData = txs.slice((currentPageCategory - 1) * itemsPerPage, currentPageCategory * itemsPerPage);
-  pData.forEach((item, index) => { const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;"><span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
+  pData.forEach((item, index) => { const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
   document.getElementById('pageInfoCategoryDetail').textContent = `${currentPageCategory} / ${tPages}`; document.getElementById('prevPageCategoryDetail').disabled = currentPageCategory === 1; document.getElementById('nextPageCategoryDetail').disabled = currentPageCategory === tPages; document.getElementById('prevPageCategoryDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory > 1) { currentPageCategory--; displayCategoryTransactionsList(txs); } }; document.getElementById('nextPageCategoryDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory < tPages) { currentPageCategory++; displayCategoryTransactionsList(txs); } };
   document.querySelectorAll('#categoryTransactionsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(txs.find(i => String(i.id) === btn.getAttribute('data-id')))); document.querySelectorAll('#categoryTransactionsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
@@ -474,9 +472,8 @@ const categoryView = document.getElementById('categoryDetailView'); let touchSta
 function displaySearchResults() {
     const list = document.getElementById('searchResultsContainer'); list.innerHTML='';
     const data = cachedSearchResults;
-    const headerTitle = document.querySelector('#tab3 .notification');
-    if(headerTitle) headerTitle.innerHTML = `Tìm thấy <strong style="color: var(--primary-light);">${data.length}</strong> giao dịch phù hợp`;
-
+    const headerTitle = document.querySelector('#tab3 .section-title'); // Fixed notification selector
+    
     if(!data || data.length === 0) {
         document.getElementById('placeholderTab3').style.display = 'block';
         document.getElementById('paginationSearch').style.display = 'none';
@@ -486,7 +483,7 @@ function displaySearchResults() {
     document.getElementById('paginationSearch').style.display = 'flex';
     
     const tPages = Math.ceil(data.length / itemsPerPage); const pData = data.slice((currentPageSearch - 1) * itemsPerPage, currentPageSearch * itemsPerPage);
-    pData.forEach((item, index) => { const tCls = item.type==='Thu nhập'?'income':'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}" style="font-size: 1.3rem;">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta" style="margin-bottom: 2px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;"><span class="tx-date" style="margin-right: 2px;">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge" style="background: var(--bg-card2); color: var(--text-2); border: 1px solid var(--border-color);">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-meta" style="font-size: 0.75rem; color: var(--text-3); margin-top: 4px; font-style: italic;"><i class="fas fa-tag" style="font-size: 0.65rem; margin-right: 4px;"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-meta" style="font-size: 0.65rem; color: var(--text-3); font-weight: 500; margin-top: 4px;"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
+    pData.forEach((item, index) => { const tCls = item.type==='Thu nhập'?'income':'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span><span>${formatNumberWithCommas(item.amount.toString())}đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
     document.getElementById('pageInfoSearch').textContent = `${currentPageSearch} / ${tPages}`; document.getElementById('prevPageSearch').disabled = currentPageSearch === 1; document.getElementById('nextPageSearch').disabled = currentPageSearch === tPages; document.getElementById('prevPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch > 1) { currentPageSearch--; displaySearchResults(); } }; document.getElementById('nextPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch < tPages) { currentPageSearch++; displaySearchResults(); } };
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id')))); document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
@@ -543,22 +540,22 @@ function displayKeywords() {
    }).forEach(category => { 
        const group = groupedKeywords[category]; let tagsHTML = ''; 
        group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { 
-           tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; 
+           tagsHTML += `<span class="keyword-tag" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; 
        }); 
-       const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:0; margin-bottom:12px; flex-direction:column; overflow: hidden;'; 
+       const div = document.createElement('div'); div.className = 'tx-card keyword-group-card'; 
        div.innerHTML = `
-            <div class="accordion-header" style="padding: 14px; display:flex; align-items:center; justify-content:space-between; width:100%; cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div>
+            <div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
+                <div class="flex-row-gap-10" style="align-items:center;">
+                    <div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div>
                     <div class="tx-body">
-                        <div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div>
-                        <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div>
+                        <div class="tx-title">${escapeHTML(category)}</div>
+                        <div class="tx-id-row">${group.keywords.length} từ khóa</div>
                     </div>
                 </div>
                 <i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i>
             </div>
-            <div class="accordion-body" style="display:none; padding: 0 14px 14px 14px; flex-wrap:wrap; width:100%; border-top: 1px solid var(--border-color); padding-top: 14px;">
-                ${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}
+            <div class="accordion-body" style="display:none;">
+                ${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}
             </div>
        `; 
        container.appendChild(div); 
@@ -647,6 +644,8 @@ window.exportToPDF = function() {
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
+    
+    /* CHÚ Ý: HTML2PDF bắt buộc phải có CSS inline ở đây để kết xuất đúng bố cục trang A4 */
     element.style.width = '720px';
     element.style.minWidth = '720px'; 
     element.style.maxWidth = '720px'; 
@@ -952,7 +951,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER" MỚI (KHÓA ICON ĐÃ DÙNG VÀ CHỐNG CO RÚT)
+// TÍNH NĂNG CỬA SỔ "ICON PICKER" MỚI
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -979,7 +978,7 @@ window.openIconPickerModal = function() {
             '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
             '📦', '🏷️', '✨', '❤️'
         ];
-        container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}" style="font-size: 1.6rem; display:flex; align-items:center; justify-content:center;">${emoji}</div>`).join('');
+        container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}">${emoji}</div>`).join('');
         
         const bindIconClick = (item) => {
             item.onclick = function() {
@@ -995,8 +994,8 @@ window.openIconPickerModal = function() {
             tagsWrapper.innerHTML = '';
             pendingTags.forEach((tag, idx) => {
                 const span = document.createElement('span');
-                span.style.cssText = 'background:var(--primary); color:#fff; padding:4px 10px; border-radius:12px; font-size:0.75rem; display:flex; align-items:center; gap:6px; font-weight: 600;';
-                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" style="cursor:pointer; font-size:0.85rem;" onclick="removeTag(${idx})"></i>`;
+                span.className = 'tag-badge';
+                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" onclick="removeTag(${idx})"></i>`;
                 tagsWrapper.appendChild(span);
             });
             hiddenKeywords.value = pendingTags.join(', ');
@@ -1071,9 +1070,7 @@ window.openIconPickerModal = function() {
     newOpt.style.fontWeight = "bold";
     catSelect.appendChild(newOpt);
 
-    // THUẬT TOÁN ĐÓNG BĂNG ICON ĐÃ SỬ DỤNG
     const updateIconState = (val) => {
-        // 1. Quét tìm tất cả Icon đã có chủ (loại trừ danh mục đang thao tác)
         let usedEmojis = [];
         uniqueCats.forEach(c => {
             if (c !== val) {
@@ -1091,24 +1088,18 @@ window.openIconPickerModal = function() {
             }
         });
 
-        // 2. Làm mờ (disabled) các Icon đã có chủ
         modal.querySelectorAll('.icon-item').forEach(item => {
             item.classList.remove('selected');
             const itemEmoji = item.getAttribute('data-icon');
             if (usedEmojis.includes(itemEmoji)) {
-                item.style.opacity = '0.2';
-                item.style.pointerEvents = 'none'; // Chống click
-                item.style.filter = 'grayscale(100%)';
+                item.classList.add('disabled-icon');
             } else {
-                item.style.opacity = '1';
-                item.style.pointerEvents = 'auto';
-                item.style.filter = 'none';
+                item.classList.remove('disabled-icon');
             }
         });
 
         modal.removeAttribute('data-selected-icon');
         
-        // 3. Xử lý bật sáng icon nếu đang ở chế độ sửa danh mục cũ
         if (!val) return;
 
         let currentIconVal = null;
@@ -1126,7 +1117,6 @@ window.openIconPickerModal = function() {
                     const newDiv = document.createElement('div');
                     newDiv.className = 'icon-item';
                     newDiv.setAttribute('data-icon', targetEmoji);
-                    newDiv.style.cssText = 'font-size: 1.6rem; display:flex; align-items:center; justify-content:center;';
                     newDiv.innerHTML = targetEmoji;
                     newDiv.onclick = function() {
                         triggerHaptic('light');
@@ -1138,11 +1128,7 @@ window.openIconPickerModal = function() {
                 }
                 if (item) {
                     item.classList.add('selected');
-                    // Gỡ trạng thái disabled nếu đây là icon thuộc về chính danh mục này
-                    item.style.opacity = '1';
-                    item.style.pointerEvents = 'auto';
-                    item.style.filter = 'none';
-                    
+                    item.classList.remove('disabled-icon');
                     modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
                     if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
                     container.scrollTop = 0;
@@ -1159,7 +1145,7 @@ window.openIconPickerModal = function() {
             delBtn.style.display = 'none';
             catInput.value = '';
             catInput.focus();
-            updateIconState(''); // Chuyển val = rỗng để nó quét khóa tất cả icon hiện có
+            updateIconState(''); 
         } else {
             catInputGroup.style.display = 'none';
             tagArea.style.display = 'none';
@@ -1218,7 +1204,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
-      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline'; deleteBtn.style.cssText = "flex: 1; display: none; margin: 0;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
+      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline flex-1 m-0'; deleteBtn.style.display = 'none'; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
       deleteBtn.onclick = () => { 
           if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
           triggerHaptic('medium');
@@ -1240,7 +1226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }; 
       kwActionContainer.appendChild(deleteBtn);
 
-      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel'; cancelBtn.style.cssText = "flex: 1; display: none; margin: 0;"; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
+      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel flex-1 m-0'; cancelBtn.style.display = 'none'; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
       cancelBtn.onclick = window.cancelEditKeyword; kwActionContainer.appendChild(cancelBtn);
   }
 
@@ -1313,9 +1299,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
       
       if (kCat && !document.getElementById('openIconPickerBtn')) {
-          const btn = document.createElement('button'); btn.id = 'openIconPickerBtn'; btn.type = 'button'; btn.innerHTML = '<i class="fas fa-cog"></i>'; btn.style.cssText = 'background: transparent; color: var(--primary); border: none; border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;'; btn.onclick = window.openIconPickerModal;
-          const parent = kCat.parentElement; const wrapper = document.createElement('div'); wrapper.style.display = 'flex'; wrapper.style.width = '100%';
-          parent.insertBefore(wrapper, kCat); wrapper.appendChild(kCat); wrapper.appendChild(btn); kCat.style.flex = '1';
+          const btn = document.createElement('button'); 
+          btn.id = 'openIconPickerBtn'; 
+          btn.type = 'button'; 
+          btn.innerHTML = '<i class="fas fa-cog"></i>'; 
+          btn.className = 'btn-icon-picker';
+          btn.onclick = window.openIconPickerModal;
+          
+          const parent = kCat.parentElement; 
+          const wrapper = document.createElement('div'); 
+          wrapper.className = 'input-with-btn-wrapper';
+          
+          parent.insertBefore(wrapper, kCat); 
+          wrapper.appendChild(kCat); 
+          wrapper.appendChild(btn); 
+          kCat.classList.add('flex-1');
       }
     } catch(e) {}
   }
