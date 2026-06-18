@@ -968,13 +968,19 @@ window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
     const container = document.getElementById('iconGridContainer');
+    
+    // Các phần tử DOM mới
+    const catSelect = document.getElementById('iconPickerSelect');
+    const catInputGroup = document.getElementById('newCategoryInputGroup');
     const catInput = document.getElementById('iconPickerCategory');
+    const tagArea = document.getElementById('tagInputArea');
     const tagInputField = document.getElementById('tagInputField');
     const tagsWrapper = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
+    const delBtn = document.getElementById('deleteCategoryBtn');
     
+    // Khởi tạo bảng Icon nếu chưa có
     if (container.innerHTML === '') {
-        // Đã bổ sung TOÀN BỘ ICON THEO SHEET CỦA BẠN LÊN ĐẦU
         const flatEmojis = [
             '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
             '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
@@ -996,6 +1002,7 @@ window.openIconPickerModal = function() {
         };
         modal.querySelectorAll('.icon-item').forEach(bindIconClick);
 
+        // Logic Tag Từ khóa
         window.renderTags = function() {
             tagsWrapper.innerHTML = '';
             pendingTags.forEach((tag, idx) => {
@@ -1020,6 +1027,7 @@ window.openIconPickerModal = function() {
             });
         }
         
+        // Lưu thông tin (Tạo mới hoặc Sửa)
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
@@ -1041,6 +1049,7 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
+        // Xóa Danh Mục
         document.getElementById('deleteCategoryBtn').onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
@@ -1065,23 +1074,25 @@ window.openIconPickerModal = function() {
         };
     }
     
-    const datalist = document.getElementById('iconPickerCatList'); datalist.innerHTML = '';
-    const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
-    const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
+    // Đổ danh sách vào Select Box
+    catSelect.innerHTML = '<option value="">-- Chọn danh mục hiện có --</option>';
+    const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
+    const uniqueCats = [...new Set(cats)]; 
+    uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
+    
+    // Thêm Option "Tạo mới" nổi bật
+    const newOpt = document.createElement('option');
+    newOpt.value = "__NEW__";
+    newOpt.innerHTML = "➕ Tạo danh mục mới...";
+    newOpt.style.fontWeight = "bold";
+    catSelect.appendChild(newOpt);
 
-    // HÀM TỰ ĐỘNG BẬT SÁNG ICON VÀ ĐẨY LÊN ĐẦU
-    const updateIconState = () => {
-        const val = catInput.value.trim();
-        const isExisting = uniqueCats.includes(val);
-        
-        const delBtn = document.getElementById('deleteCategoryBtn');
-        const tagArea = document.getElementById('tagInputArea');
-        if (delBtn) delBtn.style.display = isExisting ? 'block' : 'none';
-        if (tagArea) tagArea.style.display = isExisting ? 'none' : 'block';
-
+    // Bật sáng icon
+    const updateIconState = (val) => {
         modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
         modal.removeAttribute('data-selected-icon');
-        
+        if (!val) return;
+
         let currentIconVal = null;
         if (window.customCategoryIcons && window.customCategoryIcons[val]) {
             currentIconVal = window.customCategoryIcons[val].trim();
@@ -1090,28 +1101,15 @@ window.openIconPickerModal = function() {
         }
 
         if (currentIconVal) {
-            let targetEmoji = null;
-            
-            if (currentIconVal.includes('fa-')) {
-                let faClass = currentIconVal.replace('fas ', '').trim();
-                if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
-                targetEmoji = FA_TO_EMOJI_MAP[faClass];
-            } else {
-                // Lấy toàn bộ chuỗi icon để không hỏng các icon dạng ghép (Ví dụ: Gia đình 👨‍👩‍👧‍👦)
-                targetEmoji = currentIconVal; 
-            }
-
+            let targetEmoji = currentIconVal.includes('fa-') ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()] : currentIconVal;
             if (targetEmoji) {
-                // TÌM ICON AN TOÀN BẰNG ARRAY.FIND THAY VÌ QUERY SELECTOR
                 let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
-                
                 if (!item) {
                     const newDiv = document.createElement('div');
                     newDiv.className = 'icon-item';
                     newDiv.setAttribute('data-icon', targetEmoji);
                     newDiv.style.cssText = 'font-size: 1.6rem; display:flex; align-items:center; justify-content:center;';
                     newDiv.innerHTML = targetEmoji;
-                    
                     newDiv.onclick = function() {
                         triggerHaptic('light');
                         modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
@@ -1120,34 +1118,60 @@ window.openIconPickerModal = function() {
                     };
                     item = newDiv;
                 }
-
                 if (item) {
                     item.classList.add('selected');
                     modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
-                    
-                    // Cắt và dán nó lên vị trí đầu tiên
-                    if (container.firstChild !== item) {
-                        container.insertBefore(item, container.firstChild);
-                    }
-                    
-                    // Đưa thanh cuộn lên đầu để đảm bảo luôn nhìn thấy
+                    if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
                     container.scrollTop = 0;
                 }
             }
         }
     };
 
-    catInput.addEventListener('input', updateIconState);
-    catInput.addEventListener('change', updateIconState);
+    // LẮNG NGHE KHI NGƯỜI DÙNG THAY ĐỔI LỰA CHỌN DROPDOWN
+    catSelect.onchange = (e) => {
+        triggerHaptic('light');
+        if (e.target.value === '__NEW__') {
+            // Hiển thị khung Tên & Từ khóa khi Tạo mới
+            catInputGroup.style.display = 'block';
+            tagArea.style.display = 'block';
+            delBtn.style.display = 'none'; // Ẩn thùng rác
+            
+            catInput.value = '';
+            catInput.focus();
+            updateIconState('');
+        } else {
+            // Ẩn khung Tên & Từ khóa khi Sửa cũ
+            catInputGroup.style.display = 'none';
+            tagArea.style.display = 'none';
+            delBtn.style.display = e.target.value ? 'flex' : 'none'; // Hiện thùng rác nếu có chọn
+            
+            catInput.value = e.target.value;
+            updateIconState(e.target.value);
+        }
+    };
 
+    catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
+
+    // Khởi tạo trạng thái ban đầu khi mở Modal
     const currentSelected = document.getElementById('keywordCategory').value;
     if(currentSelected) {
+        catSelect.value = currentSelected;
         catInput.value = currentSelected;
-        updateIconState();
+        catInputGroup.style.display = 'none';
+        tagArea.style.display = 'none';
+        delBtn.style.display = 'flex';
+        updateIconState(currentSelected);
     } else {
-        catInput.value = ''; updateIconState();
+        catSelect.value = '';
+        catInput.value = '';
+        catInputGroup.style.display = 'none';
+        tagArea.style.display = 'none';
+        delBtn.style.display = 'none';
+        updateIconState('');
     }
     
+    // Reset Tags mỗi khi mở Modal
     pendingTags = []; window.renderTags();
 
     document.getElementById('modalOverlay').classList.add('show');
