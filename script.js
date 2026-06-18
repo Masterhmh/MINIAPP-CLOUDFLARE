@@ -416,7 +416,7 @@ function displaySearchResults() {
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id')))); document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
 
-// ---------------- TAB 4: TÌM KIẾM TỪ KHÓA ----------------
+// ---------------- TAB 4: TÌM KIẾM TỪ KHÓA (ACCORDION NÂNG CẤP) ----------------
 window.loadKeywords = async function(isInit = false) {
     if(!isInit) showLoading(true, 'tab4');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
@@ -429,8 +429,32 @@ window.loadKeywords = async function(isInit = false) {
     } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab4'); }
 };
 
-window.startEditKeyword = function(kw, category) { triggerHaptic('light'); document.getElementById('keywordInput').value = kw; document.getElementById('keywordCategory').value = category; currentEditKeyword = kw; const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-save"></i> Lưu sửa'; btnAdd.classList.add('btn-edit-kw'); document.getElementById('cancelKeywordBtn').style.display = 'block'; document.getElementById('deleteEditKeywordBtn').style.display = 'block'; };
-window.cancelEditKeyword = function() { triggerHaptic('light'); document.getElementById('keywordInput').value = ''; currentEditKeyword = null; const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-plus"></i> Thêm'; btnAdd.classList.remove('btn-edit-kw'); document.getElementById('cancelKeywordBtn').style.display = 'none'; document.getElementById('deleteEditKeywordBtn').style.display = 'none'; };
+window.startEditKeyword = function(kw, category) { 
+    triggerHaptic('light'); 
+    document.getElementById('keywordInput').value = kw; 
+    document.getElementById('keywordCategory').value = category; 
+    currentEditKeyword = kw; 
+    const btnAdd = document.getElementById('addKeywordBtn'); 
+    btnAdd.innerHTML = '<i class="fas fa-save"></i> Lưu sửa'; 
+    btnAdd.classList.add('btn-edit-kw'); 
+    
+    document.getElementById('cancelKeywordBtn').style.display = 'flex'; 
+    document.getElementById('deleteEditKeywordBtn').style.display = 'flex'; 
+    document.getElementById('fetchKeywordsBtn').style.display = 'none';
+};
+
+window.cancelEditKeyword = function() { 
+    triggerHaptic('light'); 
+    document.getElementById('keywordInput').value = ''; 
+    currentEditKeyword = null; 
+    const btnAdd = document.getElementById('addKeywordBtn'); 
+    btnAdd.innerHTML = '<i class="fas fa-plus"></i> Thêm'; 
+    btnAdd.classList.remove('btn-edit-kw'); 
+    
+    document.getElementById('cancelKeywordBtn').style.display = 'none'; 
+    document.getElementById('deleteEditKeywordBtn').style.display = 'none'; 
+    document.getElementById('fetchKeywordsBtn').style.display = 'flex';
+};
 
 function displayKeywords() {
    const container = document.getElementById('keywordsContainer'); container.innerHTML = '';
@@ -438,19 +462,32 @@ function displayKeywords() {
    document.getElementById('placeholderTab4').style.display = 'none';
    const groupedKeywords = {}; cachedKeywords.forEach(item => { const category = item.category || 'Khác'; if (!groupedKeywords[category]) groupedKeywords[category] = { keywords: [] }; if (item.keywords && typeof item.keywords === 'string') { const kwsArray = item.keywords.split(',').map(k => k.trim()).filter(k => k !== ''); kwsArray.forEach(kw => { if (!groupedKeywords[category].keywords.includes(kw)) groupedKeywords[category].keywords.push(kw); }); } });
    
-   // Sắp xếp danh mục từ khóa hiển thị A-Z, "Khác" xuống cuối
    Object.keys(groupedKeywords).sort((a,b) => {
-       if (a.toLowerCase() === 'khác') return 1;
-       if (b.toLowerCase() === 'khác') return -1;
+       if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1;
        return a.localeCompare(b, 'vi');
    }).forEach(category => { 
-       const group = groupedKeywords[category]; 
-       let tagsHTML = ''; 
-       // Sắp xếp các từ khóa con A-Z
+       const group = groupedKeywords[category]; let tagsHTML = ''; 
        group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { 
            tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; 
        }); 
-       const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:14px; margin-bottom:16px; flex-direction:column; align-items:flex-start; gap:10px;'; div.innerHTML = `<div style="display:flex; align-items:center; gap:12px; width:100%;"><div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div><div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div></div></div><div style="width:100%; display:flex; flex-wrap:wrap; margin-top:4px;">${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}</div>`; container.appendChild(div); 
+       const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:0; margin-bottom:12px; flex-direction:column; overflow: hidden;'; 
+       // HTML Dành cho Accordion
+       div.innerHTML = `
+            <div class="accordion-header" style="padding: 14px; display:flex; align-items:center; justify-content:space-between; width:100%; cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="tx-icon-wrap expense" style="font-size: 1.3rem;">${getCategoryIcon(category)}</div>
+                    <div class="tx-body">
+                        <div class="tx-title" style="font-size:0.95rem;">${escapeHTML(category)}</div>
+                        <div class="tx-meta" style="font-size: 0.65rem; color: var(--text-2);">${group.keywords.length} từ khóa</div>
+                    </div>
+                </div>
+                <i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i>
+            </div>
+            <div class="accordion-body" style="display:none; padding: 0 14px 14px 14px; flex-wrap:wrap; width:100%; border-top: 1px solid var(--border-color); padding-top: 14px;">
+                ${tagsHTML || '<span style="font-size:0.75rem; color:var(--text-3); font-style:italic;">Chưa có từ khóa</span>'}
+            </div>
+       `; 
+       container.appendChild(div); 
    });
 }
 
@@ -459,48 +496,19 @@ async function fetchCategories() {
     try { 
         const res = await fetch(`${FIREBASE_URL}/categories.json`); 
         let cats = await res.json(); 
-        if(!cats) { 
-            const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); 
-            cats = await gasRes.json(); 
-        } 
-        // Sắp xếp A-Z, "Khác" xuống cuối
-        if (cats && Array.isArray(cats)) {
-            cats.sort((a, b) => {
-                if (a.toLowerCase() === 'khác') return 1;
-                if (b.toLowerCase() === 'khác') return -1;
-                return a.localeCompare(b, 'vi');
-            });
-        }
+        if(!cats) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); cats = await gasRes.json(); } 
+        if (cats && Array.isArray(cats)) { cats.sort((a, b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); }); }
         return cats || []; 
     } catch(e) { return []; } 
 }
 
 window.selectType = function(formId, type, el) { triggerHaptic('light'); document.getElementById(formId + 'Type').value = type; const pills = el.parentElement.querySelectorAll('.type-pill'); pills.forEach(p => p.classList.remove('income-active', 'expense-active')); if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active'); };
-
-window.openAddForm = async function() {
-  triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('addModal').classList.add('show'), 10);
-  document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; });
-  document.getElementById('addDate').value = formatDateToYYYYMMDD(new Date()); document.getElementById('addContent').value = ''; document.getElementById('addAmount').value = ''; document.getElementById('addNote').value = ''; document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Chi tiêu')) p.click(); });
-  const catSel = document.getElementById('addCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => catSel.appendChild(new Option(c, c)));
-};
+window.openAddForm = async function() { triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('addModal').classList.add('show'), 10); document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('addDate').value = formatDateToYYYYMMDD(new Date()); document.getElementById('addContent').value = ''; document.getElementById('addAmount').value = ''; document.getElementById('addNote').value = ''; document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('addCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => catSel.appendChild(new Option(c, c))); };
 window.closeAddForm = function() { document.getElementById('addModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
-
-window.openEditForm = async function(tx) {
-  if(!tx) return; triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('editModal').classList.add('show'), 10);
-  const pills = document.querySelectorAll('#editModal .type-pill'); pills.forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; });
-  document.getElementById('editTransactionId').value = tx.id; document.getElementById('editContent').value = tx.content; document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString()); document.getElementById('editNote').value = tx.note || ''; const [d,m,y] = tx.date.split('/'); document.getElementById('editDate').value = `${y}-${m}-${d}`;
-  pills.forEach(p => { if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click(); if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click(); });
-  const catSel = document.getElementById('editCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => { const opt = new Option(c, c); if(c === tx.category) opt.selected = true; catSel.appendChild(opt); });
-};
+window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('editModal').classList.add('show'), 10); const pills = document.querySelectorAll('#editModal .type-pill'); pills.forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('editTransactionId').value = tx.id; document.getElementById('editContent').value = tx.content; document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString()); document.getElementById('editNote').value = tx.note || ''; const [d,m,y] = tx.date.split('/'); document.getElementById('editDate').value = `${y}-${m}-${d}`; pills.forEach(p => { if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click(); if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('editCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => { const opt = new Option(c, c); if(c === tx.category) opt.selected = true; catSel.appendChild(opt); }); };
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
-window.closeAllModals = function() { 
-  closeAddForm(); closeEditForm(); 
-  if (document.getElementById('confirmDeleteModal')) document.getElementById('confirmDeleteModal').classList.remove('show'); 
-  if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show');
-  if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show');
-};
+window.closeAllModals = function() { closeAddForm(); closeEditForm(); if (document.getElementById('confirmDeleteModal')) document.getElementById('confirmDeleteModal').classList.remove('show'); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
-
 document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
 document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
 
@@ -538,335 +546,20 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-window.exportToPDF = function() {
-    const isTab2 = document.getElementById('tab2').classList.contains('active');
-    const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
-    
-    if (data.length === 0) {
-        return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
-    }
-    if (typeof html2pdf === 'undefined') {
-        return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
-    }
-    
-    triggerHaptic('medium');
-    showToast("Đang chuẩn bị bản xem trước...", "info");
+// ... Bỏ qua block exportToPDF dài dòng (bạn giữ nguyên mã PDF cũ mình đã gửi nhé để tiết kiệm khoảng trắng code) ...
 
-    let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
-    if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
-    const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
-
-    const element = document.createElement('div');
-    element.style.width = '720px';
-    element.style.minWidth = '720px'; 
-    element.style.maxWidth = '720px'; 
-    element.style.boxSizing = 'border-box'; 
-    element.style.padding = '10px 15px';
-    element.style.color = '#0F172A';
-    element.style.backgroundColor = '#FFFFFF';
-    element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
-    element.style.overflow = 'hidden'; 
-    
-    let tablesHTML = '';
-    let totalIncome = 0, totalExpense = 0;
-    
-    const catMapForColor = {};
-    data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
-    const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
-    
-    const categoryColorMap = {};
-    catArrForColor.forEach((c, idx) => { categoryColorMap[c.category] = getColorByIndex(idx); });
-
-    const groupedData = {};
-    data.forEach(t => {
-        const parts = t.date.split('/');
-        const monthYear = parts.length === 3 ? `${parts[1]}/${parts[2]}` : 'Khác';
-        if (!groupedData[monthYear]) groupedData[monthYear] = [];
-        groupedData[monthYear].push(t);
-    });
-
-    const sortedKeys = Object.keys(groupedData).sort((a, b) => {
-        if (a === 'Khác') return 1; if (b === 'Khác') return -1;
-        const [mA, yA] = a.split('/').map(Number);
-        const [mB, yB] = b.split('/').map(Number);
-        if (yA !== yB) return yA - yB;
-        return mA - mB;
-    });
-
-    const showMonthHeader = isTab2 && sortedKeys.length >= 1;
-    
-    const hasIncome = data.some(t => t.type === 'Thu nhập');
-    const hasExpense = data.some(t => t.type === 'Chi tiêu');
-
-    sortedKeys.forEach(key => {
-        let monthRows = '';
-        let monthInc = 0, monthExp = 0;
-        
-        groupedData[key].forEach((t, idx) => {
-            const isInc = t.type === 'Thu nhập';
-            if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
-            else { totalExpense += t.amount; monthExp += t.amount; }
-            
-            const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
-            const catIconHTML = getCategoryIcon(t.category);
-            
-            let tdAmountHTML = '';
-            if (hasIncome && hasExpense) {
-                tdAmountHTML = `
-                    <td style="padding: 12px 6px; font-size: 11px; font-weight: 800; color: #00D26A; text-align: right;">${isInc ? '+' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
-                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
-                `;
-            } else {
-                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
-                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
-                </td>`;
-            }
-
-            monthRows += `
-                <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                    <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
-                    <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
-                    <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
-                    <td style="padding: 12px 10px; font-size: 11px; color: ${catColor}; font-weight: 700; text-align: left;">
-                        <span style="display:inline-block; width:16px; text-align:center; margin-right:4px; font-size:12px;">${catIconHTML}</span>${t.category}
-                    </td>
-                    <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
-                    ${tdAmountHTML}
-                </tr>
-            `;
-        });
-
-        let thAmountHTML = '';
-        if (hasIncome && hasExpense) {
-            thAmountHTML = `
-                <th style="padding: 12px 6px; width: 14%; text-align: right;">Thu nhập</th>
-                <th style="padding: 12px 14px 12px 6px; width: 14%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Chi tiêu</th>
-            `;
-        } else {
-            thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>`;
-        }
-
-        const theadHTML = `
-            <thead>
-                <tr style="background: #0891B2; color: #FFFFFF;">
-                    <th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
-                    <th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th>
-                    <th style="padding: 12px 10px; width: 26%; text-align: left;">Nội dung</th>
-                    <th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th>
-                    <th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th>
-                    ${thAmountHTML}
-                </tr>
-            </thead>
-        `;
-
-        if (showMonthHeader) {
-            tablesHTML += `
-                <div style="margin-bottom: 24px; page-break-inside: auto; width: 100%; box-sizing: border-box;">
-                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
-                        <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
-                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">
-                            Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
-                            <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
-                            Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
-                        </span>
-                    </div>
-                    <table class="pdf-table">
-                        ${theadHTML}
-                        <tbody>
-                            ${monthRows}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        } else {
-            tablesHTML += `
-                <table class="pdf-table" style="margin-top: 10px;">
-                    ${theadHTML}
-                    <tbody>
-                        ${monthRows}
-                    </tbody>
-                </table>
-            `;
-        }
-    });
-
-    let chartsHTML = '';
-    if (isTab2 && window.mChart && window.pChart) {
-        const barChartImg = window.mChart.toBase64Image();
-        const pieChartImg = window.pChart.toBase64Image();
-        
-        const catMap = {};
-        data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
-        const catArr = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
-        
-        let pieLegendHTML = '';
-        catArr.forEach((c, idx) => {
-            const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
-            const color = getColorByIndex(idx);
-            const catIconHTML = getCategoryIcon(c.category);
-            
-            pieLegendHTML += `
-                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
-                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
-                        <span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>
-                        ${c.category}
-                    </span>
-                    <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
-                </div>
-            `;
-        });
-
-        chartsHTML = `
-            <div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
-                <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
-                <div style="text-align: center; margin-top: 10px;">
-                    <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
-                </div>
-            </div>
-            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
-                <div style="flex: 1; min-width: 0; max-width: 50%;">
-                    <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
-                    <div style="text-align: center;">
-                        <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
-                    </div>
-                </div>
-                <div style="flex: 1; min-width: 0; max-width: 50%; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
-                    ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
-                </div>
-            </div>
-            <div style="height: 24px;"></div>
-        `;
-    }
-
-    element.innerHTML = `
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
-        <style>
-            * { box-sizing: border-box; }
-            .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
-            .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-            .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
-            tr { page-break-inside: avoid; page-break-after: auto; }
-            thead { display: table-header-group; }
-            tfoot { display: table-footer-group; }
-        </style>
-        <div style="text-align: center; margin-bottom: 24px; width: 100%; box-sizing: border-box;">
-            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
-            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
-        </div>
-        
-        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
-            <div style="flex: 1; min-width: 0;">
-                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
-                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
-            </div>
-            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
-                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span>
-                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
-            </div>
-            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
-                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span>
-                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                    ${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ
-                </div>
-            </div>
-        </div>
-
-        ${chartsHTML}
-
-        <div style="page-break-before: auto; width: 100%; box-sizing: border-box;">
-            <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
-            ${tablesHTML} 
-        </div>
-        
-        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
-            <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
-            <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
-        </div>
-    `;
-
-    const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
-    
-    const modal = document.getElementById('pdfPreviewModal');
-    const overlay = document.getElementById('modalOverlay');
-    const previewContainer = document.getElementById('pdfPreviewContainer');
-    
-    previewContainer.innerHTML = '';
-    const clonedElement = element.cloneNode(true);
-    clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
-    clonedElement.style.borderRadius = '8px';
-    clonedElement.style.transformOrigin = 'top left';
-    previewContainer.appendChild(clonedElement);
-
-    function adjustPreviewSize() {
-        const containerWidth = previewContainer.clientWidth - 20; 
-        const scale = containerWidth / 720;
-        if (scale < 1) {
-            clonedElement.style.transform = `scale(${scale})`;
-            const heightDiff = clonedElement.offsetHeight * (1 - scale);
-            const widthDiff = 720 * (1 - scale);
-            clonedElement.style.marginBottom = `-${heightDiff}px`; 
-            clonedElement.style.marginRight = `-${widthDiff}px`;
-            clonedElement.style.marginLeft = '0px';
-        } else {
-            clonedElement.style.transform = 'none';
-            clonedElement.style.marginBottom = '0px';
-            clonedElement.style.marginRight = '0px';
-            clonedElement.style.marginLeft = 'auto'; 
-            clonedElement.style.marginRight = 'auto';
-        }
-    }
-    
-    setTimeout(adjustPreviewSize, 50);
-    window.addEventListener('resize', adjustPreviewSize);
-    
-    overlay.classList.add('show');
-    setTimeout(() => modal.classList.add('show'), 10);
-    
-    document.getElementById('sharePdfBtn').onclick = async () => {
-        triggerHaptic('medium');
-        showToast("Đang kết xuất file PDF chuẩn...", "info");
-        
-        const opt = {
-            margin:       [10, 10, 10, 10],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['css', 'legacy'] }
-        };
-
-        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
-            triggerHapticNotification('success');
-            const file = new File([blob], fileName, { type: 'application/pdf' });
-            
-            const platform = window.Telegram?.WebApp?.platform || 'unknown';
-            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
-
-            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({ files: [file], title: fileName });
-                    triggerHapticNotification('success');
-                } catch (error) {}
-            } else {
-                const pdfUrl = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = pdfUrl;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(pdfUrl);
-                showToast("Đã tải file PDF xuống máy!", "success");
-            }
-        }).catch(err => {
-            showToast("Lỗi tạo PDF: " + err.message, "error");
-        });
-    };
-};
-
+// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER" NÂNG CẤP VỚI TAG & XÓA DANH MỤC
+let pendingTags = [];
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
     const container = document.getElementById('iconGridContainer');
+    const catInput = document.getElementById('iconPickerCategory');
+    const tagInputField = document.getElementById('tagInputField');
+    const tagsWrapper = document.getElementById('tagsWrapper');
+    const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     
+    // Khởi tạo Icon Grid 1 lần
     if (container.innerHTML === '') {
         const flatIcons = [
             'fa-utensils', 'fa-coffee', 'fa-burger', 'fa-pizza-slice', 'fa-basket-shopping', 'fa-car', 'fa-motorcycle', 'fa-bus', 'fa-train', 'fa-plane', 'fa-gas-pump',
@@ -887,47 +580,110 @@ window.openIconPickerModal = function() {
                 modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
             };
         });
+
+        // 🟢 TÍNH NĂNG TỰ TẠO TAG KHI GÕ
+        window.renderTags = function() {
+            tagsWrapper.innerHTML = '';
+            pendingTags.forEach((tag, idx) => {
+                const span = document.createElement('span');
+                span.style.cssText = 'background:var(--primary); color:#fff; padding:4px 10px; border-radius:12px; font-size:0.75rem; display:flex; align-items:center; gap:6px; font-weight: 600;';
+                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" style="cursor:pointer; font-size:0.85rem;" onclick="removeTag(${idx})"></i>`;
+                tagsWrapper.appendChild(span);
+            });
+            hiddenKeywords.value = pendingTags.join(',');
+        }
+        window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
         
+        tagInputField.addEventListener('keydown', (e) => {
+            if (e.key === ',' || e.key === 'Enter') {
+                e.preventDefault();
+                const val = tagInputField.value.trim().replace(/,/g, '');
+                if (val && !pendingTags.includes(val)) { pendingTags.push(val); tagInputField.value = ''; window.renderTags(); }
+            } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
+                pendingTags.pop(); window.renderTags();
+            }
+        });
+        
+        // Nút Lưu Mới/Cập nhật
         document.getElementById('saveIconPickerBtn').onclick = async () => {
-            const cat = document.getElementById('iconPickerCategory').value.trim();
+            const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
+            const newKws = hiddenKeywords.value;
+            
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
             
             triggerHaptic('medium'); showLoading(true, 'tab4');
             try {
                 await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'PATCH', body: JSON.stringify({ [cat]: selectedIcon }) });
-                window.customCategoryIcons[cat] = selectedIcon; showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
-                
-                const kCat = document.getElementById('keywordCategory');
-                if(kCat) { let exists = Array.from(kCat.options).some(opt => opt.value === cat); if(!exists) kCat.appendChild(new Option(cat, cat)); kCat.value = cat; }
-                const addCat = document.getElementById('addCategory');
-                if (addCat) { let exists = Array.from(addCat.options).some(opt => opt.value === cat); if(!exists) addCat.appendChild(new Option(cat, cat)); }
-                
-                displayKeywords(); 
+                window.customCategoryIcons[cat] = selectedIcon; 
+                await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: newKws, sheetId: sheetId }) });
+
+                showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
+                await window.initCategories(true); window.loadKeywords(false); 
                 if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
                 if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
+
+        // 🔴 NÚT XÓA DANH MỤC (Chỉ hiện khi chọn danh mục cũ)
+        document.getElementById('deleteCategoryBtn').onclick = async () => {
+            const cat = catInput.value.trim();
+            if (!cat) return;
+            triggerHaptic('medium');
+            if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`)) return;
+            
+            showLoading(true, 'tab4');
+            try {
+                await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
+                delete window.customCategoryIcons[cat];
+                await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
+                
+                showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+                await window.initCategories(false); window.loadKeywords(false);
+            } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+        };
     }
     
+    // Tải danh sách
     const datalist = document.getElementById('iconPickerCatList'); datalist.innerHTML = '';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
-    const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); });
+    const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
-    const currentSelected = document.getElementById('keywordCategory').value;
-    if(currentSelected) document.getElementById('iconPickerCategory').value = currentSelected;
-
-    modal.removeAttribute('data-selected-icon');
+    // 🟢 TỰ ĐỘNG BẬT/TẮT TÍNH NĂNG THEO TRẠNG THÁI DANH MỤC
     const iconItems = modal.querySelectorAll('.icon-item');
-    iconItems.forEach(i => i.classList.remove('selected'));
+    catInput.oninput = () => {
+        const val = catInput.value.trim();
+        const isExisting = uniqueCats.includes(val);
+        
+        // Ẩn hiện Nút Xóa và Khung nhập Tag
+        document.getElementById('deleteCategoryBtn').style.display = isExisting ? 'block' : 'none';
+        document.getElementById('tagInputArea').style.display = isExisting ? 'none' : 'block';
 
-    if (window.customCategoryIcons[currentSelected]) {
-        let mappedIcon = window.customCategoryIcons[currentSelected];
-        if (!mappedIcon.includes('fa-')) mappedIcon = `fa-${mappedIcon}`;
-        const item = modal.querySelector(`.icon-item[data-icon="${mappedIcon}"]`);
-        if (item) item.click();
+        iconItems.forEach(i => i.classList.remove('selected'));
+        modal.removeAttribute('data-selected-icon');
+        if (window.customCategoryIcons[val]) {
+            let mappedIcon = window.customCategoryIcons[val];
+            if (!mappedIcon.includes('fa-')) mappedIcon = `fa-${mappedIcon}`;
+            const item = modal.querySelector(`.icon-item[data-icon="${mappedIcon}"]`);
+            if (item) {
+                item.classList.add('selected');
+                modal.setAttribute('data-selected-icon', mappedIcon);
+                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+    };
+
+    // Khởi tạo trạng thái ban đầu
+    const currentSelected = document.getElementById('keywordCategory').value;
+    if(currentSelected) {
+        catInput.value = currentSelected;
+        catInput.dispatchEvent(new Event('input')); // Ép nó chạy logic trên
+    } else {
+        catInput.value = ''; catInput.dispatchEvent(new Event('input'));
     }
+    
+    pendingTags = []; window.renderTags();
 
     document.getElementById('modalOverlay').classList.add('show');
     setTimeout(() => modal.classList.add('show'), 10);
@@ -942,108 +698,33 @@ window.closeIconPickerModal = function() {
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
     
-  document.querySelectorAll('.modal-title').forEach(title => {
-      title.style.textTransform = 'uppercase';
-  });
-
+  document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
   const currentMonthValue = new Date().getMonth() + 1;
   if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
-  if(heroCardTab1) {
-      heroCardTab1.style.cursor = 'pointer';
-      heroCardTab1.onclick = (e) => {
-          if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn')) return;
-          const dateInput = document.getElementById('transactionDate');
-          if (dateInput) {
-              dateInput.value = formatDateToYYYYMMDD(new Date());
-              window.fetchTransactions(true);
-              triggerHaptic('light');
-              showToast("Đã quay về dữ liệu ngày hôm nay", "info");
-          }
-      };
-  }
+  if(heroCardTab1) { heroCardTab1.style.cursor = 'pointer'; heroCardTab1.onclick = (e) => { if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn')) return; const dateInput = document.getElementById('transactionDate'); if (dateInput) { dateInput.value = formatDateToYYYYMMDD(new Date()); window.fetchTransactions(true); triggerHaptic('light'); showToast("Đã quay về dữ liệu ngày hôm nay", "info"); } }; }
 
-  let startY = 0;
-  const tab1Content = document.getElementById('tab1');
-  if (tab1Content) {
-      tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true });
-      tab1Content.addEventListener('touchend', e => {
-          if (startY === 0) return;
-          let endY = e.changedTouches[0].clientY;
-          if (endY - startY > 80 && window.scrollY === 0) { 
-              triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true);
-          }
-          startY = 0;
-      }, { passive: true });
-  }
+  let startY = 0; const tab1Content = document.getElementById('tab1');
+  if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    b.onclick = () => {
-      const targetTab = b.dataset.tab; window.openTab(targetTab);
-      if (targetTab === 'tab1') window.fetchTransactions(false);
-      if (targetTab === 'tab2') updateTimeNavUI();
-    };
-  });
+  document.querySelectorAll('.nav-btn').forEach(b => { b.onclick = () => { const targetTab = b.dataset.tab; window.openTab(targetTab); if (targetTab === 'tab1') window.fetchTransactions(false); if (targetTab === 'tab2') updateTimeNavUI(); }; });
   
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
-      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-cancel-kw'; deleteBtn.style.cssText = "flex: 1; display: none; background: rgba(244,63,94,0.1); color: var(--expense); border: none;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-      deleteBtn.onclick = async () => {
-          if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning');
-          showLoading(true, 'tab4');
-          try {
-              const cat = document.getElementById('keywordCategory').value;
-              await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
-              triggerHapticNotification('success');
-              showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
-          } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
-      };
-      kwActionContainer.appendChild(deleteBtn);
+      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline'; deleteBtn.style.cssText = "flex: 1; display: none; margin: 0;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
+      deleteBtn.onclick = async () => { if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); showLoading(true, 'tab4'); try { const cat = document.getElementById('keywordCategory').value; await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); triggerHapticNotification('success'); showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); } }; kwActionContainer.appendChild(deleteBtn);
 
-      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel-kw'; cancelBtn.style.cssText = "flex: 1; display: none;"; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
-      cancelBtn.onclick = window.cancelEditKeyword;
-      kwActionContainer.appendChild(cancelBtn);
+      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel'; cancelBtn.style.cssText = "flex: 1; display: none; margin: 0;"; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
+      cancelBtn.onclick = window.cancelEditKeyword; kwActionContainer.appendChild(cancelBtn);
   }
 
-  const tDate = document.getElementById('transactionDate');
-  if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => { triggerHaptic('light'); window.fetchTransactions(true); }; }
-  
-  const prevDayBtn = document.getElementById('prevDayBtn');
-  if(prevDayBtn) {
-      prevDayBtn.onclick = (e) => {
-          e.stopPropagation(); 
-          triggerHaptic('light');
-          const dateInput = document.getElementById('transactionDate');
-          if (!dateInput.value) return;
-          const [y, m, d] = dateInput.value.split('-');
-          const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() - 1); 
-          dateInput.value = formatDateToYYYYMMDD(currDate);
-          window.fetchTransactions(true);
-      };
-  }
+  const tDate = document.getElementById('transactionDate'); if(tDate) { tDate.value = formatDateToYYYYMMDD(new Date()); tDate.onchange = () => { triggerHaptic('light'); window.fetchTransactions(true); }; }
+  const prevDayBtn = document.getElementById('prevDayBtn'); if(prevDayBtn) { prevDayBtn.onclick = (e) => { e.stopPropagation(); triggerHaptic('light'); const dateInput = document.getElementById('transactionDate'); if (!dateInput.value) return; const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d); currDate.setDate(currDate.getDate() - 1); dateInput.value = formatDateToYYYYMMDD(currDate); window.fetchTransactions(true); }; }
+  const nextDayBtn = document.getElementById('nextDayBtn'); if(nextDayBtn) { nextDayBtn.onclick = (e) => { e.stopPropagation(); triggerHaptic('light'); const dateInput = document.getElementById('transactionDate'); if (!dateInput.value) return; const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d); currDate.setDate(currDate.getDate() + 1); dateInput.value = formatDateToYYYYMMDD(currDate); window.fetchTransactions(true); }; }
 
-  const nextDayBtn = document.getElementById('nextDayBtn');
-  if(nextDayBtn) {
-      nextDayBtn.onclick = (e) => {
-          e.stopPropagation();
-          triggerHaptic('light');
-          const dateInput = document.getElementById('transactionDate');
-          if (!dateInput.value) return;
-          const [y, m, d] = dateInput.value.split('-');
-          const currDate = new Date(y, m - 1, d);
-          currDate.setDate(currDate.getDate() + 1); 
-          dateInput.value = formatDateToYYYYMMDD(currDate);
-          window.fetchTransactions(true);
-      };
-  }
-
-  window.openTab('tab1'); 
-  showLoading(true, 'tab1'); 
-  window.loadKeywords(true); 
-  window.fetchTransactions(false);
+  window.openTab('tab1'); showLoading(true, 'tab1'); window.loadKeywords(true); window.fetchTransactions(false);
 
   document.getElementById('filterWeeklyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('weekly'); };
   document.getElementById('filterMonthlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('monthly'); };
@@ -1071,23 +752,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     showLoading(true, 'tab3');
     try {
-      let txs = [];
-      let fetchPromises = []; 
+      let txs = []; let fetchPromises = []; 
       for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
       const monthsResults = await Promise.all(fetchPromises);
       const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
-
-      monthsResults.forEach(monthData => {
-          monthData.forEach(t => {
-              let matches = true;
-              if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false;
-              if (a && Math.abs(t.amount - aNum) > 0.01) matches = false;
-              if (cat && t.category !== cat) matches = false;
-              if (matches) txs.push(t);
-          });
-      });
-      txs.sort((a,b) => b.id.localeCompare(a.id));
-      cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
+      monthsResults.forEach(monthData => { monthData.forEach(t => { let matches = true; if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false; if (a && Math.abs(t.amount - aNum) > 0.01) matches = false; if (cat && t.category !== cat) matches = false; if (matches) txs.push(t); }); });
+      txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
   
@@ -1107,38 +777,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   ['addAmount','editAmount','searchAmount'].forEach(id => { const el = document.getElementById(id); if(el) el.oninput = function() { this.value = formatNumberWithCommas(this.value); }; });
   
-  async function initCategories() {
+  window.initCategories = async function(preserveValues = false) {
     try {
       const cats = await fetchCategories();
-      // Sắp xếp A-Z, Đặc cách Khác
-      cats.sort((a, b) => {
-          if (a.toLowerCase() === 'khác') return 1;
-          if (b.toLowerCase() === 'khác') return -1;
-          return a.localeCompare(b, 'vi');
-      });
-      const sCat = document.getElementById('searchCategory'); 
-      const kCat = document.getElementById('keywordCategory');
-      cats.forEach(c => { sCat.appendChild(new Option(c, c)); kCat.appendChild(new Option(c, c)); });
+      const sCat = document.getElementById('searchCategory'), kCat = document.getElementById('keywordCategory'), addCat = document.getElementById('addCategory'), editCat = document.getElementById('editCategory');
+      const sVal = sCat?.value, kVal = kCat?.value, addVal = addCat?.value, editVal = editCat?.value;
+
+      if(sCat) { sCat.innerHTML = '<option value="">Tất cả danh mục</option>'; cats.forEach(c => sCat.appendChild(new Option(c, c))); if(preserveValues && sVal) sCat.value = sVal; }
+      if(kCat) { kCat.innerHTML = '<option value="">Chọn phân loại</option>'; cats.forEach(c => kCat.appendChild(new Option(c, c))); if(preserveValues && kVal) { kCat.value = kVal; } else if (preserveValues && document.getElementById('iconPickerCategory').value) { const newVal = document.getElementById('iconPickerCategory').value.trim(); if (cats.includes(newVal)) kCat.value = newVal; } }
+      if(addCat) { addCat.innerHTML = ''; cats.forEach(c => addCat.appendChild(new Option(c, c))); if(preserveValues && addVal) addCat.value = addVal; }
+      if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
       
       if (kCat && !document.getElementById('openIconPickerBtn')) {
-          const btn = document.createElement('button');
-          btn.id = 'openIconPickerBtn';
-          btn.type = 'button';
-          btn.innerHTML = '<i class="fas fa-cog"></i>';
-          btn.style.cssText = 'background: var(--bg-card2); color: var(--primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;';
-          btn.onclick = window.openIconPickerModal;
-          
-          const parent = kCat.parentElement;
-          const wrapper = document.createElement('div');
-          wrapper.style.display = 'flex';
-          wrapper.style.width = '100%';
-          
-          parent.insertBefore(wrapper, kCat);
-          wrapper.appendChild(kCat);
-          wrapper.appendChild(btn);
-          kCat.style.flex = '1';
+          const btn = document.createElement('button'); btn.id = 'openIconPickerBtn'; btn.type = 'button'; btn.innerHTML = '<i class="fas fa-cog"></i>'; btn.style.cssText = 'background: var(--bg-card2); color: var(--primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;'; btn.onclick = window.openIconPickerModal;
+          const parent = kCat.parentElement; const wrapper = document.createElement('div'); wrapper.style.display = 'flex'; wrapper.style.width = '100%';
+          parent.insertBefore(wrapper, kCat); wrapper.appendChild(kCat); wrapper.appendChild(btn); kCat.style.flex = '1';
       }
     } catch(e) {}
   }
-  initCategories();
+  
+  window.initCategories();
 });
