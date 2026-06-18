@@ -29,6 +29,22 @@ window.apiTxCache = {};
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 let savedScrollPositionTab2 = 0;
 
+// ---------------- BỘ TỪ ĐIỂN DỊCH EMOJI SANG ICON VECTOR (FONT AWESOME) ----------------
+const EMOJI_TO_FA_MAP = {
+    '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty', '🍕': 'fa-pizza-slice',
+    '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump', '🚆': 'fa-train',
+    '🏠': 'fa-house', '🏢': 'fa-building', '🛒': 'fa-cart-shopping', '🛍️': 'fa-bag-shopping', '👕': 'fa-shirt', '👗': 'fa-shirt', '👟': 'fa-shoe-prints', '👓': 'fa-glasses',
+    '💻': 'fa-laptop', '📱': 'fa-mobile-screen', '🎮': 'fa-gamepad', '🎧': 'fa-headphones', '📺': 'fa-tv',
+    '💡': 'fa-bolt', '💧': 'fa-droplet', '🔥': 'fa-fire', '📶': 'fa-wifi',
+    '💊': 'fa-pills', '🩺': 'fa-stethoscope', '🏥': 'fa-house-medical', '💪': 'fa-dumbbell', '🦷': 'fa-tooth', '💓': 'fa-heart-pulse',
+    '🎓': 'fa-graduation-cap', '📚': 'fa-book', '💼': 'fa-briefcase', '🖊️': 'fa-pen',
+    '📈': 'fa-chart-line', '💰': 'fa-money-bill-wave', '🏦': 'fa-building-columns', '💳': 'fa-credit-card', '🐷': 'fa-piggy-bank', '🪙': 'fa-coins', '👛': 'fa-wallet',
+    '🎁': 'fa-gift', '🎂': 'fa-cake-candles', '🐶': 'fa-paw', '🐱': 'fa-cat', '👶': 'fa-baby', '🧒': 'fa-child', '👥': 'fa-user-group',
+    '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol', '🎫': 'fa-ticket', '🥂': 'fa-champagne-glasses',
+    '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench', '🔨': 'fa-hammer', '✂️': 'fa-scissors',
+    '💬': 'fa-comments', '📦': 'fa-box', '🏷️': 'fa-tag', '✨': 'fa-star'
+};
+
 // ---------------- UTILITIES ----------------
 function triggerHaptic(style = 'light') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred(style); }
 function triggerHapticNotification(type = 'success') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); }
@@ -73,23 +89,31 @@ function getColorByIndex(i) {
     return c[i % c.length]; 
 }
 
-// Hàm trích xuất Icon Class thô (Dùng cho cả giao diện và Highlight Icon Picker)
 function getRawFaIconName(catName) {
     if (!catName) return null;
     const categoryName = catName.trim();
+    let iconVal = null;
+    
     if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
-        let iconCode = window.customCategoryIcons[categoryName].trim();
-        if (iconCode && !/[^\x00-\x7F]/.test(iconCode)) return iconCode; 
+        iconVal = window.customCategoryIcons[categoryName].trim();
+    } else if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
+        iconVal = window.categoryIconMap[categoryName].trim();
     }
-    const faMap = {
+
+    if (iconVal) {
+        const firstChar = Array.from(iconVal)[0];
+        if (EMOJI_TO_FA_MAP[firstChar]) return EMOJI_TO_FA_MAP[firstChar];
+        if (EMOJI_TO_FA_MAP[iconVal]) return EMOJI_TO_FA_MAP[iconVal];
+        if (!/[^\x00-\x7F]/.test(iconVal)) return iconVal;
+    }
+
+    const faMapFallback = {
         'ăn uống': 'fa-utensils', 'bảo hiểm': 'fa-shield-halved', 'công nghệ': 'fa-laptop', 'công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
         'đi lại': 'fa-car-side', 'giải trí': 'fa-clapperboard', 'giáo dục': 'fa-graduation-cap', 'gia đình': 'fa-house-user', 'hóa đơn': 'fa-file-invoice-dollar', 'chăm sóc': 'fa-spa', 
         'làm đẹp': 'fa-spa', 'mua sắm': 'fa-bag-shopping', 'quà tặng': 'fa-gift', 'sức khỏe': 'fa-dumbbell', 'tiết kiệm': 'fa-chart-line', 'đầu tư': 'fa-chart-line', 'y tế': 'fa-pills',
         'nhà cửa': 'fa-house', 'xăng': 'fa-gas-pump', 'lương': 'fa-money-bill-wave', 'thưởng': 'fa-gift', 'khác': 'fa-layer-group'
     };
-    for (let key in faMap) { 
-        if (categoryName.toLowerCase().includes(key)) return faMap[key]; 
-    }
+    for (let key in faMapFallback) { if (categoryName.toLowerCase().includes(key)) return faMapFallback[key]; }
     return null;
 }
 
@@ -102,28 +126,6 @@ function getCategoryIcon(cat) {
         if (!finalIcon.includes('fas ')) finalIcon = `fas ${finalIcon}`;
         return `<i class="${finalIcon}"></i>`;
     }
-    
-    // Nếu có Emoji cũ trong Sheet
-    if (window.categoryIconMap && window.categoryIconMap[cat.trim()]) {
-        let sheetIcon = window.categoryIconMap[cat.trim()].trim();
-        const emojiToFa = {
-            '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty',
-            '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump',
-            '🏠': 'fa-house', '🏢': 'fa-building', '🛒': 'fa-cart-shopping', '🛍️': 'fa-bag-shopping', '👕': 'fa-shirt', '👗': 'fa-shirt',
-            '💻': 'fa-laptop', '📱': 'fa-mobile-screen', '🎮': 'fa-gamepad', '🎧': 'fa-headphones',
-            '💡': 'fa-bolt', '💧': 'fa-droplet', '🔥': 'fa-fire', '📶': 'fa-wifi',
-            '💊': 'fa-pills', '🩺': 'fa-stethoscope', '🏥': 'fa-house-medical', '💪': 'fa-dumbbell',
-            '🎓': 'fa-graduation-cap', '📚': 'fa-book', '💼': 'fa-briefcase',
-            '📈': 'fa-chart-line', '💰': 'fa-money-bill-wave', '🏦': 'fa-building-columns', '💳': 'fa-credit-card',
-            '🎁': 'fa-gift', '🎂': 'fa-cake-candles', '🐶': 'fa-paw', '🐱': 'fa-cat', '👶': 'fa-baby',
-            '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol',
-            '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench'
-        };
-        const firstChar = Array.from(sheetIcon)[0];
-        if (emojiToFa[firstChar]) return `<i class="fas ${emojiToFa[firstChar]}"></i>`;
-    }
-    
-    // Fallback chữ cái đầu
     const firstLetter = Array.from(cat.trim())[0].toUpperCase();
     return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
@@ -478,7 +480,6 @@ function displayKeywords() {
            tagsHTML += `<span style="display:inline-block; background:var(--bg-card2); padding:6px 12px; border-radius:12px; font-size:0.75rem; color:var(--text-1); margin: 0 6px 6px 0; border:1px solid rgba(255,255,255,0.05); cursor:pointer; transition:0.2s;" onmouseover="this.style.borderColor='var(--balance)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.05)'" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; 
        }); 
        const div = document.createElement('div'); div.className = 'tx-card'; div.style.cssText = 'padding:0; margin-bottom:12px; flex-direction:column; overflow: hidden;'; 
-       // HTML Dành cho Accordion
        div.innerHTML = `
             <div class="accordion-header" style="padding: 14px; display:flex; align-items:center; justify-content:space-between; width:100%; cursor:pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';">
                 <div style="display:flex; align-items:center; gap:12px;">
@@ -554,7 +555,7 @@ window.exportToCSV = async function() {
 };
 
 // ==========================================
-// ĐÃ KHÔI PHỤC LOGIC PDF HOÀN CHỈNH BẢN XỊN
+// KHÔI PHỤC LOGIC PDF HOÀN CHỈNH BẢN XỊN NHẤT
 // ==========================================
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
@@ -612,7 +613,6 @@ window.exportToPDF = function() {
     });
 
     const showMonthHeader = isTab2 && sortedKeys.length >= 1;
-    
     const hasIncome = data.some(t => t.type === 'Thu nhập');
     const hasExpense = data.some(t => t.type === 'Chi tiêu');
 
@@ -880,7 +880,9 @@ window.exportToPDF = function() {
     };
 };
 
-// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER" NÂNG CẤP VỚI TAG & AUTO HIGHLIGHT
+// ==========================================
+// TÍNH NĂNG CỬA SỔ "ICON PICKER" - SỬ DỤNG EMOJI VÀ NÂNG CẤP POPUP CẢNH BÁO
+// ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
     triggerHaptic('light');
@@ -891,17 +893,17 @@ window.openIconPickerModal = function() {
     const tagsWrapper = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     
-    // Khởi tạo Icon Grid 1 lần
+    // Nạp toàn bộ Emoji vào Bảng chọn Icon
     if (container.innerHTML === '') {
-        const flatIcons = [
-            'fa-utensils', 'fa-coffee', 'fa-burger', 'fa-pizza-slice', 'fa-basket-shopping', 'fa-car', 'fa-motorcycle', 'fa-bus', 'fa-train', 'fa-plane', 'fa-gas-pump',
-            'fa-house', 'fa-building', 'fa-cart-shopping', 'fa-bag-shopping', 'fa-shirt', 'fa-shoe-prints', 'fa-glasses', 'fa-laptop', 'fa-mobile-screen', 'fa-tv', 
-            'fa-gamepad', 'fa-headphones', 'fa-bolt', 'fa-droplet', 'fa-fire', 'fa-wifi', 'fa-heart-pulse', 'fa-pills', 'fa-stethoscope', 'fa-tooth', 'fa-dumbbell',
-            'fa-graduation-cap', 'fa-book', 'fa-pen', 'fa-briefcase', 'fa-money-bill-trend-up', 'fa-chart-line', 'fa-piggy-bank', 'fa-credit-card', 'fa-coins', 'fa-wallet',
-            'fa-gift', 'fa-cake-candles', 'fa-champagne-glasses', 'fa-paw', 'fa-child', 'fa-baby', 'fa-user-group', 'fa-wrench', 'fa-hammer', 'fa-scissors',
-            'fa-film', 'fa-ticket', 'fa-music', 'fa-spa', 'fa-ellipsis', 'fa-box-open', 'fa-layer-group', 'fa-tag', 'fa-shield-halved', 'fa-file-invoice-dollar'
+        const flatEmojis = [
+            '🍽️', '☕', '🍔', '🍕', '🛒', '🚗', '🛵', '🚌', '🚆', '✈️', '⛽',
+            '🏠', '🏢', '🛍️', '👕', '👗', '👟', '👓', '💻', '📱', '📺', '🎮', '🎧',
+            '💡', '💧', '🔥', '📶', '💓', '💊', '🩺', '🦷', '💪', '🎓', '📚',
+            '🖊️', '💼', '📈', '🐷', '💳', '🪙', '👛', '🎁', '🎂', '🥂', '🐶',
+            '👶', '🧒', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵', '💅', '💬',
+            '📦', '🏷️', '🛡️', '🧾', '✨'
         ];
-        container.innerHTML = flatIcons.map(icon => `<div class="icon-item" data-icon="${icon}"><i class="fas ${icon}"></i></div>`).join('');
+        container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}" style="font-size: 1.6rem; display:flex; align-items:center; justify-content:center;">${emoji}</div>`).join('');
         
         const iconItems = modal.querySelectorAll('.icon-item');
         iconItems.forEach(item => {
@@ -913,7 +915,6 @@ window.openIconPickerModal = function() {
             };
         });
 
-        // TÍNH NĂNG TỰ TẠO TAG KHI GÕ
         window.renderTags = function() {
             tagsWrapper.innerHTML = '';
             pendingTags.forEach((tag, idx) => {
@@ -938,10 +939,9 @@ window.openIconPickerModal = function() {
             });
         }
         
-        // Nút Lưu Mới/Cập nhật
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             const cat = catInput.value.trim();
-            const selectedIcon = modal.getAttribute('data-selected-icon');
+            const selectedIcon = modal.getAttribute('data-selected-icon'); // Sẽ lấy ra Emoji (VD: 🧾)
             const newKws = hiddenKeywords ? hiddenKeywords.value : "";
             
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
@@ -960,31 +960,46 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
-        // NÚT XÓA DANH MỤC (Chỉ hiện khi chọn danh mục cũ)
-        document.getElementById('deleteCategoryBtn').onclick = async () => {
+        // NÚT XÓA DANH MỤC CÓ CẢNH BÁO NATIVE TELEGRAM
+        document.getElementById('deleteCategoryBtn').onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
             triggerHaptic('medium');
-            if (!confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`)) return;
             
-            showLoading(true, 'tab4');
-            try {
-                await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
-                delete window.customCategoryIcons[cat];
-                await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
-                
-                showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
-                await window.initCategories(false); window.loadKeywords(false);
-            } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+            const doDeleteCategory = async () => {
+                showLoading(true, 'tab4');
+                try {
+                    await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
+                    delete window.customCategoryIcons[cat];
+                    await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
+                    
+                    showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+                    await window.initCategories(false); window.loadKeywords(false);
+                } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+            };
+
+            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showPopup) {
+                Telegram.WebApp.showPopup({
+                    title: 'Xóa danh mục',
+                    message: `Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`,
+                    buttons: [
+                        { id: 'delete', type: 'destructive', text: 'Xóa' },
+                        { type: 'cancel', text: 'Hủy' }
+                    ]
+                }, (buttonId) => {
+                    if (buttonId === 'delete') doDeleteCategory();
+                });
+            } else if (confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`)) {
+                doDeleteCategory();
+            }
         };
     }
     
-    // Tải danh sách
     const datalist = document.getElementById('iconPickerCatList'); datalist.innerHTML = '';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
-    // HÀM TỰ ĐỘNG BẬT SÁNG ICON (Hỗ trợ cả Event input và change từ Datalist)
+    // HÀM TỰ ĐỘNG BẬT SÁNG ICON THÔNG MINH
     const updateIconState = () => {
         const val = catInput.value.trim();
         const isExisting = uniqueCats.includes(val);
@@ -999,15 +1014,21 @@ window.openIconPickerModal = function() {
         iconItems.forEach(i => i.classList.remove('selected'));
         modal.removeAttribute('data-selected-icon');
         
-        // Tự động nhận diện Icon Mặc định hoặc Custom
-        let rawMappedIcon = getRawFaIconName(val);
-        if (rawMappedIcon) {
-            let searchIcon = rawMappedIcon;
-            if (!searchIcon.includes('fa-')) searchIcon = `fa-${searchIcon}`;
-            const item = modal.querySelector(`.icon-item[data-icon="${searchIcon}"]`);
+        // Tìm Icon của danh mục này (trong Firebase customCategoryIcons hoặc trên Sheet categoryIconMap)
+        let currentIconVal = null;
+        if (window.customCategoryIcons && window.customCategoryIcons[val]) {
+            currentIconVal = window.customCategoryIcons[val].trim();
+        } else if (window.categoryIconMap && window.categoryIconMap[val]) {
+            currentIconVal = window.categoryIconMap[val].trim();
+        }
+
+        if (currentIconVal) {
+            // Lấy ký tự đầu tiên để so khớp phòng trường hợp lưu lỗi
+            const firstChar = Array.from(currentIconVal)[0];
+            const item = modal.querySelector(`.icon-item[data-icon="${firstChar}"]`) || modal.querySelector(`.icon-item[data-icon="${currentIconVal}"]`);
             if (item) {
                 item.classList.add('selected');
-                modal.setAttribute('data-selected-icon', searchIcon);
+                modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
                 item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }
@@ -1056,7 +1077,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
       const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline'; deleteBtn.style.cssText = "flex: 1; display: none; margin: 0;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-      deleteBtn.onclick = async () => { if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); showLoading(true, 'tab4'); try { const cat = document.getElementById('keywordCategory').value; await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); triggerHapticNotification('success'); showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); } }; kwActionContainer.appendChild(deleteBtn);
+      // SỬ DỤNG POPUP NATIVE CHO NÚT XÓA TỪ KHÓA
+      deleteBtn.onclick = () => { 
+          if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
+          triggerHaptic('medium');
+          
+          const doDeleteKw = async () => {
+              showLoading(true, 'tab4'); 
+              try { 
+                  const cat = document.getElementById('keywordCategory').value; 
+                  await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); 
+                  triggerHapticNotification('success'); 
+                  showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
+              } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+          };
+
+          if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showPopup) {
+              Telegram.WebApp.showPopup({
+                  title: 'Xóa từ khóa',
+                  message: `Bạn có muốn xóa từ khóa "${currentEditKeyword}" khỏi danh mục ${document.getElementById('keywordCategory').value}?`,
+                  buttons: [{ id: 'delete', type: 'destructive', text: 'Xóa' }, { type: 'cancel', text: 'Hủy' }]
+              }, (btnId) => { if (btnId === 'delete') doDeleteKw(); });
+          } else if (confirm(`Bạn có muốn xóa từ khóa "${currentEditKeyword}"?`)) {
+              doDeleteKw();
+          }
+      }; 
+      kwActionContainer.appendChild(deleteBtn);
 
       const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel'; cancelBtn.style.cssText = "flex: 1; display: none; margin: 0;"; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
       cancelBtn.onclick = window.cancelEditKeyword; kwActionContainer.appendChild(cancelBtn);
