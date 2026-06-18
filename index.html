@@ -399,26 +399,26 @@
     </div>
 
     <!-- MODAL ICON PICKER -->
-    <div id="iconPickerModal" class="modal-sheet" style="height: 88vh; display: flex; flex-direction: column;">
+   <div id="iconPickerModal" class="modal-sheet" style="max-height: 92vh; display: flex; flex-direction: column;">
       <div class="modal-handle" onclick="closeIconPickerModal()"></div>
       <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
       
-      <div class="field-group">
+      <div class="field-group" style="flex-shrink: 0;">
           <div class="field-label">Chọn danh mục để sửa</div>
           <select id="iconPickerSelect" class="field-input">
               <option value="">-- Chọn danh mục --</option>
           </select>
       </div>
 
-      <div class="field-group" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease;">
+      <div class="field-group" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease; flex-shrink: 0;">
           <div class="field-label" style="color: var(--primary-light);">Tạo tên danh mục mới</div>
           <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
       </div>
 
-      <div class="field-label">Bảng chọn Icon phẳng</div>
-      <div id="iconGridContainer" class="icon-grid"></div>
+      <div class="field-label" style="flex-shrink: 0;">Bảng chọn Icon phẳng</div>
+      <div id="iconGridContainer" class="icon-grid" style="min-height: 160px; max-height: 240px; overflow-y: auto; flex-shrink: 0; padding-bottom: 8px;"></div>
 
-      <div class="field-group" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
+      <div class="field-group" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease; flex-shrink: 0;">
           <div class="field-label">Từ khóa ban đầu (Gõ phẩy hoặc Enter để tạo)</div>
           <div class="field-input" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 44px; align-items: center;">
               <span id="tagsWrapper" style="display: flex; flex-wrap: wrap; gap: 6px;"></span>
@@ -427,7 +427,7 @@
           <input type="hidden" id="iconPickerNewKeywords">
       </div>
 
-      <div class="modal-actions" style="margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap;">
+      <div class="modal-actions" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
           <button class="btn-danger-outline" id="deleteCategoryBtn" style="display: none; padding: 14px 0; margin: 0; border-radius: 12px; flex: 0 0 44px; align-items: center; justify-content: center;">
               <i class="fas fa-trash"></i>
           </button>
