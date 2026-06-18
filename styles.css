@@ -135,18 +135,14 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .empty-state { text-align: center; color: var(--text-3); font-style: italic; padding: 8px 0 24px; font-size: 0.9rem; width: 100%; }
 
 .hero-card { 
-    /* Bắt đầu bằng 95% đậm (màu nguyên bản) và mờ dần xuống 35% ở góc dưới phải */
-    background: linear-gradient(135deg, rgba(6, 182, 212, 0.95) 0%, rgba(59, 130, 246, 0.35) 100%);
+    /* Lớp 1: Vệt sáng trắng chéo 40% -> mờ dần. Lớp 2: Màu đậm nguyên bản */
+    background: 
+        linear-gradient(105deg, rgba(255,255,255,0.2) 0%, transparent 40%),
+        var(--grad-primary);
     
-    /* Bơm thêm độ bão hòa (saturate) để phần kính nhìn qua rực rỡ hơn */
-    backdrop-filter: blur(24px) saturate(200%);
-    -webkit-backdrop-filter: blur(24px) saturate(200%);
-    
-    /* Viền sáng mạnh hơn ở phía trên và nhạt dần ở dưới */
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-top-color: rgba(255, 255, 255, 0.4);
-    border-left-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 10px 30px rgba(6, 182, 212, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+    /* Tăng cường viền nổi để tạo cảm giác 3D của mép kính */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.4);
     
     border-radius: var(--radius-xl); 
     padding: 20px 20px 18px; 
