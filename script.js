@@ -956,7 +956,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER"
+// TÍNH NĂNG CỬA SỔ "ICON PICKER" - AUTO INJECT & FIX BÀN PHÍM iOS
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -970,24 +970,24 @@ window.openIconPickerModal = function() {
     
     if (container.innerHTML === '') {
         const flatEmojis = [
-            '🍽️', '☕', '🍔', '🍕', '🛒', '🚗', '🛵', '🚌', '🚆', '✈️', '⛽',
-            '🏠', '🏢', '🛍️', '👕', '👗', '👟', '👓', '💻', '📱', '📺', '🎮', '🎧',
-            '💡', '💧', '🔥', '📶', '💓', '💊', '🩺', '🦷', '💪', '🎓', '📚',
-            '🖊️', '💼', '📈', '🐷', '💳', '🪙', '👛', '🎁', '🎂', '🥂', '🐶',
+            '🍽️', '☕', '🍔', '🍕', '🍜', '🍲', '🥩', '🛒', '🚗', '🛵', '🚌', '🚆', '✈️', '⛽',
+            '🏠', '🏢', '🛍️', '👕', '👗', '👟', '💄', '🧴', '👓', '💻', '📱', '📺', '🎮', '🎧',
+            '💡', '💧', '🔥', '📶', '💓', '💊', '🩺', '🦷', '💪', '🎓', '📚', '🧸', '🎀',
+            '🖊️', '💼', '📈', '🐷', '💳', '🪙', '👛', '🎁', '🎂', '🥂', '🐶', '🐱',
             '👶', '🧒', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵', '💅', '💬',
-            '📦', '🏷️', '🛡️', '🧾', '✨'
+            '📦', '🏷️', '🛡️', '🧾', '✨', '❤️'
         ];
         container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}" style="font-size: 1.6rem; display:flex; align-items:center; justify-content:center;">${emoji}</div>`).join('');
         
-        const iconItems = modal.querySelectorAll('.icon-item');
-        iconItems.forEach(item => {
+        const bindIconClick = (item) => {
             item.onclick = function() {
                 triggerHaptic('light');
-                iconItems.forEach(i => i.classList.remove('selected'));
+                modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
                 this.classList.add('selected');
                 modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
             };
-        });
+        };
+        modal.querySelectorAll('.icon-item').forEach(bindIconClick);
 
         window.renderTags = function() {
             tagsWrapper.innerHTML = '';
@@ -1063,6 +1063,7 @@ window.openIconPickerModal = function() {
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
+    // HÀM TỰ ĐỘNG BẬT SÁNG ICON THÔNG MINH (Kèm chức năng Auto-Inject Icon)
     const updateIconState = () => {
         const val = catInput.value.trim();
         const isExisting = uniqueCats.includes(val);
@@ -1072,8 +1073,7 @@ window.openIconPickerModal = function() {
         if (delBtn) delBtn.style.display = isExisting ? 'block' : 'none';
         if (tagArea) tagArea.style.display = isExisting ? 'none' : 'block';
 
-        const iconItems = modal.querySelectorAll('.icon-item');
-        iconItems.forEach(i => i.classList.remove('selected'));
+        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
         modal.removeAttribute('data-selected-icon');
         
         let currentIconVal = null;
@@ -1085,11 +1085,35 @@ window.openIconPickerModal = function() {
 
         if (currentIconVal) {
             const firstChar = Array.from(currentIconVal)[0];
-            const item = modal.querySelector(`.icon-item[data-icon="${firstChar}"]`) || modal.querySelector(`.icon-item[data-icon="${currentIconVal}"]`);
+            let item = modal.querySelector(`.icon-item[data-icon="${firstChar}"]`) || modal.querySelector(`.icon-item[data-icon="${currentIconVal}"]`);
+            
+            // TÍNH NĂNG ĐỘT PHÁ: Nếu Icon trên Sheet có nhưng không nằm trong List mặc định -> Tự cấy nó vào List
+            if (!item && /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(firstChar)) {
+                const newDiv = document.createElement('div');
+                newDiv.className = 'icon-item';
+                newDiv.setAttribute('data-icon', firstChar);
+                newDiv.style.cssText = 'font-size: 1.6rem; display:flex; align-items:center; justify-content:center;';
+                newDiv.innerHTML = firstChar;
+                
+                newDiv.onclick = function() {
+                    triggerHaptic('light');
+                    modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                    modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
+                };
+                
+                container.insertBefore(newDiv, container.firstChild);
+                item = newDiv;
+            }
+
             if (item) {
                 item.classList.add('selected');
                 modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
-                item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+                // FIX iOS BÀN PHÍM: Chỉ tự động cuộn (scroll) tới Icon khi KHÔNG bị focus gõ phím
+                if (document.activeElement !== catInput) {
+                    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
             }
         }
     };
