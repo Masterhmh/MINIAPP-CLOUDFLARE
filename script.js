@@ -117,7 +117,8 @@ function processToastQueue() {
   let bgColor = 'var(--bg-card, #ffffff)';
   let textColor = 'var(--text-1, #1e293b)';
   
-  toast.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-30px); background:${bgColor}; padding:14px 18px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.15); display:flex; align-items:center; gap:12px; z-index:999999; opacity:0; transition:all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); min-width:280px; max-width:90%; border-left:4px solid ${color}; overflow:hidden; font-family:'Plus Jakarta Sans', sans-serif;`;
+  // Đã xóa border-left, thay bằng viền kính đồng bộ
+  toast.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-30px); background:${bgColor}; padding:14px 18px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.15); display:flex; align-items:center; gap:12px; z-index:999999; opacity:0; transition:all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); min-width:280px; max-width:90%; border: 1px solid var(--border); overflow:hidden; font-family:'Plus Jakarta Sans', sans-serif;`;
   
   toast.innerHTML = `
     <i class="fas ${icon}" style="font-size:1.5rem; color:${color}; flex-shrink:0;"></i>
