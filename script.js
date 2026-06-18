@@ -110,37 +110,27 @@ function processToastQueue() {
   if (toastQueue.length === 0) { isShowingToast = false; return; }
   isShowingToast = true;
   const { message, type } = toastQueue.shift();
+  
   const toast = document.createElement('div');
+  // Gắn class dựa trên type (success, error, info)
+  toast.className = `premium-toast toast-${type}`;
   
   let icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
-  let color = type === 'success' ? '#10B981' : (type === 'error' ? '#F43F5E' : '#0EA5E9');
-  let bgColor = 'var(--bg-card, #ffffff)';
-  let textColor = 'var(--text-1, #1e293b)';
-  
-  // Đã xóa border-left, thay bằng viền kính đồng bộ
-  toast.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-30px); background:${bgColor}; padding:14px 18px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.15); display:flex; align-items:center; gap:12px; z-index:999999; opacity:0; transition:all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); min-width:280px; max-width:90%; border: 1px solid var(--border); overflow:hidden; font-family:'Plus Jakarta Sans', sans-serif;`;
   
   toast.innerHTML = `
-    <i class="fas ${icon}" style="font-size:1.5rem; color:${color}; flex-shrink:0;"></i>
-    <span style="font-size:0.95rem; font-weight:600; color:${textColor}; flex:1;">${escapeHTML(message)}</span>
-    <div style="position:absolute; bottom:0; left:0; height:3px; background:${color}; width:100%; animation:premiumToastProgress 3s linear forwards;"></div>
+    <i class="fas ${icon} toast-icon"></i>
+    <span class="toast-message">${escapeHTML(message)}</span>
+    <div class="toast-progress"></div>
   `;
   
-  if(!document.getElementById('toastKeyframes')) {
-      const style = document.createElement('style'); style.id = 'toastKeyframes';
-      style.innerHTML = `@keyframes premiumToastProgress { from { width: 100%; } to { width: 0%; } }`;
-      document.head.appendChild(style);
-  }
-
   document.body.appendChild(toast);
   
+  // Kích hoạt hiệu ứng xuất hiện
   void toast.offsetWidth;
-  toast.style.transform = 'translateX(-50%) translateY(0)';
-  toast.style.opacity = '1';
+  toast.classList.add('show');
   
   setTimeout(() => { 
-      toast.style.transform = 'translateX(-50%) translateY(-30px)';
-      toast.style.opacity = '0';
+      toast.classList.remove('show');
       setTimeout(() => { toast.remove(); processToastQueue(); }, 400); 
   }, 3000);
 }
