@@ -404,16 +404,21 @@
       <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
       
       <div class="field-group">
-          <div class="field-label">Tên Danh mục (Chọn hoặc nhập mới)</div>
-          <input list="iconPickerCatList" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
-          <datalist id="iconPickerCatList"></datalist>
+          <div class="field-label">Chọn danh mục để sửa</div>
+          <select id="iconPickerSelect" class="field-input">
+              <option value="">-- Chọn danh mục --</option>
+          </select>
+      </div>
+
+      <div class="field-group" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease;">
+          <div class="field-label" style="color: var(--primary-light);">Tạo tên danh mục mới</div>
+          <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
       </div>
 
       <div class="field-label">Bảng chọn Icon phẳng</div>
       <div id="iconGridContainer" class="icon-grid"></div>
 
-      <!-- Khung nhập Tag từ khóa (Chỉ hiện khi tạo mới) -->
-      <div class="field-group" id="tagInputArea" style="margin-top: 10px; display: none;">
+      <div class="field-group" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
           <div class="field-label">Từ khóa ban đầu (Gõ phẩy hoặc Enter để tạo)</div>
           <div class="field-input" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 44px; align-items: center;">
               <span id="tagsWrapper" style="display: flex; flex-wrap: wrap; gap: 6px;"></span>
