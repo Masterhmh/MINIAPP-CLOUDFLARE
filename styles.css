@@ -313,12 +313,18 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
     -webkit-backdrop-filter: var(--glass-effect); 
     border-radius: 28px 28px 0 0; padding: 20px 20px 40px; 
     border-top: 1px solid var(--border); 
-    box-shadow: 0 -10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); 
+    /* ĐÃ SỬA: Chỉ giữ lại viền kính sáng mỏng bên trong, gỡ bỏ phần bóng đổ vệt đen hắt ra ngoài ở trạng thái ẩn */
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.1); 
     z-index: 2000; transform: translateY(100%); 
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease; 
     max-height: 90vh; overflow-y: auto; width: 100%; max-width: 600px; margin: 0 auto; 
 }
-.modal-sheet.show { transform: translateY(0); box-shadow: 0 -8px 40px rgba(0,0,0,0.6); }
+
+.modal-sheet.show { 
+    transform: translateY(0); 
+    /* ĐÃ SỬA: Bật lại bóng đen ở đây khi cửa sổ trượt lên để tạo chiều sâu */
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); 
+}
 .modal-handle { width: 40px; height: 5px; background: var(--text-2); opacity: 0.4; border-radius: 3px; margin: 0 auto 20px; }
 .modal-title { font-size: 1.15rem; font-weight: 800; color: var(--text-1); margin-bottom: 24px; letter-spacing: -0.02em; text-transform: uppercase; display: flex; align-items: center; }
 
