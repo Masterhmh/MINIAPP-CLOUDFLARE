@@ -974,13 +974,15 @@ window.openIconPickerModal = function() {
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     
     if (container.innerHTML === '') {
+        // Đã bổ sung TOÀN BỘ ICON THEO SHEET CỦA BẠN LÊN ĐẦU
         const flatEmojis = [
-            '🍽️', '☕', '🍔', '🍕', '🍜', '🍲', '🥩', '🛒', '🚗', '🛵', '🚌', '🚆', '✈️', '⛽',
-            '🏠', '🏢', '🛍️', '👕', '👗', '👟', '💄', '🧴', '👓', '💻', '📱', '📺', '🎮', '🎧',
-            '💡', '💧', '🔥', '📶', '💓', '💊', '🩺', '🦷', '💪', '🎓', '📚', '🧸', '🎀',
-            '🖊️', '💼', '📈', '🐷', '💳', '🪙', '👛', '🎁', '🎂', '🥂', '🐶', '🐱',
-            '👶', '🧒', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵', '💅', '💬',
-            '📦', '🏷️', '🛡️', '🧾', '✨', '❤️'
+            '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
+            '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
+            '🏠', '🏢', '👗', '👟', '👓', '💻', '📺', '🎮', '🎧',
+            '💡', '💧', '🔥', '📶', '🩺', '🦷', '💪', '🎓', '🧸',
+            '📈', '💳', '🪙', '👛', '🎂', '🥂', '🐶', '🐱',
+            '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
+            '📦', '🏷️', '✨', '❤️'
         ];
         container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}" style="font-size: 1.6rem; display:flex; align-items:center; justify-content:center;">${emoji}</div>`).join('');
         
@@ -1039,7 +1041,6 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
-        // NÚT XÓA DANH MỤC GỌI POPUP CUSTOM CAO CẤP
         document.getElementById('deleteCategoryBtn').onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
@@ -1095,12 +1096,14 @@ window.openIconPickerModal = function() {
                 let faClass = currentIconVal.replace('fas ', '').trim();
                 if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
                 targetEmoji = FA_TO_EMOJI_MAP[faClass];
-            } else if (/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(currentIconVal[0])) {
-                targetEmoji = currentIconVal[0];
+            } else {
+                // Lấy toàn bộ chuỗi icon để không hỏng các icon dạng ghép (Ví dụ: Gia đình 👨‍👩‍👧‍👦)
+                targetEmoji = currentIconVal; 
             }
 
             if (targetEmoji) {
-                let item = modal.querySelector(`.icon-item[data-icon="${targetEmoji}"]`);
+                // TÌM ICON AN TOÀN BẰNG ARRAY.FIND THAY VÌ QUERY SELECTOR
+                let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
                 
                 if (!item) {
                     const newDiv = document.createElement('div');
@@ -1118,17 +1121,16 @@ window.openIconPickerModal = function() {
                     item = newDiv;
                 }
 
-                // LUÔN ĐƯA ICON NÀY LÊN VỊ TRÍ ĐẦU TIÊN CỦA GRID
                 if (item) {
                     item.classList.add('selected');
                     modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
                     
-                    // Cắt và dán nó lên đầu tiên của thẻ container
+                    // Cắt và dán nó lên vị trí đầu tiên
                     if (container.firstChild !== item) {
                         container.insertBefore(item, container.firstChild);
                     }
                     
-                    // Reset thanh cuộn về vị trí số 0 để người dùng luôn thấy nó
+                    // Đưa thanh cuộn lên đầu để đảm bảo luôn nhìn thấy
                     container.scrollTop = 0;
                 }
             }
