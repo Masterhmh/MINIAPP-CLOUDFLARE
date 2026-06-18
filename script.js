@@ -73,16 +73,13 @@ function getColorByIndex(i) {
     return c[i % c.length]; 
 }
 
-function getCategoryIcon(cat) {
-    if (!cat) return '<i class="fas fa-box-open"></i>';
-    const categoryName = cat.trim();
+// Hàm trích xuất Icon Class thô (Dùng cho cả giao diện và Highlight Icon Picker)
+function getRawFaIconName(catName) {
+    if (!catName) return null;
+    const categoryName = catName.trim();
     if (window.customCategoryIcons && window.customCategoryIcons[categoryName]) {
         let iconCode = window.customCategoryIcons[categoryName].trim();
-        if (iconCode) {
-            if (!iconCode.includes('fa-')) iconCode = `fa-${iconCode}`;
-            if (!iconCode.includes('fas ')) iconCode = `fas ${iconCode}`;
-            return `<i class="${iconCode}"></i>`;
-        }
+        if (iconCode && !/[^\x00-\x7F]/.test(iconCode)) return iconCode; 
     }
     const faMap = {
         'ăn uống': 'fa-utensils', 'bảo hiểm': 'fa-shield-halved', 'công nghệ': 'fa-laptop', 'công việc': 'fa-briefcase', 'giặt ủi': 'fa-shirt', 'sửa chữa': 'fa-screwdriver-wrench',
@@ -91,33 +88,43 @@ function getCategoryIcon(cat) {
         'nhà cửa': 'fa-house', 'xăng': 'fa-gas-pump', 'lương': 'fa-money-bill-wave', 'thưởng': 'fa-gift', 'khác': 'fa-layer-group'
     };
     for (let key in faMap) { 
-        if (categoryName.toLowerCase().includes(key)) return `<i class="fas ${faMap[key]}"></i>`; 
+        if (categoryName.toLowerCase().includes(key)) return faMap[key]; 
     }
-    const emojiToFa = {
-        '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty',
-        '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump',
-        '🏠': 'fa-house', '🏢': 'fa-building', '🛒': 'fa-cart-shopping', '🛍️': 'fa-bag-shopping', '👕': 'fa-shirt', '👗': 'fa-shirt',
-        '💻': 'fa-laptop', '📱': 'fa-mobile-screen', '🎮': 'fa-gamepad', '🎧': 'fa-headphones',
-        '💡': 'fa-bolt', '💧': 'fa-droplet', '🔥': 'fa-fire', '📶': 'fa-wifi',
-        '💊': 'fa-pills', '🩺': 'fa-stethoscope', '🏥': 'fa-house-medical', '💪': 'fa-dumbbell',
-        '🎓': 'fa-graduation-cap', '📚': 'fa-book', '💼': 'fa-briefcase',
-        '📈': 'fa-chart-line', '💰': 'fa-money-bill-wave', '🏦': 'fa-building-columns', '💳': 'fa-credit-card',
-        '🎁': 'fa-gift', '🎂': 'fa-cake-candles', '🐶': 'fa-paw', '🐱': 'fa-cat', '👶': 'fa-baby',
-        '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol',
-        '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench'
-    };
-    if (window.categoryIconMap && window.categoryIconMap[categoryName]) {
-        let sheetIcon = window.categoryIconMap[categoryName].trim();
+    return null;
+}
+
+function getCategoryIcon(cat) {
+    if (!cat) return '<i class="fas fa-box-open"></i>';
+    const rawFaIcon = getRawFaIconName(cat);
+    if (rawFaIcon) {
+        let finalIcon = rawFaIcon;
+        if (!finalIcon.includes('fa-')) finalIcon = `fa-${finalIcon}`;
+        if (!finalIcon.includes('fas ')) finalIcon = `fas ${finalIcon}`;
+        return `<i class="${finalIcon}"></i>`;
+    }
+    
+    // Nếu có Emoji cũ trong Sheet
+    if (window.categoryIconMap && window.categoryIconMap[cat.trim()]) {
+        let sheetIcon = window.categoryIconMap[cat.trim()].trim();
+        const emojiToFa = {
+            '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty',
+            '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump',
+            '🏠': 'fa-house', '🏢': 'fa-building', '🛒': 'fa-cart-shopping', '🛍️': 'fa-bag-shopping', '👕': 'fa-shirt', '👗': 'fa-shirt',
+            '💻': 'fa-laptop', '📱': 'fa-mobile-screen', '🎮': 'fa-gamepad', '🎧': 'fa-headphones',
+            '💡': 'fa-bolt', '💧': 'fa-droplet', '🔥': 'fa-fire', '📶': 'fa-wifi',
+            '💊': 'fa-pills', '🩺': 'fa-stethoscope', '🏥': 'fa-house-medical', '💪': 'fa-dumbbell',
+            '🎓': 'fa-graduation-cap', '📚': 'fa-book', '💼': 'fa-briefcase',
+            '📈': 'fa-chart-line', '💰': 'fa-money-bill-wave', '🏦': 'fa-building-columns', '💳': 'fa-credit-card',
+            '🎁': 'fa-gift', '🎂': 'fa-cake-candles', '🐶': 'fa-paw', '🐱': 'fa-cat', '👶': 'fa-baby',
+            '🎬': 'fa-film', '🎵': 'fa-music', '⚽': 'fa-futbol',
+            '🛡️': 'fa-shield-halved', '🧾': 'fa-file-invoice-dollar', '💅': 'fa-spa', '🔧': 'fa-wrench'
+        };
         const firstChar = Array.from(sheetIcon)[0];
         if (emojiToFa[firstChar]) return `<i class="fas ${emojiToFa[firstChar]}"></i>`;
-        if (emojiToFa[sheetIcon]) return `<i class="fas ${emojiToFa[sheetIcon]}"></i>`;
-        if (!/[^\x00-\x7F]/.test(sheetIcon)) {
-            if (!sheetIcon.includes('fa-')) sheetIcon = `fa-${sheetIcon}`;
-            if (!sheetIcon.includes('fas ')) sheetIcon = `fas ${sheetIcon}`;
-            return `<i class="${sheetIcon}"></i>`;
-        }
     }
-    const firstLetter = Array.from(categoryName)[0].toUpperCase();
+    
+    // Fallback chữ cái đầu
+    const firstLetter = Array.from(cat.trim())[0].toUpperCase();
     return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
 
@@ -546,9 +553,334 @@ window.exportToCSV = async function() {
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
 
-// ... Bỏ qua block exportToPDF dài dòng (bạn giữ nguyên mã PDF cũ mình đã gửi nhé để tiết kiệm khoảng trắng code) ...
+// ==========================================
+// ĐÃ KHÔI PHỤC LOGIC PDF HOÀN CHỈNH BẢN XỊN
+// ==========================================
+window.exportToPDF = function() {
+    const isTab2 = document.getElementById('tab2').classList.contains('active');
+    const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
+    
+    if (data.length === 0) {
+        return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
+    }
+    if (typeof html2pdf === 'undefined') {
+        return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
+    }
+    
+    triggerHaptic('medium');
+    showToast("Đang chuẩn bị bản xem trước...", "info");
 
-// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER" NÂNG CẤP VỚI TAG & XÓA DANH MỤC
+    let reportTitle = isTab2 ? document.getElementById('chartTitleTab2')?.textContent : "GIAO DỊCH TRONG NGÀY";
+    if (!reportTitle) reportTitle = "BÁO CÁO TÀI CHÍNH";
+    const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
+
+    const element = document.createElement('div');
+    element.style.width = '720px';
+    element.style.minWidth = '720px'; 
+    element.style.maxWidth = '720px'; 
+    element.style.boxSizing = 'border-box'; 
+    element.style.padding = '10px 15px';
+    element.style.color = '#0F172A';
+    element.style.backgroundColor = '#FFFFFF';
+    element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
+    element.style.overflow = 'hidden'; 
+    
+    let tablesHTML = '';
+    let totalIncome = 0, totalExpense = 0;
+    
+    const catMapForColor = {};
+    data.forEach(t => { if(t.type === 'Chi tiêu') catMapForColor[t.category] = (catMapForColor[t.category]||0) + t.amount; });
+    const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
+    
+    const categoryColorMap = {};
+    catArrForColor.forEach((c, idx) => { categoryColorMap[c.category] = getColorByIndex(idx); });
+
+    const groupedData = {};
+    data.forEach(t => {
+        const parts = t.date.split('/');
+        const monthYear = parts.length === 3 ? `${parts[1]}/${parts[2]}` : 'Khác';
+        if (!groupedData[monthYear]) groupedData[monthYear] = [];
+        groupedData[monthYear].push(t);
+    });
+
+    const sortedKeys = Object.keys(groupedData).sort((a, b) => {
+        if (a === 'Khác') return 1; if (b === 'Khác') return -1;
+        const [mA, yA] = a.split('/').map(Number);
+        const [mB, yB] = b.split('/').map(Number);
+        if (yA !== yB) return yA - yB;
+        return mA - mB;
+    });
+
+    const showMonthHeader = isTab2 && sortedKeys.length >= 1;
+    
+    const hasIncome = data.some(t => t.type === 'Thu nhập');
+    const hasExpense = data.some(t => t.type === 'Chi tiêu');
+
+    sortedKeys.forEach(key => {
+        let monthRows = '';
+        let monthInc = 0, monthExp = 0;
+        
+        groupedData[key].forEach((t, idx) => {
+            const isInc = t.type === 'Thu nhập';
+            if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
+            else { totalExpense += t.amount; monthExp += t.amount; }
+            
+            const catColor = categoryColorMap[t.category] || (isInc ? '#10B981' : '#64748B');
+            const catIconHTML = getCategoryIcon(t.category);
+            
+            let tdAmountHTML = '';
+            if (hasIncome && hasExpense) {
+                tdAmountHTML = `
+                    <td style="padding: 12px 6px; font-size: 11px; font-weight: 800; color: #00D26A; text-align: right;">${isInc ? '+' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                `;
+            } else {
+                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
+                </td>`;
+            }
+
+            monthRows += `
+                <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
+                    <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                    <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
+                    <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
+                    <td style="padding: 12px 10px; font-size: 11px; color: ${catColor}; font-weight: 700; text-align: left;">
+                        <span style="display:inline-block; width:16px; text-align:center; margin-right:4px; font-size:12px;">${catIconHTML}</span>${t.category}
+                    </td>
+                    <td style="padding: 12px 6px; font-size: 11px; color: #94A3B8; text-align: center;">${t.date.substring(0,5)}</td>
+                    ${tdAmountHTML}
+                </tr>
+            `;
+        });
+
+        let thAmountHTML = '';
+        if (hasIncome && hasExpense) {
+            thAmountHTML = `
+                <th style="padding: 12px 6px; width: 14%; text-align: right;">Thu nhập</th>
+                <th style="padding: 12px 14px 12px 6px; width: 14%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Chi tiêu</th>
+            `;
+        } else {
+            thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>`;
+        }
+
+        const theadHTML = `
+            <thead>
+                <tr style="background: #0891B2; color: #FFFFFF;">
+                    <th style="padding: 12px 6px; width: 6%; text-align: center; border-top-left-radius: 6px; border-bottom-left-radius: 6px;">STT</th>
+                    <th style="padding: 12px 6px; width: 12%; text-align: center;">Mã GD</th>
+                    <th style="padding: 12px 10px; width: 26%; text-align: left;">Nội dung</th>
+                    <th style="padding: 12px 10px; width: 18%; text-align: left;">Danh mục</th>
+                    <th style="padding: 12px 6px; width: 10%; text-align: center;">Ngày</th>
+                    ${thAmountHTML}
+                </tr>
+            </thead>
+        `;
+
+        if (showMonthHeader) {
+            tablesHTML += `
+                <div style="margin-bottom: 24px; page-break-inside: auto; width: 100%; box-sizing: border-box;">
+                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+                        <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
+                        <span style="font-size: 11px; color: #64748B; font-weight: 600;">
+                            Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
+                            <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
+                            Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
+                        </span>
+                    </div>
+                    <table class="pdf-table">
+                        ${theadHTML}
+                        <tbody>
+                            ${monthRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            tablesHTML += `
+                <table class="pdf-table" style="margin-top: 10px;">
+                    ${theadHTML}
+                    <tbody>
+                        ${monthRows}
+                    </tbody>
+                </table>
+            `;
+        }
+    });
+
+    let chartsHTML = '';
+    if (isTab2 && window.mChart && window.pChart) {
+        const barChartImg = window.mChart.toBase64Image();
+        const pieChartImg = window.pChart.toBase64Image();
+        
+        const catMap = {};
+        data.forEach(t => { if(t.type === 'Chi tiêu') catMap[t.category] = (catMap[t.category]||0) + t.amount; });
+        const catArr = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
+        
+        let pieLegendHTML = '';
+        catArr.forEach((c, idx) => {
+            const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
+            const color = getColorByIndex(idx);
+            const catIconHTML = getCategoryIcon(c.category);
+            
+            pieLegendHTML += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; align-items: center; width: 100%;">
+                    <span style="color: #475569; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 75%;">
+                        <span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>
+                        ${c.category}
+                    </span>
+                    <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
+                </div>
+            `;
+        });
+
+        chartsHTML = `
+            <div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+                <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
+                <div style="text-align: center; margin-top: 10px;">
+                    <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
+                </div>
+            </div>
+            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
+                <div style="flex: 1; min-width: 0; max-width: 50%;">
+                    <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
+                    <div style="text-align: center;">
+                        <img src="${pieChartImg}" style="max-width: 100%; height: auto; max-height: 220px; object-fit: contain; display: block; margin: 0 auto;" />
+                    </div>
+                </div>
+                <div style="flex: 1; min-width: 0; max-width: 50%; background: #F8FAFC; padding: 16px; border-radius: 12px; border: 1px solid #E2E8F0; display: flex; flex-direction: column; justify-content: center; box-sizing: border-box;">
+                    ${pieLegendHTML || '<span style="font-size: 11px; color: #94A3B8;">Chưa có dữ liệu chi tiêu</span>'}
+                </div>
+            </div>
+            <div style="height: 24px;"></div>
+        `;
+    }
+
+    element.innerHTML = `
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+        <style>
+            * { box-sizing: border-box; }
+            .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
+            .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
+            tr { page-break-inside: avoid; page-break-after: auto; }
+            thead { display: table-header-group; }
+            tfoot { display: table-footer-group; }
+        </style>
+        <div style="text-align: center; margin-bottom: 24px; width: 100%; box-sizing: border-box;">
+            <h2 style="margin: 0; color: #0891B2; font-size: 22px; text-transform: uppercase; letter-spacing: 0.5px;">${isTab2 ? 'BÁO CÁO TÀI CHÍNH TỔNG HỢP' : 'GIAO DỊCH TRONG NGÀY'}</h2>
+            <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
+        </div>
+        
+        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+            <div style="flex: 1; min-width: 0;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
+                <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng chi tiêu</span>
+                <div style="font-size: 15px; font-weight: 800; color: #FF4444; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">-${totalExpense.toLocaleString('vi-VN')}đ</div>
+            </div>
+            <div style="flex: 1; min-width: 0; border-left: 1px solid #E2E8F0; padding-left: 14px;">
+                <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Số dư thuần</span>
+                <div style="font-size: 15px; font-weight: 800; color: ${(totalIncome - totalExpense) >= 0 ? '#00D26A' : '#FF4444'}; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    ${(totalIncome - totalExpense) >= 0 ? '+' : ''}${(totalIncome - totalExpense).toLocaleString('vi-VN')}đ
+                </div>
+            </div>
+        </div>
+
+        ${chartsHTML}
+
+        <div style="page-break-before: auto; width: 100%; box-sizing: border-box;">
+            <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px; page-break-inside: avoid;">${isTab2 ? '3. Danh sách chi tiết' : 'Danh sách giao dịch'}</h3>
+            ${tablesHTML} 
+        </div>
+        
+        <div style="margin-top: 30px; border-top: 1px dashed #CBD5E1; padding-top: 12px; display: flex; justify-content: space-between; font-size: 10px; color: #94A3B8; font-style: italic; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+            <span>Ngày xuất báo cáo: ${formatDateToDDMMYYYY(new Date())}</span>
+            <span>Ứng dụng Quản Lý Chi Tiêu ©masterhmh</span>
+        </div>
+    `;
+
+    const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
+    
+    const modal = document.getElementById('pdfPreviewModal');
+    const overlay = document.getElementById('modalOverlay');
+    const previewContainer = document.getElementById('pdfPreviewContainer');
+    
+    previewContainer.innerHTML = '';
+    const clonedElement = element.cloneNode(true);
+    clonedElement.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+    clonedElement.style.borderRadius = '8px';
+    clonedElement.style.transformOrigin = 'top left';
+    previewContainer.appendChild(clonedElement);
+
+    function adjustPreviewSize() {
+        const containerWidth = previewContainer.clientWidth - 20; 
+        const scale = containerWidth / 720;
+        if (scale < 1) {
+            clonedElement.style.transform = `scale(${scale})`;
+            const heightDiff = clonedElement.offsetHeight * (1 - scale);
+            const widthDiff = 720 * (1 - scale);
+            clonedElement.style.marginBottom = `-${heightDiff}px`; 
+            clonedElement.style.marginRight = `-${widthDiff}px`;
+            clonedElement.style.marginLeft = '0px';
+        } else {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.marginBottom = '0px';
+            clonedElement.style.marginRight = '0px';
+            clonedElement.style.marginLeft = 'auto'; 
+            clonedElement.style.marginRight = 'auto';
+        }
+    }
+    
+    setTimeout(adjustPreviewSize, 50);
+    window.addEventListener('resize', adjustPreviewSize);
+    
+    overlay.classList.add('show');
+    setTimeout(() => modal.classList.add('show'), 10);
+    
+    document.getElementById('sharePdfBtn').onclick = async () => {
+        triggerHaptic('medium');
+        showToast("Đang kết xuất file PDF chuẩn...", "info");
+        
+        const opt = {
+            margin:       [10, 10, 10, 10],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 1 },
+            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak:    { mode: ['css', 'legacy'] }
+        };
+
+        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+            triggerHapticNotification('success');
+            const file = new File([blob], fileName, { type: 'application/pdf' });
+            
+            const platform = window.Telegram?.WebApp?.platform || 'unknown';
+            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+
+            if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({ files: [file], title: fileName });
+                    triggerHapticNotification('success');
+                } catch (error) {}
+            } else {
+                const pdfUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = pdfUrl;
+                a.download = fileName;
+                a.click();
+                URL.revokeObjectURL(pdfUrl);
+                showToast("Đã tải file PDF xuống máy!", "success");
+            }
+        }).catch(err => {
+            showToast("Lỗi tạo PDF: " + err.message, "error");
+        });
+    };
+};
+
+// 🌟 TÍNH NĂNG CỬA SỔ "ICON PICKER" NÂNG CẤP VỚI TAG & AUTO HIGHLIGHT
 let pendingTags = [];
 window.openIconPickerModal = function() {
     triggerHaptic('light');
@@ -581,7 +913,7 @@ window.openIconPickerModal = function() {
             };
         });
 
-        // 🟢 TÍNH NĂNG TỰ TẠO TAG KHI GÕ
+        // TÍNH NĂNG TỰ TẠO TAG KHI GÕ
         window.renderTags = function() {
             tagsWrapper.innerHTML = '';
             pendingTags.forEach((tag, idx) => {
@@ -594,21 +926,23 @@ window.openIconPickerModal = function() {
         }
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
         
-        tagInputField.addEventListener('keydown', (e) => {
-            if (e.key === ',' || e.key === 'Enter') {
-                e.preventDefault();
-                const val = tagInputField.value.trim().replace(/,/g, '');
-                if (val && !pendingTags.includes(val)) { pendingTags.push(val); tagInputField.value = ''; window.renderTags(); }
-            } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
-                pendingTags.pop(); window.renderTags();
-            }
-        });
+        if (tagInputField) {
+            tagInputField.addEventListener('keydown', (e) => {
+                if (e.key === ',' || e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = tagInputField.value.trim().replace(/,/g, '');
+                    if (val && !pendingTags.includes(val)) { pendingTags.push(val); tagInputField.value = ''; window.renderTags(); }
+                } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
+                    pendingTags.pop(); window.renderTags();
+                }
+            });
+        }
         
         // Nút Lưu Mới/Cập nhật
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
-            const newKws = hiddenKeywords.value;
+            const newKws = hiddenKeywords ? hiddenKeywords.value : "";
             
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
@@ -626,7 +960,7 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
-        // 🔴 NÚT XÓA DANH MỤC (Chỉ hiện khi chọn danh mục cũ)
+        // NÚT XÓA DANH MỤC (Chỉ hiện khi chọn danh mục cũ)
         document.getElementById('deleteCategoryBtn').onclick = async () => {
             const cat = catInput.value.trim();
             if (!cat) return;
@@ -650,37 +984,45 @@ window.openIconPickerModal = function() {
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
-    // 🟢 TỰ ĐỘNG BẬT/TẮT TÍNH NĂNG THEO TRẠNG THÁI DANH MỤC
-    const iconItems = modal.querySelectorAll('.icon-item');
-    catInput.oninput = () => {
+    // HÀM TỰ ĐỘNG BẬT SÁNG ICON (Hỗ trợ cả Event input và change từ Datalist)
+    const updateIconState = () => {
         const val = catInput.value.trim();
         const isExisting = uniqueCats.includes(val);
         
         // Ẩn hiện Nút Xóa và Khung nhập Tag
-        document.getElementById('deleteCategoryBtn').style.display = isExisting ? 'block' : 'none';
-        document.getElementById('tagInputArea').style.display = isExisting ? 'none' : 'block';
+        const delBtn = document.getElementById('deleteCategoryBtn');
+        const tagArea = document.getElementById('tagInputArea');
+        if (delBtn) delBtn.style.display = isExisting ? 'block' : 'none';
+        if (tagArea) tagArea.style.display = isExisting ? 'none' : 'block';
 
+        const iconItems = modal.querySelectorAll('.icon-item');
         iconItems.forEach(i => i.classList.remove('selected'));
         modal.removeAttribute('data-selected-icon');
-        if (window.customCategoryIcons[val]) {
-            let mappedIcon = window.customCategoryIcons[val];
-            if (!mappedIcon.includes('fa-')) mappedIcon = `fa-${mappedIcon}`;
-            const item = modal.querySelector(`.icon-item[data-icon="${mappedIcon}"]`);
+        
+        // Tự động nhận diện Icon Mặc định hoặc Custom
+        let rawMappedIcon = getRawFaIconName(val);
+        if (rawMappedIcon) {
+            let searchIcon = rawMappedIcon;
+            if (!searchIcon.includes('fa-')) searchIcon = `fa-${searchIcon}`;
+            const item = modal.querySelector(`.icon-item[data-icon="${searchIcon}"]`);
             if (item) {
                 item.classList.add('selected');
-                modal.setAttribute('data-selected-icon', mappedIcon);
+                modal.setAttribute('data-selected-icon', searchIcon);
                 item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
         }
     };
 
+    catInput.addEventListener('input', updateIconState);
+    catInput.addEventListener('change', updateIconState);
+
     // Khởi tạo trạng thái ban đầu
     const currentSelected = document.getElementById('keywordCategory').value;
     if(currentSelected) {
         catInput.value = currentSelected;
-        catInput.dispatchEvent(new Event('input')); // Ép nó chạy logic trên
+        updateIconState();
     } else {
-        catInput.value = ''; catInput.dispatchEvent(new Event('input'));
+        catInput.value = ''; updateIconState();
     }
     
     pendingTags = []; window.renderTags();
