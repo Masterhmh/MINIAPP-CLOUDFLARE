@@ -961,7 +961,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER" - LUÔN ĐẨY ICON LÊN ĐẦU
+// TÍNH NĂNG CỬA SỔ "ICON PICKER" MỚI (KHÓA ICON ĐÃ DÙNG VÀ CHỐNG CO RÚT)
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -969,7 +969,6 @@ window.openIconPickerModal = function() {
     const modal = document.getElementById('iconPickerModal');
     const container = document.getElementById('iconGridContainer');
     
-    // Các phần tử DOM mới
     const catSelect = document.getElementById('iconPickerSelect');
     const catInputGroup = document.getElementById('newCategoryInputGroup');
     const catInput = document.getElementById('iconPickerCategory');
@@ -979,7 +978,6 @@ window.openIconPickerModal = function() {
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     const delBtn = document.getElementById('deleteCategoryBtn');
     
-    // Khởi tạo bảng Icon nếu chưa có
     if (container.innerHTML === '') {
         const flatEmojis = [
             '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
@@ -1002,7 +1000,6 @@ window.openIconPickerModal = function() {
         };
         modal.querySelectorAll('.icon-item').forEach(bindIconClick);
 
-        // Logic Tag Từ khóa
         window.renderTags = function() {
             tagsWrapper.innerHTML = '';
             pendingTags.forEach((tag, idx) => {
@@ -1027,7 +1024,6 @@ window.openIconPickerModal = function() {
             });
         }
         
-        // Lưu thông tin (Tạo mới hoặc Sửa)
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
@@ -1049,7 +1045,6 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
-        // Xóa Danh Mục
         document.getElementById('deleteCategoryBtn').onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
@@ -1074,23 +1069,55 @@ window.openIconPickerModal = function() {
         };
     }
     
-    // Đổ danh sách vào Select Box
     catSelect.innerHTML = '<option value="">-- Chọn danh mục hiện có --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
     const uniqueCats = [...new Set(cats)]; 
     uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
     
-    // Thêm Option "Tạo mới" nổi bật
     const newOpt = document.createElement('option');
     newOpt.value = "__NEW__";
     newOpt.innerHTML = "➕ Tạo danh mục mới...";
     newOpt.style.fontWeight = "bold";
     catSelect.appendChild(newOpt);
 
-    // Bật sáng icon
+    // THUẬT TOÁN ĐÓNG BĂNG ICON ĐÃ SỬ DỤNG
     const updateIconState = (val) => {
-        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+        // 1. Quét tìm tất cả Icon đã có chủ (loại trừ danh mục đang thao tác)
+        let usedEmojis = [];
+        uniqueCats.forEach(c => {
+            if (c !== val) {
+                let iconStr = window.customCategoryIcons[c] || window.categoryIconMap[c];
+                if (iconStr) {
+                    iconStr = iconStr.trim();
+                    let emoji = iconStr;
+                    if (iconStr.includes('fa-')) {
+                        let faClass = iconStr.replace('fas ', '').trim();
+                        if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+                        emoji = FA_TO_EMOJI_MAP[faClass];
+                    }
+                    if (emoji) usedEmojis.push(emoji);
+                }
+            }
+        });
+
+        // 2. Làm mờ (disabled) các Icon đã có chủ
+        modal.querySelectorAll('.icon-item').forEach(item => {
+            item.classList.remove('selected');
+            const itemEmoji = item.getAttribute('data-icon');
+            if (usedEmojis.includes(itemEmoji)) {
+                item.style.opacity = '0.2';
+                item.style.pointerEvents = 'none'; // Chống click
+                item.style.filter = 'grayscale(100%)';
+            } else {
+                item.style.opacity = '1';
+                item.style.pointerEvents = 'auto';
+                item.style.filter = 'none';
+            }
+        });
+
         modal.removeAttribute('data-selected-icon');
+        
+        // 3. Xử lý bật sáng icon nếu đang ở chế độ sửa danh mục cũ
         if (!val) return;
 
         let currentIconVal = null;
@@ -1120,6 +1147,11 @@ window.openIconPickerModal = function() {
                 }
                 if (item) {
                     item.classList.add('selected');
+                    // Gỡ trạng thái disabled nếu đây là icon thuộc về chính danh mục này
+                    item.style.opacity = '1';
+                    item.style.pointerEvents = 'auto';
+                    item.style.filter = 'none';
+                    
                     modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
                     if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
                     container.scrollTop = 0;
@@ -1128,24 +1160,19 @@ window.openIconPickerModal = function() {
         }
     };
 
-    // LẮNG NGHE KHI NGƯỜI DÙNG THAY ĐỔI LỰA CHỌN DROPDOWN
     catSelect.onchange = (e) => {
         triggerHaptic('light');
         if (e.target.value === '__NEW__') {
-            // Hiển thị khung Tên & Từ khóa khi Tạo mới
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
-            delBtn.style.display = 'none'; // Ẩn thùng rác
-            
+            delBtn.style.display = 'none';
             catInput.value = '';
             catInput.focus();
-            updateIconState('');
+            updateIconState(''); // Chuyển val = rỗng để nó quét khóa tất cả icon hiện có
         } else {
-            // Ẩn khung Tên & Từ khóa khi Sửa cũ
             catInputGroup.style.display = 'none';
             tagArea.style.display = 'none';
-            delBtn.style.display = e.target.value ? 'flex' : 'none'; // Hiện thùng rác nếu có chọn
-            
+            delBtn.style.display = e.target.value ? 'flex' : 'none';
             catInput.value = e.target.value;
             updateIconState(e.target.value);
         }
@@ -1153,7 +1180,6 @@ window.openIconPickerModal = function() {
 
     catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
 
-    // Khởi tạo trạng thái ban đầu khi mở Modal
     const currentSelected = document.getElementById('keywordCategory').value;
     if(currentSelected) {
         catSelect.value = currentSelected;
@@ -1171,7 +1197,6 @@ window.openIconPickerModal = function() {
         updateIconState('');
     }
     
-    // Reset Tags mỗi khi mở Modal
     pendingTags = []; window.renderTags();
 
     document.getElementById('modalOverlay').classList.add('show');
