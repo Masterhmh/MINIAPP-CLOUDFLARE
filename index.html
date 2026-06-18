@@ -147,9 +147,9 @@
             </div>
           </div>
 
-          <div class="field-group mb-3" style="display: flex; gap: 10px;">
-            <button class="btn-soft" onclick="exportToCSV()" style="margin: 0; flex: 1;"><i class="fas fa-file-csv" style="color: #00D26A;"></i> Xuất dữ liệu CSV</button>
-            <button class="btn-soft" onclick="exportToPDF()" style="margin: 0; flex: 1;"><i class="fas fa-file-pdf" style="color: #FF4444;"></i> Xuất báo cáo PDF</button>
+          <div class="field-group mb-3 flex-row-gap-10">
+            <button class="btn-soft m-0 flex-1" onclick="exportToCSV()"><i class="fas fa-file-csv text-income-color"></i> Xuất dữ liệu CSV</button>
+            <button class="btn-soft m-0 flex-1" onclick="exportToPDF()"><i class="fas fa-file-pdf text-expense-color"></i> Xuất báo cáo PDF</button>
           </div>
 
           <div id="placeholderTab2" class="empty-state" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</div>
@@ -179,9 +179,9 @@
           <button id="backToCategoryBtn" class="btn-back"><i class="fas fa-arrow-left"></i> Quay lại</button>
         </div>
         
-        <div style="text-align: center; margin-bottom: 20px; padding: 16px; background: var(--bg-card); border-radius: var(--radius-md); border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
-           <div style="font-size: 0.7rem; color: var(--text-2); font-weight: 700; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.05em;">Tổng chi tiêu</div>
-           <div id="categoryDetailTotalAmt" style="font-size: 1.6rem; font-weight: 900; line-height: 1; letter-spacing: -0.01em;">0đ</div>
+        <div class="detail-total-card">
+           <div class="detail-total-label">Tổng chi tiêu</div>
+           <div id="categoryDetailTotalAmt" class="detail-total-value">0đ</div>
         </div>
 
         <div class="chart-title text-left mb-3">Biến động chi tiêu</div>
@@ -259,8 +259,8 @@
       </div>
       
       <div id="keywordActionContainer" class="type-row mt-4 mb-3">
-        <button id="addKeywordBtn" class="btn-save" style="flex: 1; margin: 0;"><i class="fas fa-plus"></i> Thêm</button>
-        <button id="fetchKeywordsBtn" class="btn-soft" style="flex: 1; margin: 0;"><i class="fas fa-bars"></i> Tất cả từ khóa</button>
+        <button id="addKeywordBtn" class="btn-save flex-1 m-0"><i class="fas fa-plus"></i> Thêm</button>
+        <button id="fetchKeywordsBtn" class="btn-soft flex-1 m-0"><i class="fas fa-bars"></i> Tất cả từ khóa</button>
       </div>
       
       <div id="loadingTab4" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
@@ -368,8 +368,8 @@
           <input type="text" id="editNote" class="field-input">
         </div>
         <div class="modal-actions fallback-actions">
-          <button type="button" class="btn-danger-outline flex-1" onclick="deleteTransaction(document.getElementById('editTransactionId').value)"><i class="fas fa-trash"></i> Xóa</button>
-          <button type="submit" class="btn-save"><i class="fas fa-save"></i> Lưu</button>
+          <button type="button" class="btn-danger-outline flex-1 m-0" onclick="deleteTransaction(document.getElementById('editTransactionId').value)"><i class="fas fa-trash"></i> Xóa</button>
+          <button type="submit" class="btn-save m-0"><i class="fas fa-save"></i> Lưu</button>
         </div>
       </form>
     </div>
@@ -379,8 +379,8 @@
         <h2 class="confirm-title" style="text-transform: uppercase;">Xác nhận xóa</h2>
         <p class="confirm-desc">Bạn có chắc chắn muốn xóa giao dịch này? Hành động này không thể hoàn tác.</p>
         <div class="modal-actions confirm-actions">
-          <button type="button" class="btn-cancel" onclick="closeConfirmDeleteModal()">Hủy</button>
-          <button type="button" class="btn-danger btn-save" id="confirmDeleteBtn">Xóa</button>
+          <button type="button" class="btn-cancel m-0" onclick="closeConfirmDeleteModal()">Hủy</button>
+          <button type="button" class="btn-danger btn-save m-0" id="confirmDeleteBtn">Xóa</button>
         </div>
       </div>
     </div>
@@ -392,50 +392,49 @@
       </div>
       <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-card); margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: block;"></div>
       
-      <div class="modal-actions" style="margin-top: auto;">
-          <button class="btn-cancel" onclick="closeAllModals()" style="flex: 1;"><i class="fas fa-times"></i> Đóng</button>
-          <button class="btn-save" id="sharePdfBtn" style="flex: 1.5;"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu PDF</button>
+      <div class="modal-actions m-0">
+          <button class="btn-cancel m-0 flex-1" onclick="closeAllModals()"><i class="fas fa-times"></i> Đóng</button>
+          <button class="btn-save m-0" id="sharePdfBtn" style="flex: 1.5;"><i class="fas fa-share-nodes"></i> Chia sẻ / Lưu PDF</button>
       </div>
     </div>
 
-    <!-- MODAL ICON PICKER -->
    <div id="iconPickerModal" class="modal-sheet" style="max-height: 92vh; display: flex; flex-direction: column;">
       <div class="modal-handle" onclick="closeIconPickerModal()"></div>
       <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
       
-      <div class="field-group" style="flex-shrink: 0;">
+      <div class="field-group flex-shrink-0">
           <div class="field-label">Chọn danh mục để sửa</div>
           <select id="iconPickerSelect" class="field-input">
               <option value="">-- Chọn danh mục --</option>
           </select>
       </div>
 
-      <div class="field-group" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease; flex-shrink: 0;">
+      <div class="field-group flex-shrink-0" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease;">
           <div class="field-label" style="color: var(--primary-light);">Tạo tên danh mục mới</div>
           <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
       </div>
 
-      <div class="field-label" style="flex-shrink: 0;">Icon phân loại</div>
-      <div id="iconGridContainer" class="icon-grid" style="min-height: 160px; max-height: 240px; overflow-y: auto; flex-shrink: 0; padding-bottom: 8px;"></div>
+      <div class="field-label flex-shrink-0">Icon phân loại</div>
+      <div id="iconGridContainer" class="icon-grid icon-grid-scrollable"></div>
 
-      <div class="field-group" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease; flex-shrink: 0;">
+      <div class="field-group flex-shrink-0" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
           <div class="field-label">Thêm từ khóa (Gõ phẩy hoặc Enter để tạo)</div>
-          <div class="field-input" style="display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; min-height: 44px; align-items: center;">
+          <div class="field-input tag-input-container">
               <span id="tagsWrapper" style="display: flex; flex-wrap: wrap; gap: 6px;"></span>
-              <input type="text" id="tagInputField" placeholder="VD: ăn sáng, ăn trưa..." style="border: none; background: transparent; outline: none; color: var(--text-1); flex: 1; min-width: 120px; font-size: 0.85rem; font-family: inherit;">
+              <input type="text" id="tagInputField" class="tag-input-field" placeholder="VD: ăn sáng, ăn trưa...">
           </div>
           <input type="hidden" id="iconPickerNewKeywords">
       </div>
 
-      <div class="modal-actions" style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: nowrap; flex-shrink: 0;">
-          <button class="btn-danger-outline" id="deleteCategoryBtn" style="display: none; padding: 14px 0; margin: 0; border-radius: 12px; flex: 0 0 44px; align-items: center; justify-content: center;">
+      <div class="modal-footer-actions">
+          <button class="btn-danger-outline flex-shrink-0 m-0" id="deleteCategoryBtn" style="display: none; padding: 14px 0; border-radius: 12px; flex-basis: 44px;">
               <i class="fas fa-trash"></i>
           </button>
-          <div style="display: flex; gap: 8px; flex: 1; justify-content: flex-end; flex-wrap: nowrap; min-width: 0;">
-              <button class="btn-cancel" onclick="closeIconPickerModal()" style="margin: 0; flex: 1;">
+          <div class="modal-action-group">
+              <button class="btn-cancel m-0 flex-1" onclick="closeIconPickerModal()">
                   <i class="fas fa-times"></i> Đóng
               </button>
-              <button class="btn-save" id="saveIconPickerBtn" style="margin: 0; flex: 1;">
+              <button class="btn-save m-0 flex-1" id="saveIconPickerBtn">
                   <i class="fas fa-save"></i> Áp dụng
               </button>
           </div>
