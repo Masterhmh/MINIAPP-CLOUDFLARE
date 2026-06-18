@@ -45,7 +45,7 @@ const EMOJI_TO_FA_MAP = {
     '💬': 'fa-comments', '📦': 'fa-box', '🏷️': 'fa-tag', '✨': 'fa-star'
 };
 
-// ---------------- UTILITIES ----------------
+// ---------------- UTILITIES & UI COMPONENTS XỊN XÒ ----------------
 function triggerHaptic(style = 'light') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred(style); }
 function triggerHapticNotification(type = 'success') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); }
 
@@ -54,19 +54,89 @@ function escapeHTML(str) {
     return str.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
-function showToast(message, type = "info") { toastQueue.push({ message, type }); if (!isShowingToast) processToastQueue(); }
+window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) {
+    let overlay = document.getElementById('customConfirmOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'customConfirmOverlay';
+        overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.4); z-index:999999; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s ease; backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px);';
+        document.body.appendChild(overlay);
+    }
 
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--bg-card, #ffffff); width:85%; max-width:320px; border-radius:20px; box-shadow:0 15px 35px rgba(0,0,0,0.25); transform:scale(0.9); opacity:0; transition:all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); overflow:hidden; display:flex; flex-direction:column;';
+    
+    modal.innerHTML = `
+        <div style="padding:24px 20px 20px; text-align:center;">
+            <div style="width:56px; height:56px; border-radius:50%; background:rgba(244,63,94,0.1); color:#f43f5e; display:flex; align-items:center; justify-content:center; font-size:26px; margin:0 auto 16px;">
+                <i class="fas fa-trash-alt"></i>
+            </div>
+            <h3 style="margin:0 0 10px; font-size:1.15rem; color:var(--text-1, #1e293b); font-family:'Plus Jakarta Sans', sans-serif;">${title}</h3>
+            <p style="margin:0; font-size:0.95rem; color:var(--text-2, #64748b); line-height:1.5; font-family:'Plus Jakarta Sans', sans-serif;">${messageHtml}</p>
+        </div>
+        <div style="display:flex; border-top:1px solid var(--border-color, #e2e8f0);">
+            <button id="customConfirmCancel" style="flex:1; padding:16px; background:transparent; border:none; border-right:1px solid var(--border-color, #e2e8f0); color:var(--text-2, #64748b); font-weight:600; font-size:1rem; cursor:pointer; font-family:'Plus Jakarta Sans', sans-serif; transition:0.2s;">Hủy</button>
+            <button id="customConfirmOk" style="flex:1; padding:16px; background:transparent; border:none; color:#f43f5e; font-weight:800; font-size:1rem; cursor:pointer; font-family:'Plus Jakarta Sans', sans-serif; transition:0.2s;">${confirmText}</button>
+        </div>
+    `;
+
+    overlay.innerHTML = '';
+    overlay.appendChild(modal);
+    overlay.style.display = 'flex';
+
+    void overlay.offsetWidth;
+    overlay.style.opacity = '1';
+    modal.style.transform = 'scale(1)';
+    modal.style.opacity = '1';
+
+    const closeModal = () => {
+        overlay.style.opacity = '0';
+        modal.style.transform = 'scale(0.9)';
+        modal.style.opacity = '0';
+        setTimeout(() => { overlay.style.display = 'none'; }, 200);
+    };
+
+    document.getElementById('customConfirmCancel').onclick = () => { triggerHaptic('light'); closeModal(); };
+    document.getElementById('customConfirmOk').onclick = () => { triggerHaptic('medium'); closeModal(); onConfirm(); };
+};
+
+function showToast(message, type = "info") { toastQueue.push({ message, type }); if (!isShowingToast) processToastQueue(); }
 function processToastQueue() {
   if (toastQueue.length === 0) { isShowingToast = false; return; }
   isShowingToast = true;
   const { message, type } = toastQueue.shift();
   const toast = document.createElement('div');
+  
   let icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fas ${icon}" style="font-size: 1.2rem; color: var(--${type === 'success' ? 'income' : (type === 'error' ? 'expense' : 'balance')});"></i> <span>${escapeHTML(message)}</span>`;
+  let color = type === 'success' ? '#10B981' : (type === 'error' ? '#F43F5E' : '#0EA5E9');
+  let bgColor = 'var(--bg-card, #ffffff)';
+  let textColor = 'var(--text-1, #1e293b)';
+  
+  toast.style.cssText = `position:fixed; top:20px; left:50%; transform:translateX(-50%) translateY(-30px); background:${bgColor}; padding:14px 18px; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.15); display:flex; align-items:center; gap:12px; z-index:999999; opacity:0; transition:all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); min-width:280px; max-width:90%; border-left:4px solid ${color}; overflow:hidden; font-family:'Plus Jakarta Sans', sans-serif;`;
+  
+  toast.innerHTML = `
+    <i class="fas ${icon}" style="font-size:1.5rem; color:${color}; flex-shrink:0;"></i>
+    <span style="font-size:0.95rem; font-weight:600; color:${textColor}; flex:1;">${escapeHTML(message)}</span>
+    <div style="position:absolute; bottom:0; left:0; height:3px; background:${color}; width:100%; animation:premiumToastProgress 3s linear forwards;"></div>
+  `;
+  
+  if(!document.getElementById('toastKeyframes')) {
+      const style = document.createElement('style'); style.id = 'toastKeyframes';
+      style.innerHTML = `@keyframes premiumToastProgress { from { width: 100%; } to { width: 0%; } }`;
+      document.head.appendChild(style);
+  }
+
   document.body.appendChild(toast);
-  setTimeout(() => toast.classList.add('show'), 10);
-  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.remove(); processToastQueue(); }, 300); }, 3000);
+  
+  void toast.offsetWidth;
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  toast.style.opacity = '1';
+  
+  setTimeout(() => { 
+      toast.style.transform = 'translateX(-50%) translateY(-30px)';
+      toast.style.opacity = '0';
+      setTimeout(() => { toast.remove(); processToastQueue(); }, 400); 
+  }, 3000);
 }
 
 function showLoading(show, tabId) {
@@ -515,8 +585,7 @@ window.openAddForm = async function() { triggerHaptic('light'); document.getElem
 window.closeAddForm = function() { document.getElementById('addModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('editModal').classList.add('show'), 10); const pills = document.querySelectorAll('#editModal .type-pill'); pills.forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('editTransactionId').value = tx.id; document.getElementById('editContent').value = tx.content; document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString()); document.getElementById('editNote').value = tx.note || ''; const [d,m,y] = tx.date.split('/'); document.getElementById('editDate').value = `${y}-${m}-${d}`; pills.forEach(p => { if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click(); if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('editCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => { const opt = new Option(c, c); if(c === tx.category) opt.selected = true; catSel.appendChild(opt); }); };
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
-window.closeAllModals = function() { closeAddForm(); closeEditForm(); if (document.getElementById('confirmDeleteModal')) document.getElementById('confirmDeleteModal').classList.remove('show'); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
-window.closeConfirmDeleteModal = function() { document.getElementById('confirmDeleteModal').classList.remove('show'); };
+window.closeAllModals = function() { closeAddForm(); closeEditForm(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
 document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
 
@@ -533,14 +602,20 @@ async function submitTx(tx) {
 }
 
 window.deleteTransaction = function(id) {
-  closeEditForm(); triggerHaptic('medium'); document.getElementById('modalOverlay').classList.add('show'); document.getElementById('confirmDeleteModal').classList.add('show');
-  document.getElementById('confirmDeleteBtn').onclick = async () => {
-    document.getElementById('confirmDeleteModal').classList.remove('show'); document.getElementById('modalOverlay').classList.remove('show');
-    let tx = null; if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id)); if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id)); if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id)); const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
-    [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
-    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); showToast("Đang xóa giao dịch...", "info");
-    try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
-  };
+  closeEditForm(); triggerHaptic('medium'); 
+  
+  showCustomConfirm(
+      'Xóa giao dịch',
+      `Bạn có chắc chắn muốn xóa giao dịch <strong>#${escapeHTML(id)}</strong> này không?`,
+      'Xóa',
+      async () => {
+          let tx = null; if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id)); if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id)); if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id)); const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
+          [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
+          if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
+          showToast("Đang xóa giao dịch...", "info");
+          try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
+      }
+  );
 };
 
 window.exportToCSV = async function() {
@@ -881,7 +956,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER" - SỬ DỤNG EMOJI VÀ NÂNG CẤP POPUP CẢNH BÁO
+// TÍNH NĂNG CỬA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -893,7 +968,6 @@ window.openIconPickerModal = function() {
     const tagsWrapper = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     
-    // Nạp toàn bộ Emoji vào Bảng chọn Icon
     if (container.innerHTML === '') {
         const flatEmojis = [
             '🍽️', '☕', '🍔', '🍕', '🛒', '🚗', '🛵', '🚌', '🚆', '✈️', '⛽',
@@ -941,7 +1015,7 @@ window.openIconPickerModal = function() {
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             const cat = catInput.value.trim();
-            const selectedIcon = modal.getAttribute('data-selected-icon'); // Sẽ lấy ra Emoji (VD: 🧾)
+            const selectedIcon = modal.getAttribute('data-selected-icon');
             const newKws = hiddenKeywords ? hiddenKeywords.value : "";
             
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
@@ -960,38 +1034,28 @@ window.openIconPickerModal = function() {
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
         };
 
-        // NÚT XÓA DANH MỤC CÓ CẢNH BÁO NATIVE TELEGRAM
+        // NÚT XÓA DANH MỤC GỌI POPUP CUSTOM CAO CẤP
         document.getElementById('deleteCategoryBtn').onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
             triggerHaptic('medium');
             
-            const doDeleteCategory = async () => {
-                showLoading(true, 'tab4');
-                try {
-                    await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
-                    delete window.customCategoryIcons[cat];
-                    await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
-                    
-                    showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
-                    await window.initCategories(false); window.loadKeywords(false);
-                } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
-            };
-
-            if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showPopup) {
-                Telegram.WebApp.showPopup({
-                    title: 'Xóa danh mục',
-                    message: `Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`,
-                    buttons: [
-                        { id: 'delete', type: 'destructive', text: 'Xóa' },
-                        { type: 'cancel', text: 'Hủy' }
-                    ]
-                }, (buttonId) => {
-                    if (buttonId === 'delete') doDeleteCategory();
-                });
-            } else if (confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa hoàn toàn danh mục [${cat}] và tất cả từ khóa của nó không?`)) {
-                doDeleteCategory();
-            }
+            showCustomConfirm(
+                'Xóa danh mục',
+                `Bạn có chắc chắn muốn xóa hoàn toàn danh mục <strong>${escapeHTML(cat)}</strong> và tất cả từ khóa của nó không?`,
+                'Xóa',
+                async () => {
+                    showLoading(true, 'tab4');
+                    try {
+                        await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
+                        delete window.customCategoryIcons[cat];
+                        await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
+                        
+                        showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+                        await window.initCategories(false); window.loadKeywords(false);
+                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+                }
+            );
         };
     }
     
@@ -999,12 +1063,10 @@ window.openIconPickerModal = function() {
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
-    // HÀM TỰ ĐỘNG BẬT SÁNG ICON THÔNG MINH
     const updateIconState = () => {
         const val = catInput.value.trim();
         const isExisting = uniqueCats.includes(val);
         
-        // Ẩn hiện Nút Xóa và Khung nhập Tag
         const delBtn = document.getElementById('deleteCategoryBtn');
         const tagArea = document.getElementById('tagInputArea');
         if (delBtn) delBtn.style.display = isExisting ? 'block' : 'none';
@@ -1014,7 +1076,6 @@ window.openIconPickerModal = function() {
         iconItems.forEach(i => i.classList.remove('selected'));
         modal.removeAttribute('data-selected-icon');
         
-        // Tìm Icon của danh mục này (trong Firebase customCategoryIcons hoặc trên Sheet categoryIconMap)
         let currentIconVal = null;
         if (window.customCategoryIcons && window.customCategoryIcons[val]) {
             currentIconVal = window.customCategoryIcons[val].trim();
@@ -1023,7 +1084,6 @@ window.openIconPickerModal = function() {
         }
 
         if (currentIconVal) {
-            // Lấy ký tự đầu tiên để so khớp phòng trường hợp lưu lỗi
             const firstChar = Array.from(currentIconVal)[0];
             const item = modal.querySelector(`.icon-item[data-icon="${firstChar}"]`) || modal.querySelector(`.icon-item[data-icon="${currentIconVal}"]`);
             if (item) {
@@ -1037,7 +1097,6 @@ window.openIconPickerModal = function() {
     catInput.addEventListener('input', updateIconState);
     catInput.addEventListener('change', updateIconState);
 
-    // Khởi tạo trạng thái ban đầu
     const currentSelected = document.getElementById('keywordCategory').value;
     if(currentSelected) {
         catInput.value = currentSelected;
@@ -1077,30 +1136,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
       const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline'; deleteBtn.style.cssText = "flex: 1; display: none; margin: 0;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-      // SỬ DỤNG POPUP NATIVE CHO NÚT XÓA TỪ KHÓA
+      // SỬ DỤNG POPUP NATIVE CUSTOM CHO NÚT XÓA TỪ KHÓA
       deleteBtn.onclick = () => { 
           if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
           triggerHaptic('medium');
+          const cat = document.getElementById('keywordCategory').value;
           
-          const doDeleteKw = async () => {
-              showLoading(true, 'tab4'); 
-              try { 
-                  const cat = document.getElementById('keywordCategory').value; 
-                  await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); 
-                  triggerHapticNotification('success'); 
-                  showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
-              } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
-          };
-
-          if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.showPopup) {
-              Telegram.WebApp.showPopup({
-                  title: 'Xóa từ khóa',
-                  message: `Bạn có muốn xóa từ khóa "${currentEditKeyword}" khỏi danh mục ${document.getElementById('keywordCategory').value}?`,
-                  buttons: [{ id: 'delete', type: 'destructive', text: 'Xóa' }, { type: 'cancel', text: 'Hủy' }]
-              }, (btnId) => { if (btnId === 'delete') doDeleteKw(); });
-          } else if (confirm(`Bạn có muốn xóa từ khóa "${currentEditKeyword}"?`)) {
-              doDeleteKw();
-          }
+          showCustomConfirm(
+              'Xóa từ khóa',
+              `Bạn có chắc chắn muốn xóa từ khóa <strong>${escapeHTML(currentEditKeyword)}</strong> khỏi danh mục <strong>${escapeHTML(cat)}</strong> không?`,
+              'Xóa',
+              async () => {
+                  showLoading(true, 'tab4'); 
+                  try { 
+                      await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); 
+                      triggerHapticNotification('success'); 
+                      showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
+                  } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+              }
+          );
       }; 
       kwActionContainer.appendChild(deleteBtn);
 
