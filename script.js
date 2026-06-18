@@ -29,7 +29,7 @@ window.apiTxCache = {};
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 let savedScrollPositionTab2 = 0;
 
-// ---------------- BỘ TỪ ĐIỂN DỊCH EMOJI SANG ICON VECTOR (FONT AWESOME) ----------------
+// ---------------- BỘ TỪ ĐIỂN DỊCH EMOJI SANG ICON VECTOR (VÀ NGƯỢC LẠI) ----------------
 const EMOJI_TO_FA_MAP = {
     '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty', '🍕': 'fa-pizza-slice',
     '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump', '🚆': 'fa-train',
@@ -45,7 +45,12 @@ const EMOJI_TO_FA_MAP = {
     '💬': 'fa-comments', '📦': 'fa-box', '🏷️': 'fa-tag', '✨': 'fa-star'
 };
 
-// ---------------- UTILITIES & UI COMPONENTS XỊN XÒ ----------------
+const FA_TO_EMOJI_MAP = {};
+for (let emoji in EMOJI_TO_FA_MAP) {
+    FA_TO_EMOJI_MAP[EMOJI_TO_FA_MAP[emoji]] = emoji;
+}
+
+// ---------------- UTILITIES ----------------
 function triggerHaptic(style = 'light') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred(style); }
 function triggerHapticNotification(type = 'success') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); }
 
@@ -956,7 +961,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER" - AUTO INJECT & FIX BÀN PHÍM iOS
+// TÍNH NĂNG CỬA SỔ "ICON PICKER" - LUÔN ĐẨY ICON LÊN ĐẦU
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -997,7 +1002,7 @@ window.openIconPickerModal = function() {
                 span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" style="cursor:pointer; font-size:0.85rem;" onclick="removeTag(${idx})"></i>`;
                 tagsWrapper.appendChild(span);
             });
-            hiddenKeywords.value = pendingTags.join(',');
+            hiddenKeywords.value = pendingTags.join(', ');
         }
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
         
@@ -1063,7 +1068,7 @@ window.openIconPickerModal = function() {
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value);
     const uniqueCats = [...new Set(cats)]; uniqueCats.forEach(c => { if(c) { const opt = document.createElement('option'); opt.value = c; datalist.appendChild(opt); } });
 
-    // HÀM TỰ ĐỘNG BẬT SÁNG ICON THÔNG MINH (Kèm chức năng Auto-Inject Icon)
+    // HÀM TỰ ĐỘNG BẬT SÁNG ICON VÀ ĐẨY LÊN ĐẦU
     const updateIconState = () => {
         const val = catInput.value.trim();
         const isExisting = uniqueCats.includes(val);
@@ -1084,35 +1089,47 @@ window.openIconPickerModal = function() {
         }
 
         if (currentIconVal) {
-            const firstChar = Array.from(currentIconVal)[0];
-            let item = modal.querySelector(`.icon-item[data-icon="${firstChar}"]`) || modal.querySelector(`.icon-item[data-icon="${currentIconVal}"]`);
+            let targetEmoji = null;
             
-            // TÍNH NĂNG ĐỘT PHÁ: Nếu Icon trên Sheet có nhưng không nằm trong List mặc định -> Tự cấy nó vào List
-            if (!item && /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(firstChar)) {
-                const newDiv = document.createElement('div');
-                newDiv.className = 'icon-item';
-                newDiv.setAttribute('data-icon', firstChar);
-                newDiv.style.cssText = 'font-size: 1.6rem; display:flex; align-items:center; justify-content:center;';
-                newDiv.innerHTML = firstChar;
-                
-                newDiv.onclick = function() {
-                    triggerHaptic('light');
-                    modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
-                    this.classList.add('selected');
-                    modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
-                };
-                
-                container.insertBefore(newDiv, container.firstChild);
-                item = newDiv;
+            if (currentIconVal.includes('fa-')) {
+                let faClass = currentIconVal.replace('fas ', '').trim();
+                if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+                targetEmoji = FA_TO_EMOJI_MAP[faClass];
+            } else if (/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u.test(currentIconVal[0])) {
+                targetEmoji = currentIconVal[0];
             }
 
-            if (item) {
-                item.classList.add('selected');
-                modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
+            if (targetEmoji) {
+                let item = modal.querySelector(`.icon-item[data-icon="${targetEmoji}"]`);
                 
-                // FIX iOS BÀN PHÍM: Chỉ tự động cuộn (scroll) tới Icon khi KHÔNG bị focus gõ phím
-                if (document.activeElement !== catInput) {
-                    item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                if (!item) {
+                    const newDiv = document.createElement('div');
+                    newDiv.className = 'icon-item';
+                    newDiv.setAttribute('data-icon', targetEmoji);
+                    newDiv.style.cssText = 'font-size: 1.6rem; display:flex; align-items:center; justify-content:center;';
+                    newDiv.innerHTML = targetEmoji;
+                    
+                    newDiv.onclick = function() {
+                        triggerHaptic('light');
+                        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+                        this.classList.add('selected');
+                        modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
+                    };
+                    item = newDiv;
+                }
+
+                // LUÔN ĐƯA ICON NÀY LÊN VỊ TRÍ ĐẦU TIÊN CỦA GRID
+                if (item) {
+                    item.classList.add('selected');
+                    modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
+                    
+                    // Cắt và dán nó lên đầu tiên của thẻ container
+                    if (container.firstChild !== item) {
+                        container.insertBefore(item, container.firstChild);
+                    }
+                    
+                    // Reset thanh cuộn về vị trí số 0 để người dùng luôn thấy nó
+                    container.scrollTop = 0;
                 }
             }
         }
@@ -1160,7 +1177,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
       const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline'; deleteBtn.style.cssText = "flex: 1; display: none; margin: 0;"; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-      // SỬ DỤNG POPUP NATIVE CUSTOM CHO NÚT XÓA TỪ KHÓA
       deleteBtn.onclick = () => { 
           if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
           triggerHaptic('medium');
@@ -1255,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
       
       if (kCat && !document.getElementById('openIconPickerBtn')) {
-          const btn = document.createElement('button'); btn.id = 'openIconPickerBtn'; btn.type = 'button'; btn.innerHTML = '<i class="fas fa-cog"></i>'; btn.style.cssText = 'background: var(--bg-card2); color: var(--primary); border: 1px solid var(--border-color); border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;'; btn.onclick = window.openIconPickerModal;
+          const btn = document.createElement('button'); btn.id = 'openIconPickerBtn'; btn.type = 'button'; btn.innerHTML = '<i class="fas fa-cog"></i>'; btn.style.cssText = 'background: transparent; color: var(--primary); border: none; border-radius: 8px; padding: 0 16px; margin-left: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;'; btn.onclick = window.openIconPickerModal;
           const parent = kCat.parentElement; const wrapper = document.createElement('div'); wrapper.style.display = 'flex'; wrapper.style.width = '100%';
           parent.insertBefore(wrapper, kCat); wrapper.appendChild(kCat); wrapper.appendChild(btn); kCat.style.flex = '1';
       }
