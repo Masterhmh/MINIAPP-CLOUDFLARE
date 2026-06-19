@@ -20,6 +20,7 @@ let filterModeCache = { monthly: {}, yearly: {}, custom: {} };
 let cachedSearchResults = [], cachedKeywords = []; 
 window.categoryIconMap = {}; 
 window.customCategoryIcons = {}; 
+window.currentChartType = 'bar'; // State cho biểu đồ Cột/Đường
 
 let toastQueue = [], isShowingToast = false, currentEditKeyword = null;
 
@@ -50,9 +51,52 @@ for (let emoji in EMOJI_TO_FA_MAP) {
     FA_TO_EMOJI_MAP[EMOJI_TO_FA_MAP[emoji]] = emoji;
 }
 
-// ---------------- UTILITIES ----------------
-function triggerHaptic(style = 'light') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred(style); }
-function triggerHapticNotification(type = 'success') { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); }
+// ---------------- UTILITIES & SETTINGS ----------------
+function triggerHaptic(style = 'light') { 
+    if (localStorage.getItem('settingHaptic') === 'false') return;
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred(style); 
+}
+function triggerHapticNotification(type = 'success') { 
+    if (localStorage.getItem('settingHaptic') === 'false') return;
+    if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); 
+}
+
+function initSettings() {
+    // Theme
+    const theme = localStorage.getItem('settingTheme') || 'auto';
+    document.getElementById('settingTheme').value = theme;
+    document.body.className = `theme-${theme}`;
+
+    // Density
+    const density = localStorage.getItem('settingDensity') || 'spacious';
+    document.querySelectorAll('.density-pill').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.density-pill[data-density="${density}"]`)?.classList.add('active');
+    document.body.classList.add(`ui-${density}`);
+
+    // Colors
+    const pColor = localStorage.getItem('color_primary') || '#06B6D4';
+    const iColor = localStorage.getItem('color_income') || '#00D26A';
+    const eColor = localStorage.getItem('color_expense') || '#FF4444';
+    document.getElementById('colorPrimary').value = pColor;
+    document.getElementById('colorIncome').value = iColor;
+    document.getElementById('colorExpense').value = eColor;
+    applyColors(pColor, iColor, eColor);
+
+    // Haptic
+    const haptic = localStorage.getItem('settingHaptic');
+    document.getElementById('settingHaptic').checked = haptic !== 'false';
+
+    // Chat ID
+    const chatId = localStorage.getItem('settingChatId') || '';
+    document.getElementById('settingChatId').value = chatId;
+}
+
+function applyColors(p, i, e) {
+    document.documentElement.style.setProperty('--primary', p);
+    document.documentElement.style.setProperty('--primary-light', p);
+    document.documentElement.style.setProperty('--income', i);
+    document.documentElement.style.setProperty('--expense', e);
+}
 
 function escapeHTML(str) {
     if (!str) return '';
@@ -74,7 +118,7 @@ window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) 
     modal.innerHTML = `
         <div style="padding:24px 20px 20px; text-align:center;">
             <div class="custom-confirm-icon">
-                <i class="fas fa-trash-alt"></i>
+                <i class="fas fa-exclamation-triangle"></i>
             </div>
             <h3 class="custom-confirm-title">${title}</h3>
             <p class="custom-confirm-message">${messageHtml}</p>
@@ -133,8 +177,8 @@ function processToastQueue() {
   }, 3000);
 }
 
-function showLoading(show, tabId) {
-  const el = document.getElementById(`loading${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+function showLoading(show, idPart) {
+  const el = document.getElementById(`loading${idPart.charAt(0).toUpperCase() + idPart.slice(1)}`);
   if (el) el.style.display = show ? 'block' : 'none';
 }
 
@@ -222,7 +266,7 @@ async function fetchMonthData(month) {
     } catch (e) {} return [];
 }
 
-// ---------------- TAB 1: GIAO DỊCH ----------------
+// ---------------- TAB 1: GIAO DỊCH TRONG NGÀY ----------------
 window.fetchTransactions = async function(forceRefresh = false) {
   const tDate = document.getElementById('transactionDate').value;
   if (!tDate) return;
@@ -330,7 +374,7 @@ function displayTransactions() {
   document.querySelectorAll('#transactionsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
 
-// ---------------- CÁC BÁO CÁO ----------------
+// ---------------- TAB 2: CÁC BÁO CÁO & LỊCH ----------------
 function getWeekNumber(d) { d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7)); var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); return Math.ceil((((d - yearStart) / 86400000) + 1)/7); }
 function formatWeekInput(date) { return `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`; }
 function getDateFromWeekString(weekStr) { const [yearStr, weekPart] = weekStr.split('-W'); if(!yearStr || !weekPart) return null; const year = parseInt(yearStr); const week = parseInt(weekPart); const simple = new Date(year, 0, 1 + (week - 1) * 7); const dow = simple.getDay(); const start = new Date(simple); if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1); else start.setDate(simple.getDate() + 8 - simple.getDay()); return start; }
@@ -347,6 +391,74 @@ async function getTransactionsInRange(startDate, endDate) {
         monthsResults.forEach(res => { res.data.forEach(t => { const dParts = t.date.split('/'); const txDate = new Date(res.y, parseInt(dParts[1], 10) - 1, parseInt(dParts[0], 10)); if (txDate >= startDate && txDate <= endDate) txs.push(t); }); });
         window.apiTxCache[cacheKey] = txs; return txs;
     } catch (e) { return []; }
+}
+
+function renderCalendar(txs, dateObj, mode) {
+    const grid = document.getElementById('calendarGrid');
+    const box = document.getElementById('calendarStatbox');
+    
+    if (mode !== 'monthly' && mode !== 'weekly') {
+        box.style.display = 'none';
+        return;
+    }
+    box.style.display = 'block';
+    grid.innerHTML = '';
+
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0: Sun, 6: Sat
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    // Tính số dư theo từng ngày
+    const dailyData = {};
+    txs.forEach(t => {
+        const [d, mStr, yStr] = t.date.split('/');
+        if (parseInt(mStr, 10) === month + 1 && parseInt(yStr, 10) === year) {
+            const day = parseInt(d, 10);
+            if (!dailyData[day]) dailyData[day] = { inc: 0, exp: 0 };
+            if (t.type === 'Thu nhập') dailyData[day].inc += t.amount;
+            else dailyData[day].exp += t.amount;
+        }
+    });
+
+    // Ô trống bù ngày đầu tháng
+    for (let i = 0; i < firstDay; i++) {
+        grid.innerHTML += `<div class="calendar-day empty"></div>`;
+    }
+
+    const today = new Date();
+    const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+
+    let weekStart = -1, weekEnd = -1;
+    if (mode === 'weekly') {
+        const dStart = new Date(dateObj); // Ngày đầu tuần
+        const dEnd = new Date(dateObj); dEnd.setDate(dEnd.getDate() + 6);
+        if (dStart.getMonth() === month) { weekStart = dStart.getDate(); weekEnd = dEnd.getMonth() === month ? dEnd.getDate() : daysInMonth; }
+        else if (dEnd.getMonth() === month) { weekStart = 1; weekEnd = dEnd.getDate(); }
+    }
+
+    for (let i = 1; i <= daysInMonth; i++) {
+        const data = dailyData[i] || { inc: 0, exp: 0 };
+        const bal = data.inc - data.exp;
+        
+        let balHTML = `<span class="calendar-balance neutral">0</span>`;
+        if (bal > 0) balHTML = `<span class="calendar-balance positive">+${(bal/1000).toFixed(0)}K</span>`;
+        else if (bal < 0) balHTML = `<span class="calendar-balance negative">${(bal/1000).toFixed(0)}K</span>`;
+
+        let classes = ['calendar-day'];
+        if (isCurrentMonth && today.getDate() === i) classes.push('today');
+        if (mode === 'weekly' && i >= weekStart && i <= weekEnd) classes.push('active-week');
+
+        const dayDiv = document.createElement('div');
+        dayDiv.className = classes.join(' ');
+        dayDiv.innerHTML = `<span class="calendar-date">${i}</span>${balHTML}`;
+        dayDiv.onclick = () => {
+            triggerHaptic('light');
+            openDailyDetailView(i, month + 1, year, txs);
+        };
+        grid.appendChild(dayDiv);
+    }
 }
 
 function processReportData(currentTx, prevTx, labels, incs, exps) {
@@ -367,7 +479,32 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     if (window.mChart) window.mChart.destroy();
-    window.mChart = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderRadius: 0, maxBarThickness: 20 }, { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderRadius: 0, maxBarThickness: 20 } ]}, options: { devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => v >= 1000 ? (v/1000)+'K' : v } } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumberWithCommas(ctx.raw.toString())}đ` } } } } });
+
+    // Logic vẽ biểu đồ Cột / Đường tuỳ chọn
+    let dsInc = { label: 'Thu nhập', data: incs, backgroundColor: '#10B981', borderColor: '#10B981', borderRadius: 0, maxBarThickness: 20 };
+    let dsExp = { label: 'Chi tiêu', data: exps, backgroundColor: '#F43F5E', borderColor: '#F43F5E', borderRadius: 0, maxBarThickness: 20 };
+
+    if (window.currentChartType === 'line') {
+        dsInc.tension = 0.4; dsInc.fill = true; dsInc.backgroundColor = 'rgba(16, 185, 129, 0.15)'; dsInc.borderWidth = 2; dsInc.pointRadius = 4;
+        dsExp.tension = 0.4; dsExp.fill = true; dsExp.backgroundColor = 'rgba(244, 63, 94, 0.15)'; dsExp.borderWidth = 2; dsExp.pointRadius = 4;
+    }
+
+    window.mChart = new Chart(ctx, { 
+        type: window.currentChartType || 'bar', 
+        data: { labels: labels, datasets: [ dsInc, dsExp ]}, 
+        options: { 
+            devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, 
+            layout: { padding: { top: 20 } }, 
+            scales: { 
+                x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, 
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => v >= 1000 ? (v/1000)+'K' : v } } 
+            }, 
+            plugins: { 
+                legend: { display: false }, 
+                tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumberWithCommas(ctx.raw.toString())}đ` } } 
+            } 
+        } 
+    });
 
     const catMap = {}; currentTx.forEach(t => { if(t.type==='Chi tiêu') catMap[t.category] = (catMap[t.category]||0)+t.amount; });
     drawMonthlyPieChart(Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})));
@@ -426,9 +563,9 @@ function drawMonthlyPieChart(data) {
   });
 }
 
-async function loadWeeklyReport(weekStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = getDateFromWeekString(weekStr); if (!startDate) throw new Error("Dữ liệu tuần không hợp lệ"); const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); const prevStartDate = new Date(startDate); prevStartDate.setDate(prevStartDate.getDate() - 7); const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`; const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7']; const labels = [], incs = [], exps = []; for(let i=0; i<7; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`); const dateStr = formatDateToDDMMYYYY(d); const dayTx = currentTx.filter(t => t.date === dateStr); let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'weekly', txs: currentTx, periodStr: weekStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
-async function loadMonthlyReport(monthStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const [year, month] = monthStr.split('-').map(Number); const startDate = new Date(year, month - 1, 1); const endDate = new Date(year, month, 0); let prevM = month - 1; let prevY = year; if(prevM === 0) { prevM = 12; prevY = year - 1; } const prevStartDate = new Date(prevY, prevM - 1, 1); const prevEndDate = new Date(prevY, prevM, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`; const labels = [`Tháng ${month}`], incs = [0], exps = [0]; currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; }); processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
-async function loadCustomReport(startMonth, endMonth, year) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = new Date(year, startMonth - 1, 1); const endDate = new Date(year, endMonth, 0); const prevStartDate = new Date(year - 1, startMonth - 1, 1); const prevEndDate = new Date(year - 1, endMonth, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`; const labels = [], incs = [], exps = []; for(let m=startMonth; m<=endMonth; m++) { labels.push(`Tháng ${m}`); const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year); let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'custom', txs: currentTx, periodStr: `${startMonth}-${endMonth}-${year}` }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
+async function loadWeeklyReport(weekStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = getDateFromWeekString(weekStr); if (!startDate) throw new Error("Dữ liệu tuần không hợp lệ"); const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); const prevStartDate = new Date(startDate); prevStartDate.setDate(prevStartDate.getDate() - 7); const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`; const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7']; const labels = [], incs = [], exps = []; for(let i=0; i<7; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`); const dateStr = formatDateToDDMMYYYY(d); const dayTx = currentTx.filter(t => t.date === dateStr); let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } renderCalendar(currentTx, startDate, 'weekly'); processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'weekly', txs: currentTx, periodStr: weekStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
+async function loadMonthlyReport(monthStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const [year, month] = monthStr.split('-').map(Number); const startDate = new Date(year, month - 1, 1); const endDate = new Date(year, month, 0); let prevM = month - 1; let prevY = year; if(prevM === 0) { prevM = 12; prevY = year - 1; } const prevStartDate = new Date(prevY, prevM - 1, 1); const prevEndDate = new Date(prevY, prevM, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`; const labels = [`Tháng ${month}`], incs = [0], exps = [0]; currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; }); renderCalendar(currentTx, startDate, 'monthly'); processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
+async function loadCustomReport(startMonth, endMonth, year) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = new Date(year, startMonth - 1, 1); const endDate = new Date(year, endMonth, 0); const prevStartDate = new Date(year - 1, startMonth - 1, 1); const prevEndDate = new Date(year - 1, endMonth, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`; const labels = [], incs = [], exps = []; for(let m=startMonth; m<=endMonth; m++) { labels.push(`Tháng ${m}`); const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year); let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } document.getElementById('calendarStatbox').style.display = 'none'; processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'custom', txs: currentTx, periodStr: `${startMonth}-${endMonth}-${year}` }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
 
 function updateTimeNavUI() {
    const label = document.getElementById('currentPeriodLabel'); const weekP = document.getElementById('weekPicker'); const monthP = document.getElementById('monthPicker'); const timeNav = document.getElementById('timeNavContainer'); const customNav = document.getElementById('customFilterContainer');
@@ -446,12 +583,53 @@ async function showCategoryDetail(cat, amt, color) {
   const totalAmtEl = document.getElementById('categoryDetailTotalAmt'); if(totalAmtEl) { totalAmtEl.textContent = formatNumberWithCommas(amt.toString()) + 'đ'; totalAmtEl.style.color = color; }
   const txs = cachedChartData.txs.filter(t => t.category === cat);
   const detailHeader = document.getElementById('categoryDetailListTitle'); if(detailHeader) detailHeader.innerHTML = `Giao dịch chi tiết <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${txs.length})</span>`;
+  
+  // Bật lại chart nếu đang xem Category
+  document.getElementById('categoryMonthlyChart').parentElement.style.display = 'flex';
+  document.getElementById('categoryMonthlyChart').parentElement.previousElementSibling.style.display = 'block';
+
   const ctx = document.getElementById('categoryMonthlyChart').getContext('2d'); if (window.categoryMonthlyChartInstance) window.categoryMonthlyChartInstance.destroy();
   let chartLabels = [], chartData = [];
   if (cachedChartData.mode === 'weekly') { const map = {}; txs.forEach(t => { map[t.date] = (map[t.date]||0) + t.amount; }); chartLabels = Object.keys(map).map(d => `Ngày ${d.substring(0,5)}`); chartData = Object.values(map); } 
   else { const map = {}; txs.forEach(t => { const m = parseInt(t.date.split('/')[1]); map[m] = (map[m]||0) + t.amount; }); const allMonths = [...new Set(cachedChartData.txs.map(t => parseInt(t.date.split('/')[1])))].sort((a,b)=>a-b); chartLabels = allMonths.map(m => `Tháng ${m}`); chartData = allMonths.map(m => map[m] || 0); }
   window.categoryMonthlyChartInstance = new Chart(ctx, { type: 'bar', data: { labels: chartLabels, datasets: [{label: cat, data: chartData, backgroundColor: color+'CC', borderColor: color, borderWidth: 1, borderRadius: 0, maxBarThickness: 20}] }, options: { responsive: true, maintainAspectRatio: false, layout: {padding:{top:10}}, scales: { x:{grid:{display:false}, ticks:{color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}}, y:{ticks:{callback:v=>v>=1000?(v/1000)+'K':v, color:'#94A3B8', font:{size:10, family:'Plus Jakarta Sans'}}, grid:{color:'rgba(255,255,255,0.05)'}} }, plugins: { legend:{display:false}, tooltip: {callbacks:{label:ctx=>`${formatNumberWithCommas(ctx.raw.toString())}đ`}} } } });
+  
   displayCategoryTransactionsList(txs);
+}
+
+function openDailyDetailView(d, m, y, allTxs) {
+    const dateStr = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
+    const dayTxs = allTxs.filter(t => t.date === dateStr);
+
+    savedScrollPositionTab2 = window.scrollY || document.documentElement.scrollTop;
+    document.getElementById('tab2Overview').style.display='none'; 
+    const detailView = document.getElementById('categoryDetailView'); 
+    detailView.style.display='block'; 
+    detailView.classList.remove('slide-out-right'); 
+    detailView.classList.add('slide-in-right'); 
+    window.scrollTo(0, 0);
+
+    document.getElementById('categoryDetailTitle').textContent = `Ngày ${d}/${m}/${y}`; 
+    document.getElementById('categoryDetailTitle').style.color = 'var(--text-1)';
+    
+    let totalExp = 0, totalInc = 0;
+    dayTxs.forEach(t => { if(t.type === 'Chi tiêu') totalExp += t.amount; else totalInc += t.amount; });
+
+    const totalAmtEl = document.getElementById('categoryDetailTotalAmt'); 
+    if(totalAmtEl) { 
+        totalAmtEl.innerHTML = `Chi: <span style="color:var(--expense)">-${formatNumberWithCommas(totalExp.toString())}đ</span> <br> <span style="font-size:0.8rem; color:var(--text-2);">Thu: <span style="color:var(--income)">+${formatNumberWithCommas(totalInc.toString())}đ</span></span>`; 
+        totalAmtEl.style.color = 'var(--text-1)'; 
+    }
+
+    const detailHeader = document.getElementById('categoryDetailListTitle'); 
+    if(detailHeader) detailHeader.innerHTML = `Giao dịch trong ngày <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${dayTxs.length})</span>`;
+
+    // Ẩn biểu đồ cho view xem theo ngày
+    document.getElementById('categoryMonthlyChart').parentElement.style.display = 'none';
+    document.getElementById('categoryMonthlyChart').parentElement.previousElementSibling.style.display = 'none';
+
+    currentPageCategory = 1;
+    displayCategoryTransactionsList(dayTxs);
 }
 
 function displayCategoryTransactionsList(txs) {
@@ -468,18 +646,29 @@ function closeCategoryDetailView() { triggerHaptic('light'); const overview = do
 document.getElementById('backToCategoryBtn')?.addEventListener('click', closeCategoryDetailView);
 const categoryView = document.getElementById('categoryDetailView'); let touchStartX = 0, touchStartY = 0; categoryView.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; }, { passive: true }); categoryView.addEventListener('touchend', e => { const swipeDistanceX = e.changedTouches[0].screenX - touchStartX; const swipeDistanceY = Math.abs(e.changedTouches[0].screenY - touchStartY); if (swipeDistanceX > 70 && swipeDistanceY < 50) closeCategoryDetailView(); }, { passive: true });
 
-// ---------------- TAB 3: TÌM KIẾM ----------------
+// ---------------- TÌM KIẾM MODAL ----------------
+window.openSearchModal = function() {
+    triggerHaptic('light');
+    document.getElementById('modalOverlay').classList.add('show');
+    setTimeout(() => document.getElementById('searchModal').classList.add('show'), 10);
+};
+
+window.closeSearchModal = function() {
+    triggerHaptic('light');
+    document.getElementById('searchModal').classList.remove('show');
+    setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
+};
+
 function displaySearchResults() {
     const list = document.getElementById('searchResultsContainer'); list.innerHTML='';
     const data = cachedSearchResults;
-    const headerTitle = document.querySelector('#tab3 .section-title'); // Fixed notification selector
     
     if(!data || data.length === 0) {
-        document.getElementById('placeholderTab3').style.display = 'block';
+        document.getElementById('placeholderSearch').style.display = 'block';
         document.getElementById('paginationSearch').style.display = 'none';
         return;
     }
-    document.getElementById('placeholderTab3').style.display = 'none';
+    document.getElementById('placeholderSearch').style.display = 'none';
     document.getElementById('paginationSearch').style.display = 'flex';
     
     const tPages = Math.ceil(data.length / itemsPerPage); const pData = data.slice((currentPageSearch - 1) * itemsPerPage, currentPageSearch * itemsPerPage);
@@ -488,9 +677,9 @@ function displaySearchResults() {
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id')))); document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id')));
 }
 
-// ---------------- TAB 4: TÌM KIẾM TỪ KHÓA (ACCORDION NÂNG CẤP) ----------------
+// ---------------- TAB TỪ KHÓA (ACCORDION NÂNG CẤP) ----------------
 window.loadKeywords = async function(isInit = false) {
-    if(!isInit) showLoading(true, 'tab4');
+    if(!isInit) showLoading(true, 'tab3');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
     try {
         const iconRes = await fetch(`${FIREBASE_URL}/categoryIcons.json`); const iconData = await iconRes.json(); if(iconData) window.customCategoryIcons = iconData;
@@ -498,7 +687,7 @@ window.loadKeywords = async function(isInit = false) {
         if(!data) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); data = await gasRes.json(); }
         cachedKeywords = data || []; window.categoryIconMap = {}; cachedKeywords.forEach(kw => { if (kw && kw.category && kw.icon) window.categoryIconMap[kw.category.trim()] = kw.icon.trim(); });
         if(!isInit) displayKeywords();
-    } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab4'); }
+    } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab3'); }
 };
 
 window.startEditKeyword = function(kw, category) { 
@@ -530,8 +719,8 @@ window.cancelEditKeyword = function() {
 
 function displayKeywords() {
    const container = document.getElementById('keywordsContainer'); container.innerHTML = '';
-   if(!cachedKeywords || cachedKeywords.length === 0) { document.getElementById('placeholderTab4').style.display = 'block'; return; }
-   document.getElementById('placeholderTab4').style.display = 'none';
+   if(!cachedKeywords || cachedKeywords.length === 0) { document.getElementById('placeholderTab3').style.display = 'block'; return; }
+   document.getElementById('placeholderTab3').style.display = 'none';
    const groupedKeywords = {}; cachedKeywords.forEach(item => { const category = item.category || 'Khác'; if (!groupedKeywords[category]) groupedKeywords[category] = { keywords: [] }; if (item.keywords && typeof item.keywords === 'string') { const kwsArray = item.keywords.split(',').map(k => k.trim()).filter(k => k !== ''); kwsArray.forEach(kw => { if (!groupedKeywords[category].keywords.includes(kw)) groupedKeywords[category].keywords.push(kw); }); } });
    
    Object.keys(groupedKeywords).sort((a,b) => {
@@ -578,7 +767,8 @@ window.openAddForm = async function() { triggerHaptic('light'); document.getElem
 window.closeAddForm = function() { document.getElementById('addModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('editModal').classList.add('show'), 10); const pills = document.querySelectorAll('#editModal .type-pill'); pills.forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('editTransactionId').value = tx.id; document.getElementById('editContent').value = tx.content; document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString()); document.getElementById('editNote').value = tx.note || ''; const [d,m,y] = tx.date.split('/'); document.getElementById('editDate').value = `${y}-${m}-${d}`; pills.forEach(p => { if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click(); if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('editCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => { const opt = new Option(c, c); if(c === tx.category) opt.selected = true; catSel.appendChild(opt); }); };
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
-window.closeAllModals = function() { closeAddForm(); closeEditForm(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
+window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
+
 document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
 document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
 
@@ -588,7 +778,7 @@ async function submitTx(tx) {
     if (tx.action === 'addTransaction') { let maxId = 0; const allLoadedTxs = [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])]; allLoadedTxs.forEach(item => { if (item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) { let num = parseInt(String(item.id).replace('GD', ''), 10); if (!isNaN(num) && num > maxId) maxId = num; } }); tx.id = "GD" + String(maxId + 1).padStart(3, '0'); }
     const month = parseInt(tx.date.split('/')[1], 10); const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
     if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); } else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
-    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('searchModal').classList.contains('show')) displaySearchResults();
     await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success");
     fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(tx) }).catch(e => console.log("Lỗi backup Sheet:", e));
   } catch(e) { showToast(e.message, "error"); }
@@ -604,7 +794,7 @@ window.deleteTransaction = function(id) {
       async () => {
           let tx = null; if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id)); if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id)); if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id)); const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
           [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
-          if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
+          if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('searchModal').classList.contains('show')) displaySearchResults(); 
           showToast("Đang xóa giao dịch...", "info");
           try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
       }
@@ -623,18 +813,14 @@ window.exportToCSV = async function() {
 };
 
 // ==========================================
-// KHÔI PHỤC LOGIC PDF HOÀN CHỈNH BẢN XỊN NHẤT
+// LOGIC PDF
 // ==========================================
 window.exportToPDF = function() {
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
     
-    if (data.length === 0) {
-        return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
-    }
-    if (typeof html2pdf === 'undefined') {
-        return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
-    }
+    if (data.length === 0) return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
+    if (typeof html2pdf === 'undefined') return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
     
     triggerHaptic('medium');
     showToast("Đang chuẩn bị bản xem trước...", "info");
@@ -644,17 +830,7 @@ window.exportToPDF = function() {
     const reportNameForFile = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date());
 
     const element = document.createElement('div');
-    
-    /* CHÚ Ý: HTML2PDF bắt buộc phải có CSS inline ở đây để kết xuất đúng bố cục trang A4 */
-    element.style.width = '720px';
-    element.style.minWidth = '720px'; 
-    element.style.maxWidth = '720px'; 
-    element.style.boxSizing = 'border-box'; 
-    element.style.padding = '10px 15px';
-    element.style.color = '#0F172A';
-    element.style.backgroundColor = '#FFFFFF';
-    element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
-    element.style.overflow = 'hidden'; 
+    element.style.width = '720px'; element.style.minWidth = '720px'; element.style.maxWidth = '720px'; element.style.boxSizing = 'border-box'; element.style.padding = '10px 15px'; element.style.color = '#0F172A'; element.style.backgroundColor = '#FFFFFF'; element.style.fontFamily = "'Plus Jakarta Sans', sans-serif"; element.style.overflow = 'hidden'; 
     
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
@@ -705,9 +881,7 @@ window.exportToPDF = function() {
                     <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
                 `;
             } else {
-                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
-                    ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
-                </td>`;
+                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ</td>`;
             }
 
             monthRows += `
@@ -951,7 +1125,7 @@ window.exportToPDF = function() {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER" MỚI
+// CỬA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
@@ -1022,7 +1196,7 @@ window.openIconPickerModal = function() {
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
             
-            triggerHaptic('medium'); showLoading(true, 'tab4');
+            triggerHaptic('medium'); showLoading(true, 'tab3');
             try {
                 await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'PATCH', body: JSON.stringify({ [cat]: selectedIcon }) });
                 window.customCategoryIcons[cat] = selectedIcon; 
@@ -1032,7 +1206,7 @@ window.openIconPickerModal = function() {
                 await window.initCategories(true); window.loadKeywords(false); 
                 if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
                 if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
-            } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+            } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
         };
 
         document.getElementById('deleteCategoryBtn').onclick = () => {
@@ -1045,7 +1219,7 @@ window.openIconPickerModal = function() {
                 `Bạn có chắc chắn muốn xóa hoàn toàn danh mục <strong>${escapeHTML(cat)}</strong> và tất cả từ khóa của nó không?`,
                 'Xóa',
                 async () => {
-                    showLoading(true, 'tab4');
+                    showLoading(true, 'tab3');
                     try {
                         await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
                         delete window.customCategoryIcons[cat];
@@ -1053,7 +1227,7 @@ window.openIconPickerModal = function() {
                         
                         showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
                         await window.initCategories(false); window.loadKeywords(false);
-                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
                 }
             );
         };
@@ -1188,6 +1362,8 @@ window.closeIconPickerModal = function() {
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
+  // Init Settings
+  initSettings();
     
   document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
   const currentMonthValue = new Date().getMonth() + 1;
@@ -1215,12 +1391,12 @@ document.addEventListener('DOMContentLoaded', async () => {
               `Bạn có chắc chắn muốn xóa từ khóa <strong>${escapeHTML(currentEditKeyword)}</strong> khỏi danh mục <strong>${escapeHTML(cat)}</strong> không?`,
               'Xóa',
               async () => {
-                  showLoading(true, 'tab4'); 
+                  showLoading(true, 'tab3'); 
                   try { 
                       await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); 
                       triggerHapticNotification('success'); 
                       showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
-                  } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+                  } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
               }
           );
       }; 
@@ -1236,6 +1412,60 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.openTab('tab1'); showLoading(true, 'tab1'); window.loadKeywords(true); window.fetchTransactions(false);
 
+  // Settings Event Listeners
+  document.getElementById('settingTheme').onchange = (e) => { triggerHaptic('light'); const v = e.target.value; localStorage.setItem('settingTheme', v); document.body.className = `theme-${v} ui-${localStorage.getItem('settingDensity') || 'spacious'}`; };
+  document.querySelectorAll('.density-pill').forEach(p => p.onclick = () => { triggerHaptic('light'); document.querySelectorAll('.density-pill').forEach(x => x.classList.remove('active')); p.classList.add('active'); const v = p.getAttribute('data-density'); localStorage.setItem('settingDensity', v); document.body.className = `theme-${localStorage.getItem('settingTheme') || 'auto'} ui-${v}`; });
+  
+  const saveColor = (key, cssVar, val) => { localStorage.setItem(key, val); document.documentElement.style.setProperty(cssVar, val); };
+  document.getElementById('colorPrimary').onchange = (e) => saveColor('color_primary', '--primary', e.target.value);
+  document.getElementById('colorIncome').onchange = (e) => saveColor('color_income', '--income', e.target.value);
+  document.getElementById('colorExpense').onchange = (e) => saveColor('color_expense', '--expense', e.target.value);
+  
+  document.getElementById('resetColorsBtn').onclick = () => {
+      triggerHaptic('medium'); localStorage.removeItem('color_primary'); localStorage.removeItem('color_income'); localStorage.removeItem('color_expense');
+      initSettings(); showToast('Đã khôi phục màu sắc về mặc định.', 'success');
+  };
+
+  document.getElementById('settingHaptic').onchange = (e) => { localStorage.setItem('settingHaptic', e.target.checked); if(e.target.checked) triggerHaptic('light'); };
+  document.getElementById('settingChatId').onchange = (e) => localStorage.setItem('settingChatId', e.target.value.trim());
+
+  document.getElementById('backupTelegramBtn').onclick = async () => {
+      const chatId = document.getElementById('settingChatId').value.trim();
+      if(!chatId) return showToast('Vui lòng nhập Chat ID!', 'warning');
+      triggerHaptic('light'); showToast('Đang gửi yêu cầu backup...', 'info');
+      try {
+          await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'backupTelegram', chatId: chatId, sheetId: sheetId }) });
+          showToast('Đã gửi yêu cầu backup qua Telegram!', 'success');
+      } catch(e) { showToast('Lỗi gửi backup: ' + e.message, 'error'); }
+  };
+
+  document.getElementById('hardResetBtn').onclick = () => {
+      triggerHaptic('medium');
+      showCustomConfirm(
+          'Khôi Phục Cài Đặt Gốc',
+          'Toàn bộ dữ liệu giao dịch, từ khoá và cài đặt của bạn trên Firebase sẽ bị <strong>XÓA VĨNH VIỄN</strong>. Bạn có chắc chắn không?',
+          'XÓA TẤT CẢ',
+          async () => {
+              showLoading(true, 'tab4');
+              try {
+                  await fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' });
+                  await fetch(`${FIREBASE_URL}/keywords.json`, { method: 'DELETE' });
+                  await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'DELETE' });
+                  localStorage.clear();
+                  showToast('Đã xoá sạch dữ liệu!', 'success');
+                  setTimeout(() => window.location.reload(), 1500);
+              } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+          }
+      );
+  };
+
+  document.getElementById('toggleChartBtn').onclick = () => {
+      triggerHaptic('light');
+      window.currentChartType = window.currentChartType === 'bar' ? 'line' : 'bar';
+      document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
+      updateTimeNavUI();
+  };
+
   document.getElementById('filterWeeklyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('weekly'); };
   document.getElementById('filterMonthlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('monthly'); };
   document.getElementById('filterYearlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('yearly'); };
@@ -1249,7 +1479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
   
-  const sPills = document.querySelectorAll('#tab3 .period-pill');
+  const sPills = document.querySelectorAll('#searchModal .period-pill');
   sPills.forEach(p => p.onclick = function() { triggerHaptic('light'); sPills.forEach(x=>x.classList.remove('active')); this.classList.add('active'); document.getElementById('searchCustomFilterContainer').style.display = 'none'; if(this.id==='searchCustomBtn') document.getElementById('searchCustomFilterContainer').style.display = 'flex'; });
   
   document.getElementById('searchTransactionsBtn').onclick = async () => {
@@ -1260,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
     else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
     
-    showLoading(true, 'tab3');
+    showLoading(true, 'search');
     try {
       let txs = []; let fetchPromises = []; 
       for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
@@ -1268,7 +1498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
       monthsResults.forEach(monthData => { monthData.forEach(t => { let matches = true; if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false; if (a && Math.abs(t.amount - aNum) > 0.01) matches = false; if (cat && t.category !== cat) matches = false; if (matches) txs.push(t); }); });
       txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
-    } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+    } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'search'); }
   };
   
   document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
@@ -1276,13 +1506,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         triggerHaptic('light');
         const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
         if(!cat || !kw) return showToast('Vui lòng nhập đủ thông tin', 'warning');
-        showLoading(true, 'tab4');
+        showLoading(true, 'tab3');
         try {
             if (currentEditKeyword) await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
             await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) });
             triggerHapticNotification('success');
             showToast(currentEditKeyword ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
-        } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+        } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
   ['addAmount','editAmount','searchAmount'].forEach(id => { const el = document.getElementById(id); if(el) el.oninput = function() { this.value = formatNumberWithCommas(this.value); }; });
