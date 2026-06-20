@@ -23,7 +23,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
-<body class="theme-auto ui-spacious">
+<body>
   <div class="content-wrapper">
     <div class="app-branding">©masterhmh</div>
     
@@ -61,7 +61,7 @@
           <div class="qa-icon add"><i class="fas fa-plus"></i></div>
           <span class="qa-label">Thêm mới</span>
         </div>
-        <div class="qa-btn" onclick="openSearchModal()">
+        <div class="qa-btn" onclick="window.openTab('tab3'); document.querySelector('.nav-btn[data-tab=\'tab3\']').click();">
           <div class="qa-icon search"><i class="fas fa-search"></i></div>
           <span class="qa-label">Tìm kiếm</span>
         </div>
@@ -148,26 +148,14 @@
           </div>
 
           <div class="field-group mb-3 flex-row-gap-10">
-            <button class="btn-soft m-0 flex-1" onclick="exportToCSV()"><i class="fas fa-file-csv text-income-color"></i> Dữ liệu CSV</button>
-            <button class="btn-soft m-0 flex-1" onclick="exportToPDF()"><i class="fas fa-file-pdf text-expense-color"></i> Báo cáo PDF</button>
-          </div>
-
-          <div id="calendarStatbox" class="info-card" style="display: none; margin-bottom: 16px; padding: 16px;">
-             <div class="chart-title text-center mb-3">Lịch Giao Dịch</div>
-             <div class="calendar-header">
-                 <span>CN</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span>
-             </div>
-             <div id="calendarGrid" class="calendar-grid"></div>
+            <button class="btn-soft m-0 flex-1" onclick="exportToCSV()"><i class="fas fa-file-csv text-income-color"></i> Xuất dữ liệu CSV</button>
+            <button class="btn-soft m-0 flex-1" onclick="exportToPDF()"><i class="fas fa-file-pdf text-expense-color"></i> Xuất báo cáo PDF</button>
           </div>
 
           <div id="placeholderTab2" class="empty-state" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</div>
           
           <div class="chart-container" style="display: none;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <div id="chartTitleTab2" class="chart-title text-left m-0">Thu nhập & Chi tiêu</div>
-                <button id="toggleChartBtn" class="tx-btn" style="width:36px; height:36px;" title="Chuyển đổi biểu đồ"><i class="fas fa-chart-line"></i></button>
-            </div>
-            
+            <div id="chartTitleTab2" class="chart-title text-left w-full">Thu nhập & Chi tiêu</div>
             <div class="chart-placeholder w-full">
                <canvas id="monthlyChart"></canvas>
             </div>
@@ -209,8 +197,55 @@
         </div>
       </div>
     </div>
-
+    
     <div id="tab3" class="tab-content">
+      <div class="section-header">
+        <span class="section-title">Tìm Kiếm Giao Dịch</span>
+      </div>
+      
+      <div class="period-pills">
+        <div id="searchMonthlyBtn" class="period-pill active">Tháng này</div>
+        <div id="searchYearlyBtn" class="period-pill">Cả năm</div>
+        <div id="searchCustomBtn" class="period-pill">Tùy chọn</div>
+      </div>
+      
+      <div id="searchCustomFilterContainer" class="filter-controls" style="display: none;">
+        <select id="searchStartMonth" class="field-input flex-1">
+          <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+        </select>
+        <span class="filter-separator">đến</span>
+        <select id="searchEndMonth" class="field-input flex-1">
+          <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+        </select>
+      </div>
+      
+      <div class="field-group">
+        <div class="field-label">Nội dung</div>
+        <input type="text" id="searchContent" class="field-input" placeholder="Nhập nội dung cần tìm">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Số tiền</div>
+        <input type="text" id="searchAmount" class="field-input" placeholder="Ví dụ: 50.000">
+      </div>
+      <div class="field-group">
+        <div class="field-label">Phân loại chi tiết</div>
+        <select id="searchCategory" class="field-input"><option value="">Tất cả danh mục</option></select>
+      </div>
+      <button id="searchTransactionsBtn" class="btn-save btn-full"><i class="fas fa-search"></i> Tìm kiếm ngay</button>
+      
+      <div id="loadingTab3" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
+      
+      <div id="placeholderTab3" class="empty-state" style="display: none;">Không tìm thấy giao dịch nào phù hợp</div>
+      
+      <div class="tx-list mt-4" id="searchResultsContainer"></div>
+      <div id="paginationSearch" class="pagination-container" style="display: none;">
+        <button id="prevPageSearch" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
+        <span id="pageInfoSearch" class="pagination-info"></span>
+        <button id="nextPageSearch" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
+      </div>
+    </div>
+
+    <div id="tab4" class="tab-content">
       <div class="section-header">
         <span class="section-title">Quản Lý Từ Khóa</span>
       </div>
@@ -228,79 +263,10 @@
         <button id="fetchKeywordsBtn" class="btn-soft flex-1 m-0"><i class="fas fa-bars"></i> Tất cả từ khóa</button>
       </div>
       
-      <div id="loadingTab3" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
+      <div id="loadingTab4" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
       
-      <div id="placeholderTab3" class="empty-state" style="display: none;">Chưa có từ khóa nào</div>
+      <div id="placeholderTab4" class="empty-state" style="display: none;">Chưa có từ khóa nào</div>
       <div class="keywords-list" id="keywordsContainer"></div>
-    </div>
-
-    <div id="tab4" class="tab-content">
-      <div class="section-header">
-        <span class="section-title">Cài Đặt</span>
-      </div>
-
-      <div class="info-card" style="padding: 16px;">
-          <div class="chart-title mb-3"><i class="fas fa-palette"></i> Giao Diện & Trải Nghiệm</div>
-          
-          <div class="field-group">
-              <div class="field-label">Chế độ hiển thị (Theme)</div>
-              <select id="settingTheme" class="field-input">
-                  <option value="auto">Theo hệ thống thiết bị</option>
-                  <option value="light">Chế độ Sáng</option>
-                  <option value="dark">Chế độ Tối (Đặc trưng)</option>
-              </select>
-          </div>
-
-          <div class="field-group">
-              <div class="field-label">Mật độ giao diện (UI Density)</div>
-              <div class="type-row">
-                  <div class="type-pill density-pill active" data-density="spacious">Thoáng đãng</div>
-                  <div class="type-pill density-pill" data-density="compact">Gọn gàng</div>
-              </div>
-          </div>
-
-          <div class="field-group">
-              <div class="field-label">Tùy chỉnh màu sắc</div>
-              <div style="display: flex; gap: 10px;">
-                  <div style="flex: 1; text-align: center;">
-                      <label style="font-size: 0.7rem; color: var(--text-2); display: block; margin-bottom: 4px;">Màu Chính</label>
-                      <input type="color" id="colorPrimary" class="color-picker-input" value="#06B6D4">
-                  </div>
-                  <div style="flex: 1; text-align: center;">
-                      <label style="font-size: 0.7rem; color: var(--text-2); display: block; margin-bottom: 4px;">Thu Nhập</label>
-                      <input type="color" id="colorIncome" class="color-picker-input" value="#00D26A">
-                  </div>
-                  <div style="flex: 1; text-align: center;">
-                      <label style="font-size: 0.7rem; color: var(--text-2); display: block; margin-bottom: 4px;">Chi Tiêu</label>
-                      <input type="color" id="colorExpense" class="color-picker-input" value="#FF4444">
-                  </div>
-              </div>
-              <button id="resetColorsBtn" class="btn-soft mt-4" style="padding: 8px;"><i class="fas fa-undo"></i> Khôi phục màu mặc định</button>
-          </div>
-
-          <div class="field-group mt-4" style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="field-label m-0">Phản hồi xúc giác (Haptic)</div>
-              <label class="toggle-switch">
-                  <input type="checkbox" id="settingHaptic" checked>
-                  <span class="slider round"></span>
-              </label>
-          </div>
-      </div>
-
-      <div class="info-card" style="padding: 16px;">
-          <div class="chart-title mb-3"><i class="fas fa-database"></i> Dữ Liệu & Hệ Thống</div>
-          
-          <div class="field-group">
-              <div class="field-label">Telegram Chat ID (Để Backup)</div>
-              <input type="text" id="settingChatId" class="field-input" placeholder="Nhập Chat ID của bạn">
-              <div class="tx-note mt-4">Gửi backup file CSV giao dịch thẳng về Telegram của bạn.</div>
-              <button id="backupTelegramBtn" class="btn-soft mt-4"><i class="fas fa-cloud-arrow-up text-primary-color"></i> Backup ngay</button>
-          </div>
-
-          <div class="divider-v" style="width: 100%; height: 1px; background: rgba(255,255,255,0.1); margin: 20px 0;"></div>
-
-          <button id="hardResetBtn" class="btn-danger-outline w-full"><i class="fas fa-triangle-exclamation"></i> Danger: Hard Reset Dữ Liệu</button>
-      </div>
     </div>
 
     <div id="tab5" class="tab-content">
@@ -328,60 +294,6 @@
     </div>
 
     <div id="modalOverlay" class="overlay" style="display: none;" onclick="closeAllModals()"></div>
-
-    <div id="searchModal" class="modal-sheet" style="height: 90vh; display: flex; flex-direction: column;">
-        <div class="modal-handle" onclick="closeSearchModal()"></div>
-        <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <span><i class="fas fa-search" style="color: var(--primary); margin-right: 8px;"></i> Tìm kiếm Giao dịch</span>
-        </div>
-        
-        <div style="flex: 1; overflow-y: auto; padding-bottom: 20px; -webkit-overflow-scrolling: touch;">
-            <div class="period-pills" style="margin-bottom: 12px;">
-                <div id="searchMonthlyBtn" class="period-pill active">Tháng này</div>
-                <div id="searchYearlyBtn" class="period-pill">Cả năm</div>
-                <div id="searchCustomBtn" class="period-pill">Tùy chọn</div>
-            </div>
-            
-            <div id="searchCustomFilterContainer" class="filter-controls" style="display: none;">
-                <select id="searchStartMonth" class="field-input flex-1">
-                  <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-                </select>
-                <span class="filter-separator">đến</span>
-                <select id="searchEndMonth" class="field-input flex-1">
-                  <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-                </select>
-            </div>
-            
-            <div class="field-group">
-                <div class="field-label">Nội dung</div>
-                <input type="text" id="searchContent" class="field-input" placeholder="Nhập nội dung cần tìm">
-            </div>
-            <div class="field-group">
-                <div class="field-label">Số tiền</div>
-                <input type="text" id="searchAmount" class="field-input" placeholder="Ví dụ: 50.000">
-            </div>
-            <div class="field-group">
-                <div class="field-label">Phân loại chi tiết</div>
-                <select id="searchCategory" class="field-input"><option value="">Tất cả danh mục</option></select>
-            </div>
-            <button id="searchTransactionsBtn" class="btn-save btn-full"><i class="fas fa-search"></i> Tìm kiếm ngay</button>
-            
-            <div id="loadingSearch" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
-            
-            <div id="placeholderSearch" class="empty-state" style="display: none;">Không tìm thấy giao dịch nào phù hợp</div>
-            
-            <div class="tx-list mt-4" id="searchResultsContainer"></div>
-            <div id="paginationSearch" class="pagination-container" style="display: none;">
-                <button id="prevPageSearch" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
-                <span id="pageInfoSearch" class="pagination-info"></span>
-                <button id="nextPageSearch" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
-            </div>
-        </div>
-        
-        <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
-            <button class="btn-cancel w-full m-0" onclick="closeSearchModal()"><i class="fas fa-times"></i> Đóng tìm kiếm</button>
-        </div>
-    </div>
 
     <div id="addModal" class="modal-sheet">
       <div class="modal-handle"></div>
@@ -486,7 +398,7 @@
       </div>
     </div>
 
-    <div id="iconPickerModal" class="modal-sheet" style="max-height: 92vh; display: flex; flex-direction: column;">
+   <div id="iconPickerModal" class="modal-sheet" style="max-height: 92vh; display: flex; flex-direction: column;">
       <div class="modal-handle" onclick="closeIconPickerModal()"></div>
       <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
       
@@ -539,12 +451,12 @@
       <span class="nav-label">Báo cáo</span>
     </button>
     <button class="nav-btn" data-tab="tab3">
-      <div class="nav-icon-wrap"><i class="fas fa-tags"></i></div>
-      <span class="nav-label">Từ khóa</span>
+      <div class="nav-icon-wrap"><i class="fas fa-search"></i></div>
+      <span class="nav-label">Tìm kiếm</span>
     </button>
     <button class="nav-btn" data-tab="tab4">
-      <div class="nav-icon-wrap"><i class="fas fa-cog"></i></div>
-      <span class="nav-label">Cài đặt</span>
+      <div class="nav-icon-wrap"><i class="fas fa-tags"></i></div>
+      <span class="nav-label">Từ khóa</span>
     </button>
     <button class="nav-btn" data-tab="tab5">
       <div class="nav-icon-wrap"><i class="fas fa-user"></i></div>
