@@ -447,8 +447,8 @@ function renderCalendar(txs, dateObj, mode) {
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             const bal = data.inc - data.exp;
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${(bal/1000).toFixed(0)}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${(bal/1000).toFixed(0)}K</span>`;
+            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
             dayDiv.innerHTML = `<span style="font-size:0.65rem; color:var(--text-3); font-weight:600;">${dayNames[d.getDay()]}</span><span class="calendar-date">${d.getDate()}</span>${balHTML}`;
@@ -477,8 +477,8 @@ function renderCalendar(txs, dateObj, mode) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${(bal/1000).toFixed(0)}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${(bal/1000).toFixed(0)}K</span>`;
+            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
 
             let classes = ['calendar-day'];
             if (isCurrentMonth && today.getDate() === i) classes.push('today');
@@ -539,7 +539,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
             devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
             scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => {
                 if (isPrivacyActive) return '***';
-                return v >= 1000 ? (v/1000)+'K' : v;
+                return v >= 1000 ? Math.round(v/1000).toLocaleString('vi-VN') + 'K' : v.toLocaleString('vi-VN');
             } } } }, 
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => {
                 if (isPrivacyActive) return `${ctx.dataset.label}: ***`;
