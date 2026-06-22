@@ -8,7 +8,7 @@ const urlParams = new URLSearchParams(window.location.search);
 const apiUrl = urlParams.get('api');
 const sheetId = urlParams.get('sheetId');
 const proxyUrl = '/api/proxy?url=';
-
+const botUrl = urlParams.get('botUrl');
 // KẾT NỐI TRỰC TIẾP FIREBASE
 const FIREBASE_URL = 'https://quanlychitieu-hmh-default-rtdb.firebaseio.com/';
 
@@ -62,7 +62,83 @@ function triggerHapticNotification(type = 'success') {
     if (localStorage.getItem('settingHaptic') === 'false') return;
     if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); 
 }
+async function notifyTelegram(actionStr, tx) {
+    const chatId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem('settingChatId');
+    if (!botUrl || !chatId) return;
 
+    const typeIcon = tx.type === 'Thu nhập' ? '💰' : '💸';
+    let catEmoji = '🍽️'; 
+
+    let iconVal = null;
+    if (window.customCategoryIcons && window.customCategoryIcons[tx.category]) { 
+        iconVal = window.customCategoryIcons[tx.category].trim(); 
+    } else if (window.categoryIconMap && window.categoryIconMap[tx.category]) { 
+        iconVal = window.categoryIconMap[tx.category].trim(); 
+    }
+    if (iconVal) {
+        const firstChar = Array.from(iconVal)[0];
+        if (EMOJI_TO_FA_MAP[firstChar]) {
+            catEmoji = firstChar; 
+        } else {
+            let faClass = iconVal.replace('fas ', '').trim();
+            if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+            if (FA_TO_EMOJI_MAP[faClass]) catEmoji = FA_TO_EMOJI_MAP[faClass];
+        }
+    }
+
+    let header = '';
+    if (actionStr === 'add') header = '📝 Đã ghi nhận giao dịch:';
+    else if (actionStr === 'update') header = '📝 Đã cập nhật giao dịch';
+    else if (actionStr === 'delete') header = '🗑 Đã xóa giao dịch';
+
+    const formattedAmount = tx.amount.toLocaleString('vi-VN');
+
+    let msg = `${header}\n`;
+    msg += `🔢 Mã giao dịch: ${tx.id}\n`;
+    msg += `${typeIcon} ${tx.type} - ${tx.content} - ${formattedAmount} VNĐ\n`;
+    msg += `📅 Ngày: ${tx.date}\n`;
+    msg += `${catEmoji} Phân loại: ${tx.category}\n`;
+    if (tx.note) {
+        msg += `📝 Ghi chú: ${tx.note}\n`;
+    }
+
+    try {
+        const parts = tx.date.split('/');
+        const monthStr = parts[1];
+        const monthNum = parseInt(monthStr, 10);
+
+        const res = await fetch(`${FIREBASE_URL}/transactions/month_${monthNum}.json`);
+        const monthData = await res.json();
+
+        let totalIncome = 0;
+        let totalExpense = 0;
+
+        if (monthData) {
+            Object.values(monthData).forEach(item => {
+                if (!item) return;
+                if (item.type === 'Thu nhập') totalIncome += item.amount;
+                if (item.type === 'Chi tiêu') totalExpense += item.amount;
+            });
+        }
+
+        msg += `📊 Tổng thu tháng ${monthStr}: ${totalIncome.toLocaleString('vi-VN')} VNĐ\n`;
+        msg += `📉 Tổng chi tháng ${monthStr}: ${totalExpense.toLocaleString('vi-VN')} VNĐ\n`;
+    } catch (e) {
+        console.log('Lỗi tính tổng tháng:', e);
+    }
+
+    msg += `(Thao tác trên Mini App)`;
+
+    try {
+        await fetch(botUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'notifyApp', chatId: chatId, text: msg })
+        });
+    } catch(e) {
+        console.log('Lỗi gửi thông báo Telegram:', e);
+    }
+}
 // Chạm vào mắt ngoài màn hình -> Chỉ đổi tạm thời cho phiên làm việc hiện tại
 window.togglePrivacy = function() {
     triggerHaptic('light');
@@ -817,6 +893,11 @@ async function submitTx(tx) {
     if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); } else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
     await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success");
+    if (tx.action === 'addTransaction') {
+        notifyTelegram('add', tx);
+    } else if (tx.action === 'updateTransaction') {
+        notifyTelegram('update', tx);
+    }
     fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(tx) }).catch(e => console.log("Lỗi backup Sheet:", e));
   } catch(e) { showToast(e.message, "error"); }
 }
@@ -833,7 +914,7 @@ window.deleteTransaction = function(id) {
           [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
           if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
           showToast("Đang xóa giao dịch...", "info");
-          try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
+          try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); if (tx) notifyTelegram('delete', tx); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
       }
   );
 };
