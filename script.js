@@ -7,7 +7,6 @@ if (window.Telegram && window.Telegram.WebApp) {
 const urlParams = new URLSearchParams(window.location.search);
 const apiUrl = urlParams.get('api');
 const sheetId = urlParams.get('sheetId');
-const workerUrl = urlParams.get('workerUrl'); // Lấy link Worker để gửi thông báo
 const proxyUrl = '/api/proxy?url=';
 
 // KẾT NỐI TRỰC TIẾP FIREBASE
@@ -64,6 +63,7 @@ function triggerHapticNotification(type = 'success') {
     if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); 
 }
 
+// Chạm vào mắt ngoài màn hình -> Chỉ đổi tạm thời cho phiên làm việc hiện tại
 window.togglePrivacy = function() {
     triggerHaptic('light');
     isPrivacyActive = !isPrivacyActive;
@@ -88,6 +88,10 @@ function updatePrivacyUI(syncSettings = false) {
             btn.classList.add('fa-eye');
         });
     }
+    // Bắt buộc vẽ lại các biểu đồ Canvas để ẩn/hiện số tiền bên trong
+    if (window.mChart) window.mChart.update();
+    if (window.pChart) window.pChart.update();
+    if (window.dChart) window.dChart.update();
 }
 
 function applyPrivacyMode() {
@@ -95,9 +99,19 @@ function applyPrivacyMode() {
     updatePrivacyUI(true);
 }
 
+// HÀM ĐỊNH DẠNG TIỀN NÂNG CẤP: Chống lỗi 50Kđ
+function formatCurrencyWithUnit(value) {
+    const format = localStorage.getItem('settingCurrencyFormat') || 'full';
+    let num = parseInt(value.toString().replace(/[^0-9-]/g, '')) || 0;
+    if (format === 'short' && Math.abs(num) >= 1000) {
+        return { val: (num / 1000).toFixed(0) + 'K', unit: '' }; // Không trả về đ nữa nếu là K
+    }
+    return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
+}
+
 function escapeHTML(str) {
     if (!str) return '';
-    return str.toString().replace(/&/g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    return str.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) {
@@ -137,12 +151,6 @@ function showLoading(show, tabId) {
 function formatDate(dateStr) { const parts = dateStr.split('/'); if (parts.length !== 3) return dateStr; return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`; }
 function formatDateToYYYYMMDD(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 function formatDateToDDMMYYYY(date) { return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth() + 1).padStart(2,'0')}/${date.getFullYear()}`; }
-function formatNumberWithCommas(value) { 
-    const format = localStorage.getItem('settingCurrencyFormat') || 'full';
-    let num = parseInt(value.toString().replace(/[^0-9-]/g, '')) || 0;
-    if (format === 'short' && Math.abs(num) >= 1000) return (num / 1000).toFixed(0) + 'K';
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); 
-}
 function parseNumber(value) { 
     let str = value.toString().toUpperCase(); let multiplier = 1;
     if (str.includes('K')) { multiplier = 1000; str = str.replace('K', ''); }
@@ -180,14 +188,16 @@ function getCategoryIcon(cat) {
 }
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
-    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− 0đ ${escapeHTML(text)}</span>`;
+    let zeroObj = formatCurrencyWithUnit(0);
+    if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− ${zeroObj.val}${zeroObj.unit} ${escapeHTML(text)}</span>`;
     let diff = current - prev;
     if (diff === 0) return `<span style="color: var(--text-2); font-weight: 500;">− Bằng ${escapeHTML(text)}</span>`;
     let isUp = diff > 0;
     let icon = isUp ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
     let arrowText = isUp ? (type === 'balance' ? 'Dư' : 'Tăng') : (type === 'balance' ? 'Âm' : 'Giảm');
     let colorVar = type === 'expense' ? (isUp ? 'var(--expense)' : 'var(--income)') : (isUp ? 'var(--income)' : 'var(--expense)');
-    return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${formatNumberWithCommas(Math.abs(diff).toString())}đ ${escapeHTML(text)}</span>`;
+    let diffObj = formatCurrencyWithUnit(Math.abs(diff));
+    return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${diffObj.val}${diffObj.unit} ${escapeHTML(text)}</span>`;
 }
 
 window.openTab = function(tabId) {
@@ -203,7 +213,15 @@ async function fetchMonthData(month) {
     try {
         const res = await fetch(`${FIREBASE_URL}/transactions/month_${parseInt(month, 10)}.json`);
         const data = await res.json();
-        if(data) return Object.values(data).filter(item => item !== null);
+        if(data) {
+            return Object.values(data).filter(item => item !== null).map(item => {
+                if (item && item.date) {
+                    const p = item.date.split('/');
+                    if(p.length === 3) item.date = `${String(parseInt(p[0], 10)).padStart(2, '0')}/${String(parseInt(p[1], 10)).padStart(2, '0')}/${p[2]}`;
+                }
+                return item;
+            });
+        }
     } catch (e) {} return [];
 }
 
@@ -227,13 +245,15 @@ window.fetchTransactions = async function(forceRefresh = false) {
 
   showLoading(true, 'tab1');
   try {
-    const currDateStr = `${d}/${m}/${y}`;
+    const dNum = parseInt(d, 10); const mNum = parseInt(m, 10); const yNum = parseInt(y, 10);
+    const pdNum = currDateObj.getDate(); const pmNum = currDateObj.getMonth() + 1; const pyNum = currDateObj.getFullYear();
+    
     let dataCurrMonth, dataPrevMonth;
-    if (m === prevM) { dataCurrMonth = await fetchMonthData(m); dataPrevMonth = dataCurrMonth; } 
-    else { [dataCurrMonth, dataPrevMonth] = await Promise.all([ fetchMonthData(m), fetchMonthData(prevM) ]); }
+    if (mNum === pmNum) { dataCurrMonth = await fetchMonthData(mNum); dataPrevMonth = dataCurrMonth; } 
+    else { [dataCurrMonth, dataPrevMonth] = await Promise.all([ fetchMonthData(mNum), fetchMonthData(pmNum) ]); }
 
-    let dataCurr = dataCurrMonth.filter(t => t && t.date && t.date.trim() === currDateStr);
-    let dataPrev = dataPrevMonth.filter(t => t && t.date && t.date.trim() === prevDateStr);
+    let dataCurr = dataCurrMonth.filter(t => { if(!t || !t.date) return false; const pts = t.date.split('/'); return parseInt(pts[0], 10) === dNum && parseInt(pts[1], 10) === mNum && parseInt(pts[2], 10) === yNum; });
+    let dataPrev = dataPrevMonth.filter(t => { if(!t || !t.date) return false; const pts = t.date.split('/'); return parseInt(pts[0], 10) === pdNum && parseInt(pts[1], 10) === pmNum && parseInt(pts[2], 10) === pyNum; });
     dataCurr.sort((a,b) => b.id.localeCompare(a.id)); dataPrev.sort((a,b) => b.id.localeCompare(a.id));
     
     cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev, compareSuffix: compareSuffix };
@@ -253,11 +273,20 @@ function displayTransactions() {
   let pInc = 0, pExp = 0; if (Array.isArray(prevData)) prevData.forEach(i => { if (i.type === 'Thu nhập') pInc += i.amount; else pExp += i.amount; });
   const pBal = pInc - pExp;
 
+  const tExpObj = formatCurrencyWithUnit(tExp);
   const heroExpMain = document.getElementById('heroExpenseMain');
-  if(heroExpMain) heroExpMain.innerHTML = `${formatNumberWithCommas(tExp.toString())}<span>đ</span>`;
-  const heroInc = document.getElementById('heroIncome'); if(heroInc) heroInc.innerHTML = `${formatNumberWithCommas(tInc.toString())}<span>đ</span>`;
+  if(heroExpMain) heroExpMain.innerHTML = `${tExpObj.val}<span>${tExpObj.unit}</span>`;
+  
+  const tIncObj = formatCurrencyWithUnit(tInc);
+  const heroInc = document.getElementById('heroIncome'); 
+  if(heroInc) heroInc.innerHTML = `${tIncObj.val}<span>${tIncObj.unit}</span>`;
+  
+  const tBalObj = formatCurrencyWithUnit(Math.abs(tBal));
   const heroBalSub = document.getElementById('heroBalanceSub');
-  if(heroBalSub) { let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); heroBalSub.innerHTML = `${sign}${formatNumberWithCommas(Math.abs(tBal).toString())}<span>đ</span>`; }
+  if(heroBalSub) { 
+      let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); 
+      heroBalSub.innerHTML = `<span>${sign}</span>${tBalObj.val}<span>${tBalObj.unit}</span>`; 
+  }
   
   const heroExpCompare = document.getElementById('heroExpenseCompare');
   if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
@@ -279,6 +308,7 @@ function displayTransactions() {
     const isInc = item.type === 'Thu nhập'; const tCls = isInc ? 'income' : 'expense';
     const icon = getCategoryIcon(item.category);
     const stt = (currentPageTab1 - 1) * itemsPerPage + index + 1;
+    const amtObj = formatCurrencyWithUnit(item.amount);
     
     const card = document.createElement('div'); card.className = `tx-card ${tCls}`;
     card.innerHTML = `
@@ -294,7 +324,7 @@ function displayTransactions() {
         <div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>
       </div>
       <div class="tx-right-col">
-        <div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span>${formatNumberWithCommas(item.amount.toString())}<span>đ</span></div>
+        <div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div>
         <div class="tx-actions">
            <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}" title="Sửa"><i class="fas fa-pen"></i></button>
            <button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}" title="Xóa"><i class="fas fa-trash"></i></button>
@@ -448,10 +478,15 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     let pInc = 0, pExp = 0; prevTx.forEach(i => { if(i.type==='Thu nhập') pInc += i.amount; else pExp += i.amount; });
     const pBal = pInc - pExp;
     
-    document.getElementById('tab2Income').innerHTML = `${formatNumberWithCommas(tInc.toString())}<span>đ</span>`;
-    document.getElementById('tab2Expense').innerHTML = `${formatNumberWithCommas(tExp.toString())}<span>đ</span>`;
+    const tIncObj = formatCurrencyWithUnit(tInc);
+    document.getElementById('tab2Income').innerHTML = `${tIncObj.val}<span>${tIncObj.unit}</span>`;
+    
+    const tExpObj = formatCurrencyWithUnit(tExp);
+    document.getElementById('tab2Expense').innerHTML = `${tExpObj.val}<span>${tExpObj.unit}</span>`;
+    
+    const tBalObj = formatCurrencyWithUnit(Math.abs(tBal));
     let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : '');
-    document.getElementById('tab2Balance').innerHTML = `${sign}${formatNumberWithCommas(Math.abs(tBal).toString())}<span>đ</span>`;
+    document.getElementById('tab2Balance').innerHTML = `<span>${sign}</span>${tBalObj.val}<span>${tBalObj.unit}</span>`;
     
     let compareText = currentFilterMode === 'weekly' ? 'so với tuần trước' : (currentFilterMode === 'monthly' ? 'so với tháng trước' : 'so với năm trước');
     document.getElementById('tab2IncomeCompare').innerHTML = getCompareHTML(tInc, pInc, 'income', compareText);
@@ -482,8 +517,15 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
         data: { labels: labels, datasets: [ dsInc, dsExp ]}, 
         options: { 
             devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
-            scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => v >= 1000 ? (v/1000)+'K' : v } } }, 
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatNumberWithCommas(ctx.raw.toString())}đ` } } } 
+            scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => {
+                if (isPrivacyActive) return '***';
+                return v >= 1000 ? (v/1000)+'K' : v;
+            } } } }, 
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => {
+                if (isPrivacyActive) return `${ctx.dataset.label}: ***`;
+                const cObj = formatCurrencyWithUnit(ctx.raw);
+                return `${ctx.dataset.label}: ${cObj.val}${cObj.unit}`;
+            } } } } 
         } 
     });
 
@@ -498,7 +540,13 @@ function drawMonthlyPieChart(data) {
   const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map((_,i)=>getColorByIndex(i));
   const total = amts.reduce((a,b)=>a+b,0);
   
-  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, options: { devicePixelRatio: 4, cutout:'75%', layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = '600 9px Plus Jakarta Sans'; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = '800 12px Plus Jakarta Sans'; ctx.fillText(formatNumberWithCommas(catAmt.toString()) + 'đ', c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = '500 9px Plus Jakarta Sans'; ctx.fillText(`(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font='500 10px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font='800 13px Plus Jakarta Sans'; ctx.fillText(formatNumberWithCommas(total.toString()) + 'đ', c.width/2, c.height/2 + 8); } ctx.restore(); } }] });
+  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, options: { devicePixelRatio: 4, cutout:'75%', layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = '600 9px Plus Jakarta Sans'; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = '800 12px Plus Jakarta Sans'; 
+  const catObj = formatCurrencyWithUnit(catAmt);
+  const displayAmt = isPrivacyActive ? '***' : catObj.val + catObj.unit;
+  ctx.fillText(displayAmt, c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = '500 9px Plus Jakarta Sans'; ctx.fillText(`(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font='500 10px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font='800 13px Plus Jakarta Sans'; 
+  const totalObj = formatCurrencyWithUnit(total);
+  const displayTotal = isPrivacyActive ? '***' : totalObj.val + totalObj.unit;
+  ctx.fillText(displayTotal, c.width/2, c.height/2 + 8); } ctx.restore(); } }] });
 
   const leg = document.getElementById('monthlyCustomLegend'); if(leg) leg.innerHTML = '';
   const progList = document.getElementById('monthlyCategoryProgressList'); if(progList) progList.innerHTML = '';
@@ -515,8 +563,9 @@ function drawMonthlyPieChart(data) {
     }
     
     if (progList) { 
+        const iAmtObj = formatCurrencyWithUnit(i.amount);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
-        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${formatNumberWithCommas(i.amount.toString())}<span>đ</span></span><span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
+        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
         divProg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         progList.appendChild(divProg); 
     }
@@ -536,8 +585,10 @@ function showCategoryDetail(cat) {
   let totalInc = 0, totalExp = 0;
   txs.forEach(t => { if(t.type === 'Thu nhập') totalInc += t.amount; else totalExp += t.amount; });
   
-  document.getElementById('detailTotalIncome').innerHTML = `+${formatNumberWithCommas(totalInc.toString())}<span>đ</span>`;
-  document.getElementById('detailTotalExpense').innerHTML = `-${formatNumberWithCommas(totalExp.toString())}<span>đ</span>`;
+  const incObj = formatCurrencyWithUnit(totalInc);
+  document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
+  const expObj = formatCurrencyWithUnit(totalExp);
+  document.getElementById('detailTotalExpense').innerHTML = `<span>-</span>${expObj.val}<span>${expObj.unit}</span>`;
 
   const chartContainer = document.getElementById('detailChartContainer');
   if(chartContainer) chartContainer.style.display = 'none';
@@ -549,21 +600,29 @@ function showCategoryDetail(cat) {
 }
 
 function openDailyDetailView(d, m, y, allTxs) {
-    const targetDateStr = `${String(d).padStart(2,'0')}/${String(m).padStart(2,'0')}/${y}`;
-    const dayTxs = allTxs.filter(t => t && t.date === targetDateStr);
+    const dNum = parseInt(d, 10); const mNum = parseInt(m, 10); const yNum = parseInt(y, 10);
+    
+    const dayTxs = allTxs.filter(t => { 
+        if (!t || !t.date) return false; 
+        const parts = t.date.split('/'); 
+        if (parts.length !== 3) return false; 
+        return parseInt(parts[0], 10) === dNum && parseInt(parts[1], 10) === mNum && parseInt(parts[2], 10) === yNum; 
+    });
 
     const detailModal = document.getElementById('detailModal');
     document.getElementById('modalOverlay').classList.add('show');
     setTimeout(() => detailModal.classList.add('show'), 10);
 
-    document.getElementById('detailModalTitle').textContent = `NGÀY ${targetDateStr}`; 
+    document.getElementById('detailModalTitle').textContent = `NGÀY ${String(dNum).padStart(2,'0')}/${String(mNum).padStart(2,'0')}/${yNum}`; 
     document.getElementById('detailModalTitle').style.color = 'var(--text-1)';
     
     let totalExp = 0, totalInc = 0;
     dayTxs.forEach(t => { if(t.type === 'Chi tiêu') totalExp += t.amount; else totalInc += t.amount; });
 
-    document.getElementById('detailTotalIncome').innerHTML = `+${formatNumberWithCommas(totalInc.toString())}<span>đ</span>`;
-    document.getElementById('detailTotalExpense').innerHTML = `-${formatNumberWithCommas(totalExp.toString())}<span>đ</span>`;
+    const incObj = formatCurrencyWithUnit(totalInc);
+    document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
+    const expObj = formatCurrencyWithUnit(totalExp);
+    document.getElementById('detailTotalExpense').innerHTML = `<span>-</span>${expObj.val}<span>${expObj.unit}</span>`;
 
     const chartContainer = document.getElementById('detailChartContainer');
     if(chartContainer) chartContainer.style.display = 'none';
@@ -587,7 +646,10 @@ function drawDailyPieChart(data, totalExp) {
     window.dChart = new Chart(ctx, { 
         type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
         options: { devicePixelRatio: 4, cutout:'75%', layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } } },
-        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font='500 9px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 8); ctx.fillStyle='#F43F5E'; ctx.font='800 11px Plus Jakarta Sans'; ctx.fillText((totalExp/1000).toFixed(0) + 'K', c.width/2, c.height/2 + 6); ctx.restore(); } }]
+        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font='500 9px Plus Jakarta Sans'; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 8); ctx.fillStyle='#F43F5E'; ctx.font='800 11px Plus Jakarta Sans'; 
+        const tObj = formatCurrencyWithUnit(totalExp);
+        const displayTotal = isPrivacyActive ? '***' : tObj.val + tObj.unit;
+        ctx.fillText(displayTotal, c.width/2, c.height/2 + 6); ctx.restore(); } }]
     });
 
     const leg = document.getElementById('dailyCustomLegend'); if(leg) leg.innerHTML = '';
@@ -604,7 +666,12 @@ function displayDetailTransactionsList(txs) {
   if(txs.length === 0) { list.innerHTML = '<div class="empty-state">Không có giao dịch nào</div>'; document.getElementById('paginationDetail').style.display = 'none'; return; }
   document.getElementById('paginationDetail').style.display = 'flex';
   const tPages = Math.ceil(txs.length / itemsPerPage); const pData = txs.slice((currentPageCategory - 1) * itemsPerPage, currentPageCategory * itemsPerPage);
-  pData.forEach((item, index) => { const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${formatNumberWithCommas(item.amount.toString())}<span>đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
+  pData.forEach((item, index) => { 
+    const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; 
+    const amtObj = formatCurrencyWithUnit(item.amount);
+    const card = document.createElement('div'); card.className = `tx-card ${tCls}`; 
+    card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); 
+  });
   document.getElementById('pageInfoDetail').textContent = `${currentPageCategory} / ${tPages}`; document.getElementById('prevPageDetail').disabled = currentPageCategory === 1; document.getElementById('nextPageDetail').disabled = currentPageCategory === tPages; document.getElementById('prevPageDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory > 1) { currentPageCategory--; displayDetailTransactionsList(txs); } }; document.getElementById('nextPageDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory < tPages) { currentPageCategory++; displayDetailTransactionsList(txs); } };
   document.querySelectorAll('#detailTransactionsContainer .edit-btn').forEach(btn => btn.onclick = () => { closeDetailModal(); setTimeout(() => openEditForm(txs.find(i => String(i.id) === btn.getAttribute('data-id'))), 350); }); 
   document.querySelectorAll('#detailTransactionsContainer .delete-btn').forEach(btn => btn.onclick = () => { closeDetailModal(); setTimeout(() => deleteTransaction(btn.getAttribute('data-id')), 350); });
@@ -635,13 +702,18 @@ function displaySearchResults() {
     if(!data || data.length === 0) { document.getElementById('placeholderSearch').style.display = 'block'; document.getElementById('paginationSearch').style.display = 'none'; return; }
     document.getElementById('placeholderSearch').style.display = 'none'; document.getElementById('paginationSearch').style.display = 'flex';
     const tPages = Math.ceil(data.length / itemsPerPage); const pData = data.slice((currentPageSearch - 1) * itemsPerPage, currentPageSearch * itemsPerPage);
-    pData.forEach((item, index) => { const tCls = item.type==='Thu nhập'?'income':'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; const card = document.createElement('div'); card.className = `tx-card ${tCls}`; card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${formatNumberWithCommas(item.amount.toString())}<span>đ</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); });
+    pData.forEach((item, index) => { 
+        const tCls = item.type==='Thu nhập'?'income':'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; 
+        const amtObj = formatCurrencyWithUnit(item.amount);
+        const card = document.createElement('div'); card.className = `tx-card ${tCls}`; 
+        card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); 
+    });
     document.getElementById('pageInfoSearch').textContent = `${currentPageSearch} / ${tPages}`; document.getElementById('prevPageSearch').disabled = currentPageSearch === 1; document.getElementById('nextPageSearch').disabled = currentPageSearch === tPages; document.getElementById('prevPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch > 1) { currentPageSearch--; displaySearchResults(); } }; document.getElementById('nextPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch < tPages) { currentPageSearch++; displaySearchResults(); } };
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => { closeSearchModal(); setTimeout(() => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id'))), 350); }); 
     document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => { closeSearchModal(); setTimeout(() => deleteTransaction(btn.getAttribute('data-id')), 350); });
 }
 
-// ---------------- QUẢN LÝ TỪ KHÓA (ĐÃ FIX LOAD FIREBASE DATA OBJECT) ----------------
+// ---------------- TAB TỪ KHÓA ----------------
 window.loadKeywords = async function(isInit = false) {
     if(!isInit) showLoading(true, 'tab3');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
@@ -650,7 +722,7 @@ window.loadKeywords = async function(isInit = false) {
         const res = await fetch(`${FIREBASE_URL}/keywords.json`); let data = await res.json();
         if(!data) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); data = await gasRes.json(); }
         
-        // FIX ÉP KIỂU: Convert Object thành Array để tránh lỗi forEach
+        // Cứu cánh cho dữ liệu Firebase: Chuyển Object thành Array
         if (data && !Array.isArray(data) && typeof data === 'object') {
             data = Object.values(data).filter(item => item !== null);
         }
@@ -746,13 +818,6 @@ async function submitTx(tx) {
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
     await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success");
     fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(tx) }).catch(e => console.log("Lỗi backup Sheet:", e));
-    
-    // THÔNG BÁO VỀ TELEGRAM (SỬA LẠI LOGIC CHUẨN)
-    const workerUrl = urlParams.get('workerUrl');
-    if (tx.action === 'updateTransaction' && workerUrl) {
-        const chatId = localStorage.getItem('settingChatId');
-        if (chatId) fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'notifyUpdate', chatId: chatId, tx: fbTx }) }).catch(e => console.log(e));
-    }
   } catch(e) { showToast(e.message, "error"); }
 }
 
@@ -765,38 +830,29 @@ window.deleteTransaction = function(id) {
       'Xóa',
       async () => {
           let tx = null; if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id)); if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id)); if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id)); const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
-          
-          const txToDelete = tx ? Object.assign({}, tx) : null;
-
           [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
           if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
           showToast("Đang xóa giao dịch...", "info");
-          try { 
-              await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); 
-              fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); 
-              
-              // THÔNG BÁO VỀ TELEGRAM (SỬA LẠI LOGIC CHUẨN)
-              const workerUrl = urlParams.get('workerUrl');
-              if (workerUrl && txToDelete) {
-                  const chatId = localStorage.getItem('settingChatId');
-                  if (chatId) fetch(workerUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'notifyDelete', chatId: chatId, tx: txToDelete }) }).catch(e => console.log(e));
-              }
-          } catch(e) { showToast(e.message, "error"); }
+          try { await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); } catch(e) { showToast(e.message, "error"); }
       }
   );
 };
 
 // ==========================================
-// XUẤT BÁO CÁO PDF (GIỮ LẠI BẢN GỐC 100%)
+// XUẤT BÁO CÁO PDF (BẢN FIX CHUẨN: TẮT OVERFLOW ĐỂ CHỐNG CẮT XÉN + CHỐNG RỚT DÒNG)
 // ==========================================
 window.exportToPDF = function() {
+    if (isPrivacyActive) {
+        return showToast("Số tiền đang bị ẩn! Vui lòng bấm vào biểu tượng con mắt để hiển thị số dư trước khi xuất báo cáo PDF.", "warning");
+    }
+
     const isTab2 = document.getElementById('tab2').classList.contains('active');
     const data = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
     
     if (data.length === 0) {
         return showToast("Không có dữ liệu giao dịch để tạo file PDF!", "warning");
     }
-    if (typeof html2pdf === 'undefined') {
+    if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
         return showToast("Thư viện xuất PDF chưa sẵn sàng, vui lòng thử lại sau!", "error");
     }
     
@@ -817,7 +873,8 @@ window.exportToPDF = function() {
     element.style.color = '#0F172A';
     element.style.backgroundColor = '#FFFFFF';
     element.style.fontFamily = "'Plus Jakarta Sans', sans-serif";
-    element.style.overflow = 'hidden'; 
+    // Để overflow visible để nội dung bung hết cỡ
+    element.style.overflow = 'visible'; 
     
     let tablesHTML = '';
     let totalIncome = 0, totalExpense = 0;
@@ -849,11 +906,15 @@ window.exportToPDF = function() {
     const hasIncome = data.some(t => t.type === 'Thu nhập');
     const hasExpense = data.some(t => t.type === 'Chi tiêu');
 
+    // [FIX] STT chạy liên tục xuyên suốt toàn bộ báo cáo (không reset theo từng tháng/nhóm)
+    let globalSTT = 0;
+
     sortedKeys.forEach(key => {
         let monthRows = '';
         let monthInc = 0, monthExp = 0;
         
-        groupedData[key].forEach((t, idx) => {
+        groupedData[key].forEach((t) => {
+            globalSTT++;
             const isInc = t.type === 'Thu nhập';
             if (isInc) { totalIncome += t.amount; monthInc += t.amount; }
             else { totalExpense += t.amount; monthExp += t.amount; }
@@ -862,20 +923,22 @@ window.exportToPDF = function() {
             const catIconHTML = getCategoryIcon(t.category);
             
             let tdAmountHTML = '';
+            
+            // [GIẢI QUYẾT LỖI RỚT CHỮ đ] -> Sử dụng white-space: nowrap
             if (hasIncome && hasExpense) {
                 tdAmountHTML = `
-                    <td style="padding: 12px 6px; font-size: 11px; font-weight: 800; color: #00D26A; text-align: right;">${isInc ? '+' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
-                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                    <td style="padding: 12px 6px; font-size: 11px; font-weight: 800; color: #00D26A; text-align: right; white-space: nowrap;">${isInc ? '+' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
+                    <td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: #FF4444; text-align: right; white-space: nowrap;">${!isInc ? '-' + t.amount.toLocaleString('vi-VN') + 'đ' : ''}</td>
                 `;
             } else {
-                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right;">
+                tdAmountHTML = `<td style="padding: 12px 14px 12px 6px; font-size: 11px; font-weight: 800; color: ${isInc ? '#00D26A' : '#FF4444'}; text-align: right; white-space: nowrap;">
                     ${isInc ? '+' : '-'}${t.amount.toLocaleString('vi-VN')}đ
                 </td>`;
             }
 
             monthRows += `
                 <tr style="border-bottom: 1px solid #E2E8F0; page-break-inside: avoid;">
-                    <td style="padding: 12px 6px; font-size: 11px; text-align: center;">${idx + 1}</td>
+                    <td style="padding: 12px 6px; font-size: 11px; text-align: center; font-weight: 700;">${globalSTT}</td>
                     <td style="padding: 12px 6px; font-size: 11px; text-align: center; color: #475569; font-weight: 700;">${t.id || '---'}</td>
                     <td style="padding: 12px 10px; font-size: 11px; font-weight: 700; text-align: left;">${t.content}</td>
                     <td style="padding: 12px 10px; font-size: 11px; color: ${catColor}; font-weight: 700; text-align: left;">
@@ -894,7 +957,10 @@ window.exportToPDF = function() {
                 <th style="padding: 12px 14px 12px 6px; width: 14%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Chi tiêu</th>
             `;
         } else {
-            thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">Số tiền</th>`;
+            // [FIX] Khi chỉ có 1 loại (chỉ thu hoặc chỉ chi), ghi rõ tên loại đó
+            // thay vì ghi chung chung "Số tiền"
+            const singleColLabel = hasIncome ? 'Thu nhập' : 'Chi tiêu';
+            thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">${singleColLabel}</th>`;
         }
 
         const theadHTML = `
@@ -916,9 +982,9 @@ window.exportToPDF = function() {
                     <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                         <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
                         <span style="font-size: 11px; color: #64748B; font-weight: 600;">
-                            Thu: <span style="color: #00D26A">+${monthInc.toLocaleString('vi-VN')}đ</span> 
+                            THU NHẬP: <span style="color: #00D26A; font-weight: 800;">+${monthInc.toLocaleString('vi-VN')}đ</span> 
                             <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
-                            Chi: <span style="color: #FF4444">-${monthExp.toLocaleString('vi-VN')}đ</span>
+                            CHI TIÊU: <span style="color: #FF4444; font-weight: 800;">-${monthExp.toLocaleString('vi-VN')}đ</span>
                         </span>
                     </div>
                     <table class="pdf-table">
@@ -968,13 +1034,13 @@ window.exportToPDF = function() {
         });
 
         chartsHTML = `
-            <div style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+            <div data-pdf-atomic="true" style="margin-top: 20px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                 <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px;">1. Biểu đồ Thu & Chi</h3>
                 <div style="text-align: center; margin-top: 10px;">
                     <img src="${barChartImg}" style="max-width: 100%; height: auto; max-height: 250px; object-fit: contain; display: block; margin: 0 auto;" />
                 </div>
             </div>
-            <div style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
+            <div data-pdf-atomic="true" style="margin-top: 20px; page-break-inside: avoid; display: flex; align-items: stretch; gap: 20px; width: 100%; box-sizing: border-box;">
                 <div style="flex: 1; min-width: 0; max-width: 50%;">
                     <h3 style="font-size: 13px; color: #0891B2; text-transform: uppercase; border-bottom: 1px solid #E2E8F0; padding-bottom: 6px; margin-bottom: 10px;">2. Tỷ trọng chi tiêu</h3>
                     <div style="text-align: center;">
@@ -991,8 +1057,9 @@ window.exportToPDF = function() {
 
     element.innerHTML = `
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
         <style>
-            * { box-sizing: border-box; }
+            * { box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
             .pdf-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 0; }
             .pdf-table th { font-size: 10px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .pdf-table td { overflow-wrap: break-word; word-break: break-word; }
@@ -1005,7 +1072,7 @@ window.exportToPDF = function() {
             <p style="margin: 6px 0 0; color: #64748B; font-size: 13px; font-weight: 600; text-transform: uppercase;">${reportTitle}</p>
         </div>
         
-        <div style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
+        <div data-pdf-atomic="true" style="display: flex; gap: 12px; margin-bottom: 12px; background: #F8FAFC; padding: 14px; border-radius: 10px; border: 1px solid #E2E8F0; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
             <div style="flex: 1; min-width: 0;">
                 <span style="font-size: 10px; color: #64748B; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Tổng thu nhập</span>
                 <div style="font-size: 15px; font-weight: 800; color: #00D26A; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">+${totalIncome.toLocaleString('vi-VN')}đ</div>
@@ -1037,6 +1104,7 @@ window.exportToPDF = function() {
 
     const fileName = `Bao_Cao_${reportNameForFile}.pdf`;
     
+    // Hiển thị bản Preview (Khối code này giữ nguyên)
     const modal = document.getElementById('pdfPreviewModal');
     const overlay = document.getElementById('modalOverlay');
     const previewContainer = document.getElementById('pdfPreviewContainer');
@@ -1073,20 +1141,166 @@ window.exportToPDF = function() {
     overlay.classList.add('show');
     setTimeout(() => modal.classList.add('show'), 10);
     
+    // =====================================
+    // HÀM CLICK XUẤT PDF - TỰ DỰNG PDF BẰNG html2canvas + jsPDF TRỰC TIẾP
+    // (Không dùng html2pdf().from() nữa vì lớp "overlay" tự động của thư viện
+    // này dùng position:fixed + left:-100000px rất dễ bị lệch/cắt nội dung
+    // tuỳ trạng thái cuộn trang, đã gây lỗi qua nhiều lần test trước đó)
+    // =====================================
     document.getElementById('sharePdfBtn').onclick = async () => {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
-        
-        const opt = {
-            margin:       [10, 10, 10, 10],
-            filename:     fileName,
-            image:        { type: 'jpeg', quality: 1 },
-            html2canvas:  { scale: 3, useCORS: true, letterRendering: true, windowWidth: 740 }, 
-            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak:    { mode: ['css', 'legacy'] }
-        };
 
-        html2pdf().set(opt).from(element).output('blob').then(async function(blob) {
+        // Đợi một chút để Font Google và CSS tải hoàn thiện
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        // Gắn element vào DOM bằng position:fixed (neo theo viewport, KHÔNG
+        // phụ thuộc vào vị trí cuộn của trang hay overflow của body/html -
+        // khác với position:absolute từng dùng trước đây).
+        element.style.position = 'fixed';
+        element.style.top = '0';
+        element.style.left = '0';
+        element.style.margin = '0';
+        element.style.zIndex = '-1';
+        document.body.appendChild(element);
+
+        try {
+            // [FIX] ĐO TRƯỚC VỊ TRÍ CÁC PHẦN TỬ "KHÔNG ĐƯỢC CẮT NGANG"
+            // html2canvas chỉ chụp ảnh toàn bộ nội dung thành 1 tấm ảnh dài duy
+            // nhất - nó KHÔNG hiểu CSS page-break-inside/page-break-after. Nếu
+            // chỉ cắt ảnh theo chiều cao cố định (chiều cao 1 trang A4) như cách
+            // làm cũ thì rất dễ cắt ngang giữa 1 dòng giao dịch, khiến STT/nội
+            // dung bị lặp/thiếu giữa 2 trang và phần nối trang sát mép giấy.
+            // => Đo trước offsetTop/offsetHeight của từng <tr> và từng khối
+            // [data-pdf-atomic] để lấy danh sách các điểm "ngắt trang an toàn"
+            // (luôn nằm GIỮA 2 dòng/2 khối, không bao giờ xuyên qua nội dung).
+            const containerRect = element.getBoundingClientRect();
+            const elementHeightPx = element.offsetHeight;
+
+            const breakCandidatesPx = [];
+            element.querySelectorAll('table.pdf-table tbody tr').forEach(tr => {
+                breakCandidatesPx.push(tr.getBoundingClientRect().bottom - containerRect.top);
+            });
+            element.querySelectorAll('[data-pdf-atomic]').forEach(el => {
+                breakCandidatesPx.push(el.getBoundingClientRect().bottom - containerRect.top);
+            });
+
+            // Lấy toạ độ 1 thead mẫu để in lặp lại tiêu đề bảng (STT, Mã GD,...)
+            // ở đầu các trang là phần nối tiếp giữa chừng 1 bảng, giúp người đọc
+            // không bị mất ngữ cảnh cột khi bảng tràn sang trang mới.
+            const sampleThead = element.querySelector('table.pdf-table thead');
+            let theadTopPxCss = null, theadHeightPxCss = 0;
+            if (sampleThead) {
+                const r = sampleThead.getBoundingClientRect();
+                theadTopPxCss = r.top - containerRect.top;
+                theadHeightPxCss = r.height;
+            }
+
+            // Phạm vi (đầu - cuối) của từng bảng, dùng để biết 1 trang có đang
+            // nằm giữa chừng 1 bảng hay không (để quyết định có lặp lại header).
+            const tableRangesPxCss = [];
+            element.querySelectorAll('table.pdf-table').forEach(tbl => {
+                const r = tbl.getBoundingClientRect();
+                tableRangesPxCss.push({ top: r.top - containerRect.top, bottom: r.bottom - containerRect.top });
+            });
+
+            const canvas = await html2canvas(element, {
+                scale: 2,
+                useCORS: true,
+                letterRendering: true,
+                backgroundColor: '#FFFFFF'
+            });
+
+            if (document.body.contains(element)) document.body.removeChild(element);
+
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+            const margin = 10; // mm
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const contentWidthMM = pageWidth - margin * 2;
+            const contentHeightMM = pageHeight - margin * 2;
+
+            const imgWidthMM = contentWidthMM;
+            const imgHeightMM = (canvas.height * imgWidthMM) / canvas.width;
+            const pxPerMm = canvas.height / imgHeightMM; // tỉ lệ quy đổi px-ảnh <-> mm
+            const pxScale = canvas.height / elementHeightPx; // tỉ lệ px-CSS -> px-ảnh canvas (scale:2)
+
+            let breakPointsPx = breakCandidatesPx
+                .map(v => v * pxScale)
+                .concat([canvas.height])
+                .map(v => Math.round(v));
+            breakPointsPx = [...new Set(breakPointsPx)].sort((a, b) => a - b);
+
+            const headerHeightPx = theadHeightPxCss * pxScale;
+            const headerHeightMM = headerHeightPx / pxPerMm;
+            const theadTopPx = theadTopPxCss !== null ? theadTopPxCss * pxScale : 0;
+
+            const tableRangesPx = tableRangesPxCss.map(t => ({
+                top: t.top * pxScale,
+                bottom: t.bottom * pxScale
+            }));
+
+            const contentHeightPx = contentHeightMM * pxPerMm;
+
+            // Cắt 1 dải ảnh [sy, sy+sh) từ canvas gốc ra 1 canvas riêng cho từng trang
+            function cropSlice(sy, sh) {
+                sy = Math.max(0, Math.round(sy));
+                sh = Math.max(1, Math.round(sh));
+                const sub = document.createElement('canvas');
+                sub.width = canvas.width;
+                sub.height = sh;
+                const ctx = sub.getContext('2d');
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, sub.width, sub.height);
+                ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+                return sub.toDataURL('image/jpeg', 1.0);
+            }
+
+            let currentTopPx = 0;
+            let firstPage = true;
+
+            while (currentTopPx < canvas.height - 1) {
+                if (!firstPage) pdf.addPage();
+                firstPage = false;
+
+                // Trang này có đang nằm giữa chừng 1 bảng đã in header ở trang
+                // trước không? Nếu có -> cần in lặp lại dòng tiêu đề bảng.
+                const continuingTable = tableRangesPx.find(t => t.top < currentTopPx - 1 && t.bottom > currentTopPx + 1);
+                const needsHeaderRepeat = !!continuingTable && headerHeightPx > 0;
+
+                const availablePx = needsHeaderRepeat ? (contentHeightPx - headerHeightPx) : contentHeightPx;
+                const idealBottomPx = currentTopPx + availablePx;
+
+                let sliceBottomPx;
+                if (idealBottomPx >= canvas.height - 1) {
+                    sliceBottomPx = canvas.height;
+                } else {
+                    const validBreaks = breakPointsPx.filter(p => p > currentTopPx + 1 && p <= idealBottomPx);
+                    // Nếu không tìm được điểm ngắt an toàn nào vừa với 1 trang
+                    // (trường hợp hiếm: 1 khối cao hơn cả 1 trang) thì đành cắt
+                    // cứng theo chiều cao trang để tránh vòng lặp vô hạn.
+                    sliceBottomPx = validBreaks.length > 0 ? validBreaks[validBreaks.length - 1] : Math.round(idealBottomPx);
+                }
+
+                let yMM = margin;
+                if (needsHeaderRepeat) {
+                    const headerImg = cropSlice(theadTopPx, headerHeightPx);
+                    pdf.addImage(headerImg, 'JPEG', margin, yMM, imgWidthMM, headerHeightMM);
+                    yMM += headerHeightMM;
+                }
+
+                const sliceHeightPx = sliceBottomPx - currentTopPx;
+                const sliceHeightMM = sliceHeightPx / pxPerMm;
+                const contentImg = cropSlice(currentTopPx, sliceHeightPx);
+                pdf.addImage(contentImg, 'JPEG', margin, yMM, imgWidthMM, sliceHeightMM);
+
+                currentTopPx = sliceBottomPx;
+            }
+
+            const blob = pdf.output('blob');
+
             triggerHapticNotification('success');
             const file = new File([blob], fileName, { type: 'application/pdf' });
             
@@ -1107,13 +1321,17 @@ window.exportToPDF = function() {
                 URL.revokeObjectURL(pdfUrl);
                 showToast("Đã tải file PDF xuống máy!", "success");
             }
-        }).catch(err => {
+        } catch (err) {
+            if (document.body.contains(element)) document.body.removeChild(element);
             showToast("Lỗi tạo PDF: " + err.message, "error");
-        });
+        }
     };
 };
-
 window.exportToCSV = async function() {
+    if (isPrivacyActive) {
+        return showToast("Số tiền đang bị ẩn! Vui lòng bấm vào biểu tượng con mắt để hiển thị số dư trước khi xuất dữ liệu CSV.", "warning");
+    }
+
     const isTab2 = document.getElementById('tab2').classList.contains('active'); const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
     if (dataToExport.length === 0) return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
     triggerHaptic('light'); let csvContent = "\uFEFFMã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
@@ -1362,6 +1580,8 @@ window.closeIconPickerModal = function() {
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
+  // --- THÊM DÒNG NÀY ĐỂ ÁP DỤNG TRẠNG THÁI LƯU CỨNG KHI VỪA MỞ APP ---
+  applyPrivacyMode(); 
     
   document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
   const currentMonthValue = new Date().getMonth() + 1;
@@ -1432,7 +1652,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
     else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
     
-    showLoading(true, 'search');
+    showLoading(true, 'tab3');
     try {
       let txs = []; let fetchPromises = []; 
       for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
@@ -1440,7 +1660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
       monthsResults.forEach(monthData => { monthData.forEach(t => { let matches = true; if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false; if (a && Math.abs(t.amount - aNum) > 0.01) matches = false; if (cat && t.category !== cat) matches = false; if (matches) txs.push(t); }); });
       txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
-    } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'search'); }
+    } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
   
   document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
@@ -1504,7 +1724,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('settingTheme').onchange = (e) => { triggerHaptic('light'); const v = e.target.value; localStorage.setItem('settingTheme', v); document.body.className = `theme-${v}`; };
   document.getElementById('settingDefaultTab').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingDefaultTab', e.target.value); };
   document.getElementById('settingStartOfWeek').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingStartOfWeek', e.target.value); if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); };
-  document.getElementById('settingCurrencyFormat').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingCurrencyFormat', e.target.value); window.fetchTransactions(true); if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); };
+  
+  // Thay đổi cài đặt Rút gọn tiền thì Render lại ngay biểu đồ để tránh lỗi
+  document.getElementById('settingCurrencyFormat').onchange = (e) => { 
+      triggerHaptic('light'); 
+      localStorage.setItem('settingCurrencyFormat', e.target.value); 
+      window.fetchTransactions(true); 
+      if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); 
+  };
+  
   document.getElementById('settingHaptic').onchange = (e) => { localStorage.setItem('settingHaptic', e.target.checked); if(e.target.checked) triggerHaptic('light'); };
   document.getElementById('settingChatId').onchange = (e) => localStorage.setItem('settingChatId', e.target.value.trim());
 
@@ -1548,7 +1776,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
   }
 
-  initSettings();
+  // --- TRƯỜNG HỢP NẾU BẠN ĐÃ CÓ HÀM NÀY MÀ THIẾU THÌ NÓ VẪN HOẠT ĐỘNG, NẾU KHÔNG CÓ THÌ BỎ QUA ---
+  if(typeof initSettings === 'function') initSettings(); 
+  
   window.initCategories();
   const defTab = localStorage.getItem('settingDefaultTab') || 'tab1';
   window.openTab(defTab); 
