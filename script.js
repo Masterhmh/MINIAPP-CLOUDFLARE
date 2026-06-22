@@ -112,9 +112,14 @@ function applyPrivacyMode() {
 function formatCurrencyWithUnit(value) {
     const format = localStorage.getItem('settingCurrencyFormat') || 'full';
     let num = parseInt(value.toString().replace(/[^0-9-]/g, '')) || 0;
+    
     if (format === 'short' && Math.abs(num) >= 1000) {
-        return { val: (num / 1000).toFixed(0) + 'K', unit: '' }; // Không trả về đ nữa nếu là K
+        // Chia 1000 để lấy giá trị K, làm tròn và chèn dấu chấm phân cách
+        let shortNum = Math.round(num / 1000);
+        let formattedShort = shortNum.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        return { val: formattedShort + 'K', unit: '' }; 
     }
+    
     return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
 }
 
