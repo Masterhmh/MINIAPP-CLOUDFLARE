@@ -446,9 +446,10 @@ function renderCalendar(txs, dateObj, mode) {
             const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             const bal = data.inc - data.exp;
+            const bObj = formatCurrencyWithUnit(Math.abs(bal));
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${bObj.val}${bObj.unit}</span>`;
+            else if (bal < 0) balHTML = `<span class="calendar-balance negative">-${bObj.val}${bObj.unit}</span>`;
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
             dayDiv.innerHTML = `<span style="font-size:0.65rem; color:var(--text-3); font-weight:600;">${dayNames[d.getDay()]}</span><span class="calendar-date">${d.getDate()}</span>${balHTML}`;
@@ -476,9 +477,10 @@ function renderCalendar(txs, dateObj, mode) {
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
+            const bObj = formatCurrencyWithUnit(Math.abs(bal));
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${bObj.val}${bObj.unit}</span>`;
+            else if (bal < 0) balHTML = `<span class="calendar-balance negative">-${bObj.val}${bObj.unit}</span>`;
 
             let classes = ['calendar-day'];
             if (isCurrentMonth && today.getDate() === i) classes.push('today');
@@ -538,6 +540,10 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
         options: { 
             devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
             scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => {
+                if (isPrivacyActive) return '***';
+                const cObj = formatCurrencyWithUnit(v);
+                return cObj.val + cObj.unit;
+            } } } },
                 if (isPrivacyActive) return '***';
                 return v >= 1000 ? Math.round(v/1000).toLocaleString('vi-VN') + 'K' : v.toLocaleString('vi-VN');
             } } } }, 
