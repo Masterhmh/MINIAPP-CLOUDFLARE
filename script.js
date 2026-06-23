@@ -442,7 +442,10 @@ function renderCalendar(txs, dateObj, mode) {
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
     
     if (mode === 'weekly') {
-        if (header) header.style.display = 'none'; grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+        if (header) header.style.display = 'none';
+        grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+        grid.style.borderTop = '1px solid var(--border-color)';
+        grid.style.borderRadius = '10px';
         const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
         for (let i = 0; i < 7; i++) {
             const d = new Date(dateObj); d.setDate(d.getDate() + i);
@@ -471,6 +474,8 @@ function renderCalendar(txs, dateObj, mode) {
             else { header.innerHTML = `<span>CN</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span>`; }
         }
         grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+        grid.style.borderTop = 'none';
+        grid.style.borderRadius = '0 0 10px 10px';
 
         const year = dateObj.getFullYear(); const month = dateObj.getMonth();
         let firstDay = new Date(year, month, 1).getDay();
