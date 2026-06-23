@@ -2,7 +2,13 @@
 if (window.Telegram && window.Telegram.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
+    if (typeof Telegram.WebApp.requestFullscreen === 'function') {
+        Telegram.WebApp.requestFullscreen();
+    }
 }
+
+// Flag đánh dấu tab 2 cần reload khi có thay đổi giao dịch
+let tab2NeedsReload = false;
 
 const urlParams = new URLSearchParams(window.location.search);
 const apiUrl = urlParams.get('api');
@@ -121,6 +127,18 @@ function formatCurrencyWithUnit(value) {
     }
     
     return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
+}
+
+// Dinh dang so tien cho o lich voi auto font-size
+function formatCalendarAmount(value) {
+    const obj = formatCurrencyWithUnit(value);
+    const str = obj.val + obj.unit;
+    let fs;
+    if (str.length <= 5) fs = '0.50rem';
+    else if (str.length <= 7) fs = '0.44rem';
+    else if (str.length <= 9) fs = '0.38rem';
+    else fs = '0.32rem';
+    return { str, fs };
 }
 
 function escapeHTML(str) {
@@ -446,12 +464,12 @@ function renderCalendar(txs, dateObj, mode) {
             const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             const bal = data.inc - data.exp;
-            const incObj = formatCurrencyWithUnit(data.inc);
-            const expObj = formatCurrencyWithUnit(data.exp);
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
-                let incStr = data.inc > 0 ? `<span class="calendar-balance positive cal-row-amt">+${incObj.val}${incObj.unit}</span>` : '';
-                let expStr = data.exp > 0 ? `<span class="calendar-balance negative cal-row-amt">-${expObj.val}${expObj.unit}</span>` : '';
+                const incCA = data.inc > 0 ? formatCalendarAmount(data.inc) : null;
+                const expCA = data.exp > 0 ? formatCalendarAmount(data.exp) : null;
+                let incStr = incCA ? `<span class="calendar-balance positive cal-row-amt" style="font-size:${incCA.fs}">+${incCA.str}</span>` : '';
+                let expStr = expCA ? `<span class="calendar-balance negative cal-row-amt" style="font-size:${expCA.fs}">-${expCA.str}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr}${expStr}</div>`;
             }
 
@@ -481,12 +499,12 @@ function renderCalendar(txs, dateObj, mode) {
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
-            const incObj2 = formatCurrencyWithUnit(data.inc);
-            const expObj2 = formatCurrencyWithUnit(data.exp);
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
-                let incStr2 = data.inc > 0 ? `<span class="calendar-balance positive cal-row-amt">+${incObj2.val}${incObj2.unit}</span>` : '';
-                let expStr2 = data.exp > 0 ? `<span class="calendar-balance negative cal-row-amt">-${expObj2.val}${expObj2.unit}</span>` : '';
+                const incCA2 = data.inc > 0 ? formatCalendarAmount(data.inc) : null;
+                const expCA2 = data.exp > 0 ? formatCalendarAmount(data.exp) : null;
+                let incStr2 = incCA2 ? `<span class="calendar-balance positive cal-row-amt" style="font-size:${incCA2.fs}">+${incCA2.str}</span>` : '';
+                let expStr2 = expCA2 ? `<span class="calendar-balance negative cal-row-amt" style="font-size:${expCA2.fs}">-${expCA2.str}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr2}${expStr2}</div>`;
             }
 
@@ -846,7 +864,7 @@ async function submitTx(tx) {
     const month = parseInt(tx.date.split('/')[1], 10); const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
     if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); } else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
-    await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success");
+    await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
@@ -868,7 +886,7 @@ window.deleteTransaction = function(id) {
           if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
           showToast("Đang xóa giao dịch...", "info");
           try { 
-              await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); 
+              await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true; 
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
@@ -1635,7 +1653,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  document.querySelectorAll('.nav-btn').forEach(b => { b.onclick = () => { const targetTab = b.dataset.tab; window.openTab(targetTab); if (targetTab === 'tab1') window.fetchTransactions(false); if (targetTab === 'tab2') updateTimeNavUI(); }; });
+  document.querySelectorAll('.nav-btn').forEach(b => { b.onclick = () => { const targetTab = b.dataset.tab; window.openTab(targetTab); if (targetTab === 'tab1') window.fetchTransactions(false); if (targetTab === 'tab2') { if (tab2NeedsReload) { tab2NeedsReload = false; cachedChartData = null; } updateTimeNavUI(); } }; });
   
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
