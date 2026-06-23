@@ -2,9 +2,6 @@
 if (window.Telegram && window.Telegram.WebApp) {
     Telegram.WebApp.ready();
     Telegram.WebApp.expand();
-    if (typeof Telegram.WebApp.requestFullscreen === 'function') {
-        Telegram.WebApp.requestFullscreen();
-    }
 }
 
 // Flag đánh dấu tab 2 cần reload khi có thay đổi giao dịch
@@ -127,18 +124,6 @@ function formatCurrencyWithUnit(value) {
     }
     
     return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
-}
-
-// Dinh dang so tien cho o lich voi auto font-size
-function formatCalendarAmount(value) {
-    const obj = formatCurrencyWithUnit(value);
-    const str = obj.val + obj.unit;
-    let fs;
-    if (str.length <= 5) fs = '0.50rem';
-    else if (str.length <= 7) fs = '0.44rem';
-    else if (str.length <= 9) fs = '0.38rem';
-    else fs = '0.32rem';
-    return { str, fs };
 }
 
 function escapeHTML(str) {
@@ -466,10 +451,10 @@ function renderCalendar(txs, dateObj, mode) {
             const bal = data.inc - data.exp;
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
-                const incCA = data.inc > 0 ? formatCalendarAmount(data.inc) : null;
-                const expCA = data.exp > 0 ? formatCalendarAmount(data.exp) : null;
-                let incStr = incCA ? `<span class="calendar-balance positive cal-row-amt" style="font-size:${incCA.fs}">+${incCA.str}</span>` : '';
-                let expStr = expCA ? `<span class="calendar-balance negative cal-row-amt" style="font-size:${expCA.fs}">-${expCA.str}</span>` : '';
+                const incObj = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
+                const expObj = data.exp > 0 ? formatCurrencyWithUnit(data.exp) : null;
+                let incStr = incObj ? `<span class="calendar-balance positive cal-row-amt">+${incObj.val}${incObj.unit}</span>` : '';
+                let expStr = expObj ? `<span class="calendar-balance negative cal-row-amt">-${expObj.val}${expObj.unit}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr}${expStr}</div>`;
             }
 
@@ -501,10 +486,10 @@ function renderCalendar(txs, dateObj, mode) {
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
-                const incCA2 = data.inc > 0 ? formatCalendarAmount(data.inc) : null;
-                const expCA2 = data.exp > 0 ? formatCalendarAmount(data.exp) : null;
-                let incStr2 = incCA2 ? `<span class="calendar-balance positive cal-row-amt" style="font-size:${incCA2.fs}">+${incCA2.str}</span>` : '';
-                let expStr2 = expCA2 ? `<span class="calendar-balance negative cal-row-amt" style="font-size:${expCA2.fs}">-${expCA2.str}</span>` : '';
+                const incObj2 = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
+                const expObj2 = data.exp > 0 ? formatCurrencyWithUnit(data.exp) : null;
+                let incStr2 = incObj2 ? `<span class="calendar-balance positive cal-row-amt">+${incObj2.val}${incObj2.unit}</span>` : '';
+                let expStr2 = expObj2 ? `<span class="calendar-balance negative cal-row-amt">-${expObj2.val}${expObj2.unit}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr2}${expStr2}</div>`;
             }
 
