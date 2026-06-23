@@ -446,9 +446,14 @@ function renderCalendar(txs, dateObj, mode) {
             const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             const bal = data.inc - data.exp;
+            const incObj = formatCurrencyWithUnit(data.inc);
+            const expObj = formatCurrencyWithUnit(data.exp);
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            if (data.inc > 0 || data.exp > 0) {
+                let incStr = data.inc > 0 ? `<span class="calendar-balance positive cal-row-amt">+${incObj.val}${incObj.unit}</span>` : '';
+                let expStr = data.exp > 0 ? `<span class="calendar-balance negative cal-row-amt">-${expObj.val}${expObj.unit}</span>` : '';
+                balHTML = `<div class="cal-amt-col">${incStr}${expStr}</div>`;
+            }
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
             dayDiv.innerHTML = `<span style="font-size:0.65rem; color:var(--text-3); font-weight:600;">${dayNames[d.getDay()]}</span><span class="calendar-date">${d.getDate()}</span>${balHTML}`;
@@ -476,9 +481,14 @@ function renderCalendar(txs, dateObj, mode) {
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
+            const incObj2 = formatCurrencyWithUnit(data.inc);
+            const expObj2 = formatCurrencyWithUnit(data.exp);
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
-            if (bal > 0) balHTML = `<span class="calendar-balance positive">+${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
-            else if (bal < 0) balHTML = `<span class="calendar-balance negative">${Math.round(bal/1000).toLocaleString('vi-VN')}K</span>`;
+            if (data.inc > 0 || data.exp > 0) {
+                let incStr2 = data.inc > 0 ? `<span class="calendar-balance positive cal-row-amt">+${incObj2.val}${incObj2.unit}</span>` : '';
+                let expStr2 = data.exp > 0 ? `<span class="calendar-balance negative cal-row-amt">-${expObj2.val}${expObj2.unit}</span>` : '';
+                balHTML = `<div class="cal-amt-col">${incStr2}${expStr2}</div>`;
+            }
 
             let classes = ['calendar-day'];
             if (isCurrentMonth && today.getDate() === i) classes.push('today');
@@ -539,7 +549,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
             devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
             scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: v => {
                 if (isPrivacyActive) return '***';
-                return v >= 1000 ? Math.round(v/1000).toLocaleString('vi-VN') + 'K' : v.toLocaleString('vi-VN');
+                const vObj = formatCurrencyWithUnit(v); return vObj.val + vObj.unit;
             } } } }, 
             plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => {
                 if (isPrivacyActive) return `${ctx.dataset.label}: ***`;
