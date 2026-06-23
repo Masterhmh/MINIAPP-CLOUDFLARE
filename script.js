@@ -447,6 +447,7 @@ function renderCalendar(txs, dateObj, mode) {
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             const bal = data.inc - data.exp;
             const bObj = formatCurrencyWithUnit(Math.abs(bal));
+            const bObj = formatCurrencyWithUnit(Math.abs(bal));
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (bal > 0) balHTML = `<span class="calendar-balance positive">+${bObj.val}${bObj.unit}</span>`;
             else if (bal < 0) balHTML = `<span class="calendar-balance negative">-${bObj.val}${bObj.unit}</span>`;
@@ -478,6 +479,7 @@ function renderCalendar(txs, dateObj, mode) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
             const bObj = formatCurrencyWithUnit(Math.abs(bal));
+            lconst bObj = formatCurrencyWithUnit(Math.abs(bal));
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (bal > 0) balHTML = `<span class="calendar-balance positive">+${bObj.val}${bObj.unit}</span>`;
             else if (bal < 0) balHTML = `<span class="calendar-balance negative">-${bObj.val}${bObj.unit}</span>`;
