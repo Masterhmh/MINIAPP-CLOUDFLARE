@@ -756,16 +756,32 @@ window.loadKeywords = async function(isInit = false) {
     if(!isInit) showLoading(true, 'tab3');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
     try {
-        const iconRes = await fetch(`${FIREBASE_URL}/categoryIcons.json`); const iconData = await iconRes.json(); if(iconData) window.customCategoryIcons = iconData;
-        const res = await fetch(`${FIREBASE_URL}/keywords.json`); let data = await res.json();
-        if(!data) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); data = await gasRes.json(); }
-        
-        // Cứu cánh cho dữ liệu Firebase: Chuyển Object thành Array
-        if (data && !Array.isArray(data) && typeof data === 'object') {
-            data = Object.values(data).filter(item => item !== null);
+        // Đọc 1 node /categories duy nhất (object keyed theo tên danh mục)
+        const res = await fetch(`${FIREBASE_URL}/categories.json`); let raw = await res.json();
+        if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); raw = await gasRes.json(); }
+
+        // Chuẩn hóa -> mảng [{category, icon, keywords}] (hỗ trợ cả cấu trúc cũ là mảng)
+        let data = [];
+        if (Array.isArray(raw)) {
+            data = raw.filter(item => item !== null);
+        } else if (raw && typeof raw === 'object') {
+            data = Object.entries(raw).map(([category, v]) => ({
+                category,
+                icon: (v && v.icon) || '❗',
+                keywords: (v && v.keywords) || ''
+            }));
         }
-        
-        cachedKeywords = data || []; window.categoryIconMap = {}; cachedKeywords.forEach(kw => { if (kw && kw.category && kw.icon) window.categoryIconMap[kw.category.trim()] = kw.icon.trim(); });
+
+        cachedKeywords = data || [];
+        // Dựng đồng thời 2 map icon từ cùng 1 nguồn -> không còn lệch icon
+        window.categoryIconMap = {};
+        window.customCategoryIcons = {};
+        cachedKeywords.forEach(kw => {
+            if (kw && kw.category && kw.icon) {
+                window.categoryIconMap[kw.category.trim()] = kw.icon.trim();
+                window.customCategoryIcons[kw.category.trim()] = kw.icon.trim();
+            }
+        });
         if(!isInit) displayKeywords();
     } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab3'); }
 };
@@ -800,10 +816,16 @@ function displayKeywords() {
 // ---------------- MODALS & CRUD ----------------
 async function fetchCategories() { 
     try { 
-        const res = await fetch(`${FIREBASE_URL}/categories.json`); let cats = await res.json(); 
-        if(!cats) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); cats = await gasRes.json(); } 
-        if (cats && Array.isArray(cats)) { cats.sort((a, b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); }); }
-        return cats || []; 
+        const res = await fetch(`${FIREBASE_URL}/categories.json`); let raw = await res.json(); 
+        if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); raw = await gasRes.json(); } 
+        let cats = [];
+        if (Array.isArray(raw)) {
+            cats = raw.filter(c => c);            // tương thích ngược: mảng tên
+        } else if (raw && typeof raw === 'object') {
+            cats = Object.keys(raw);              // cấu trúc mới: lấy tên danh mục
+        }
+        cats.sort((a, b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); });
+        return cats; 
     } catch(e) { return []; } 
 }
 
@@ -1465,8 +1487,11 @@ window.openIconPickerModal = function() {
             
             triggerHaptic('medium'); showLoading(true, 'tab3');
             try {
-                await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'PATCH', body: JSON.stringify({ [cat]: selectedIcon }) });
+                // Ghi icon thẳng vào node gộp /categories/<tên>/icon
+                await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/icon.json`, { method: 'PUT', body: JSON.stringify(selectedIcon) });
                 window.customCategoryIcons[cat] = selectedIcon; 
+                window.categoryIconMap[cat] = selectedIcon;
+                // GAS vẫn cập nhật sheet + từ khóa (giữ nguyên), sau đó sheet tự đồng bộ lại /categories
                 await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: newKws, sheetId: sheetId }) });
 
                 showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
@@ -1488,8 +1513,9 @@ window.openIconPickerModal = function() {
                 async () => {
                     showLoading(true, 'tab3');
                     try {
-                        await fetch(`${FIREBASE_URL}/categoryIcons/${cat}.json`, { method: 'DELETE' });
+                        await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}.json`, { method: 'DELETE' });
                         delete window.customCategoryIcons[cat];
+                        delete window.categoryIconMap[cat];
                         await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
                         
                         showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
@@ -1797,7 +1823,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       showCustomConfirm('Khôi Phục Cài Đặt Gốc', 'Toàn bộ dữ liệu giao dịch, từ khoá và cài đặt của bạn trên Firebase sẽ bị <strong>XÓA VĨNH VIỄN</strong>. Bạn có chắc chắn không?', 'XÓA TẤT CẢ', async () => {
           showLoading(true, 'tab4');
           try {
-              await fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/keywords.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'DELETE' });
+              await fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/categories.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/keywords.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'DELETE' });
               localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
           } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
       });
