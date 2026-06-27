@@ -619,7 +619,9 @@ function showCategoryDetail(cat) {
   document.getElementById('detailModalTitle').textContent = cat.toUpperCase(); 
   document.getElementById('detailModalTitle').style.color = 'var(--primary)';
   
-  const txs = cachedChartData.txs.filter(t => t.category === cat);
+  const txs = cachedChartData.txs
+    .filter(t => t.category === cat)
+    .sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
   let totalInc = 0, totalExp = 0;
   txs.forEach(t => { if(t.type === 'Thu nhập') totalInc += t.amount; else totalExp += t.amount; });
   
@@ -640,12 +642,12 @@ function showCategoryDetail(cat) {
 function openDailyDetailView(d, m, y, allTxs) {
     const dNum = parseInt(d, 10); const mNum = parseInt(m, 10); const yNum = parseInt(y, 10);
     
-    const dayTxs = allTxs.filter(t => { 
-        if (!t || !t.date) return false; 
-        const parts = t.date.split('/'); 
-        if (parts.length !== 3) return false; 
-        return parseInt(parts[0], 10) === dNum && parseInt(parts[1], 10) === mNum && parseInt(parts[2], 10) === yNum; 
-    });
+    cconst dayTxs = allTxs.filter(t => { 
+    if (!t || !t.date) return false; 
+    const parts = t.date.split('/'); 
+    if (parts.length !== 3) return false; 
+    return parseInt(parts[0], 10) === dNum && parseInt(parts[1], 10) === mNum && parseInt(parts[2], 10) === yNum; 
+    }).sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
     // Sắp xếp giao dịch từ mới nhất đến cũ nhất
     dayTxs.sort((a,b) => b.id.localeCompare(a.id));
     const detailModal = document.getElementById('detailModal');
