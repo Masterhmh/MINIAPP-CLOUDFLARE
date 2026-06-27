@@ -278,19 +278,19 @@ window.openTab = function(tabId) {
 };
 
 async function fetchMonthData(month) {
-    try {
-        const res = await fetch(`${FIREBASE_URL}/transactions/month_${parseInt(month, 10)}.json`);
-        const data = await res.json();
-        if(data) {
-            return Object.values(data).filter(item => item !== null).map(item => {
-                if (item && item.date) {
-                    const p = item.date.split('/');
-                    if(p.length === 3) item.date = `${String(parseInt(p[0], 10)).padStart(2, '0')}/${String(parseInt(p[1], 10)).padStart(2, '0')}/${p[2]}`;
-                }
-                return item;
-            });
-        }
-    } catch (e) {} return [];
+    const res = await fetch(`${FIREBASE_URL}/transactions/month_${parseInt(month, 10)}.json`);
+    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status} khi tải tháng ${month}`);
+    const data = await res.json();
+    if (data) {
+        return Object.values(data).filter(item => item !== null).map(item => {
+            if (item && item.date) {
+                const p = item.date.split('/');
+                if (p.length === 3) item.date = `${String(parseInt(p[0], 10)).padStart(2, '0')}/${String(parseInt(p[1], 10)).padStart(2, '0')}/${p[2]}`;
+            }
+            return item;
+        });
+    }
+    return [];
 }
 
 // ---------------- TAB 1: GIAO DỊCH ----------------
@@ -326,7 +326,11 @@ window.fetchTransactions = async function(forceRefresh = false) {
     
     cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev, compareSuffix: compareSuffix };
     currentPageTab1 = 1; displayTransactions();
-  } catch (err) { cachedTransactions = { cacheKey, data: [], prevData: [], compareSuffix: compareSuffix }; displayTransactions(); }
+  } catch (err) {
+  cachedTransactions = { cacheKey, data: [], prevData: [], compareSuffix: compareSuffix };
+  displayTransactions();
+  showToast(navigator.onLine ? ('Lỗi tải giao dịch: ' + err.message) : 'Mất kết nối mạng. Kiểm tra Internet rồi thử lại.', 'error');
+}
   finally { showLoading(false, 'tab1'); }
 };
 
@@ -460,8 +464,10 @@ async function getTransactionsInRange(startDate, endDate) {
                 if (txDate >= startDate && txDate <= endDate) txs.push(t); 
             }); 
         });
-        window.apiTxCache[cacheKey] = txs; return txs;
-    } catch (e) { return []; }
+                window.apiTxCache[cacheKey] = txs; return txs;
+    } catch (e) {
+        throw new Error(navigator.onLine ? ('Lỗi tải dữ liệu báo cáo: ' + e.message) : 'Mất kết nối mạng. Kiểm tra Internet rồi thử lại.');
+    }
 }
 
 function renderCalendar(txs, dateObj, mode) {
@@ -904,24 +910,39 @@ async function getNextTransactionId() {
         });
     }
 
-    const nextNum = num + 1;
-    await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`, { method: 'PUT', body: JSON.stringify(nextNum) });
+        const nextNum = num + 1;
+    const putRes = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`, { method: 'PUT', body: JSON.stringify(nextNum) });
+    if (!putRes.ok) throw new Error(`Không cập nhật được bộ đếm mã GD (${putRes.status})`);
     return "GD" + String(nextNum).padStart(3, '0');
 }
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
     if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(); }
-    const month = parseInt(tx.date.split('/')[1], 10); const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
-    if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); } else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
+    const month = parseInt(tx.date.split('/')[1], 10);
+    const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
+
+    // GHI LÊN FIREBASE TRƯỚC — xác nhận OK rồi mới cập nhật giao diện
+    const res = await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) });
+    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+
+    // Ghi thành công -> mới đụng vào cache + render
+    if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); }
+    else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
-    await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) }); triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
+
+    triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
 
     fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(tx) }).catch(e => console.log("Lỗi backup Sheet:", e));
-  } catch(e) { showToast(e.message, "error"); }
+    return true;
+  } catch(e) {
+    triggerHapticNotification('error');
+    showToast(navigator.onLine ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!') : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!', "error");
+    return false;
+  }
 }
 
 window.deleteTransaction = function(id) {
@@ -932,18 +953,33 @@ window.deleteTransaction = function(id) {
       `Bạn có chắc chắn muốn xóa giao dịch <strong>#${escapeHTML(id)}</strong> này không?`,
       'Xóa',
       async () => {
-          let tx = null; if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id)); if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id)); if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id)); const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
-          [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
-          if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults(); 
+          // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
+          let tx = null;
+          if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
+          if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
+          if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
+          const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
+
           showToast("Đang xóa giao dịch...", "info");
-          try { 
-              await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' }); triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true; 
+          try {
+              // XÓA TRÊN FIREBASE TRƯỚC — xác nhận OK rồi mới đụng vào giao diện
+              const res = await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' });
+              if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+
+              // Xóa thành công -> giờ mới gỡ khỏi cache + render lại
+              [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
+              if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+              triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
 
-              fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e)); 
-          } catch(e) { showToast(e.message, "error"); }
+              fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e));
+          } catch(e) {
+              triggerHapticNotification('error');
+              showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
+          }
       }
   );
 };
@@ -1798,8 +1834,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         this.value = formatNumberWithCommas(this.value); 
     }; 
 });  
-  document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
-  document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
+  document.getElementById('addForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const [y,m,d] = document.getElementById('addDate').value.split('-');
+  const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId };
+  const ok = await submitTx(tx);
+  if (ok) closeAddForm();   // chỉ đóng form khi đã lưu thành công
+};
+document.getElementById('editForm').onsubmit = async function(e) {
+  e.preventDefault();
+  const [y,m,d] = document.getElementById('editDate').value.split('-');
+  const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId };
+  const ok = await submitTx(tx);
+  if (ok) closeEditForm();   // chỉ đóng form khi đã lưu thành công
+};
 
   window.initCategories = async function(preserveValues = false) {
     try {
