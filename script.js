@@ -622,6 +622,7 @@ function showCategoryDetail(cat) {
   const txs = cachedChartData.txs
     .filter(t => t.category === cat)
     .sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
+
   let totalInc = 0, totalExp = 0;
   txs.forEach(t => { if(t.type === 'Thu nhập') totalInc += t.amount; else totalExp += t.amount; });
   
@@ -642,14 +643,13 @@ function showCategoryDetail(cat) {
 function openDailyDetailView(d, m, y, allTxs) {
     const dNum = parseInt(d, 10); const mNum = parseInt(m, 10); const yNum = parseInt(y, 10);
     
-    cconst dayTxs = allTxs.filter(t => { 
+    const dayTxs = allTxs.filter(t => { 
     if (!t || !t.date) return false; 
     const parts = t.date.split('/'); 
     if (parts.length !== 3) return false; 
     return parseInt(parts[0], 10) === dNum && parseInt(parts[1], 10) === mNum && parseInt(parts[2], 10) === yNum; 
-    }).sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
-    // Sắp xếp giao dịch từ mới nhất đến cũ nhất
-    dayTxs.sort((a,b) => b.id.localeCompare(a.id));
+}).sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
+
     const detailModal = document.getElementById('detailModal');
     document.getElementById('modalOverlay').classList.add('show');
     setTimeout(() => detailModal.classList.add('show'), 10);
@@ -1729,10 +1729,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let sM = 1, eM = 12;
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
     else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
-    // Chặn lỗi nếu Tháng bắt đầu > Tháng kết thúc
-    if (sM > eM) {
-        return showToast("Tháng bắt đầu không được lớn hơn tháng kết thúc!", "warning");
-    }
+    
     showLoading(true, 'tab3');
     try {
       let txs = []; let fetchPromises = []; 
