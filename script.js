@@ -140,9 +140,16 @@ function formatCurrencyWithUnit(value) {
     // Dưới 1.000đ: giữ nguyên
     if (abs < 1000) return { val: sign + abs.toString(), unit: 'đ' };
 
+    // 1.000 - 9.999đ: giữ 1 số lẻ cho gọn (1.500 -> 1,5K)
+    if (abs < 10000) {
+        const k = Math.round(abs / 100) / 10; // làm tròn tới trăm
+        const kStr = Number.isInteger(k) ? k.toString() : k.toString().replace('.', ',');
+        return { val: sign + kStr + 'K', unit: '' };
+    }
+
     // Làm tròn bỏ phần lẻ nhỏ:
     //  - >= 1 tỷ : làm tròn tới TRIỆU
-    //  - < 1 tỷ  : làm tròn tới NGHÌN (số < 1 triệu cũng gọn về K)
+    //  - < 1 tỷ  : làm tròn tới NGHÌN
     abs = abs >= 1e9 ? Math.round(abs / 1e6) * 1e6 : Math.round(abs / 1e3) * 1e3;
 
     const pad3 = n => n.toString().padStart(3, '0');
@@ -154,13 +161,11 @@ function formatCurrencyWithUnit(value) {
             : `${top.toLocaleString('vi-VN')}${suffix}`;
     };
 
-    // Lưu ý: làm tròn TRƯỚC khi chọn nhánh nên việc "lên bậc"
-    // (999,6K -> 1M, 999,6M -> 1B) tự xử lý đúng.
+    // Làm tròn TRƯỚC khi chọn nhánh nên việc "lên bậc" tự xử lý đúng.
     if (abs >= 1e9) return { val: sign + grp(1e9, 1e6, 'B'), unit: '' };
     if (abs >= 1e6) return { val: sign + grp(1e6, 1e3, 'M'), unit: '' };
     return { val: sign + grp(1e3, 1, 'K'), unit: '' };
 }
-
 function escapeHTML(str) {
     if (!str) return '';
     return str.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
