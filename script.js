@@ -111,18 +111,33 @@ function applyPrivacyMode() {
     updatePrivacyUI(true);
 }
 
-// HÀM ĐỊNH DẠNG TIỀN NÂNG CẤP: Chống lỗi 50Kđ
+// HÀM ĐỊNH DẠNG TIỀN NÂNG CẤP:
 function formatCurrencyWithUnit(value) {
     const format = localStorage.getItem('settingCurrencyFormat') || 'full';
     let num = parseInt(value.toString().replace(/[^0-9-]/g, '')) || 0;
-    
-    if (format === 'short' && Math.abs(num) >= 1000) {
-        // Chia 1000 để lấy giá trị K, làm tròn và chèn dấu chấm phân cách
-        let shortNum = Math.round(num / 1000);
-        let formattedShort = shortNum.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        return { val: formattedShort + 'K', unit: '' }; 
+
+    // 1) Nhánh TRIỆU (kiểm tra trước)
+    if (format === 'short' && Math.abs(num) >= 1000000) {
+        let m = Math.round(num / 100000) / 10;
+        let intPart = Math.trunc(m);
+        let decDigit = Math.round(Math.abs(m - intPart) * 10);
+        let intStr = intPart.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        let result = decDigit > 0 ? `${intStr}M${decDigit}` : `${intStr}M`;
+        return { val: result, unit: '' };
     }
-    
+
+    // 2) Nhánh NGHÌN
+    if (format === 'short' && Math.abs(num) >= 1000) {
+        let shortNum = num / 1000;
+        let rounded = Math.round(shortNum * 10) / 10;
+        let intPart = Math.trunc(rounded);
+        let decDigit = Math.round(Math.abs(rounded - intPart) * 10);
+        let intStr = intPart.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        let result = decDigit > 0 ? `${intStr},${decDigit}` : intStr;
+        return { val: result + 'K', unit: '' };
+    }
+
+    // 3) Đầy đủ
     return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
 }
 
