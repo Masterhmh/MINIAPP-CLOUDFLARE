@@ -105,7 +105,22 @@ function updatePrivacyUI(syncSettings = false) {
     if (window.pChart) window.pChart.update();
     if (window.dChart) window.dChart.update();
 }
+function initSettings() {
+    // Áp dụng lại theme đã lưu
+    const theme = localStorage.getItem('settingTheme') || 'dark';
+    document.body.className = `theme-${theme}`;
 
+    // Đổ giá trị đã lưu vào các ô cài đặt
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
+    setVal('settingTheme', theme);
+    setVal('settingDefaultTab', localStorage.getItem('settingDefaultTab'));
+    setVal('settingStartOfWeek', localStorage.getItem('settingStartOfWeek'));
+    setVal('settingCurrencyFormat', localStorage.getItem('settingCurrencyFormat'));
+    setVal('settingChatId', localStorage.getItem('settingChatId'));
+
+    const hap = document.getElementById('settingHaptic');
+    if (hap) hap.checked = localStorage.getItem('settingHaptic') !== 'false';
+}
 function applyPrivacyMode() {
     isPrivacyActive = localStorage.getItem('settingPrivacyMode') === 'true';
     updatePrivacyUI(true);
@@ -184,9 +199,24 @@ function formatDate(dateStr) { const parts = dateStr.split('/'); if (parts.lengt
 function formatDateToYYYYMMDD(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; }
 function formatDateToDDMMYYYY(date) { return `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth() + 1).padStart(2,'0')}/${date.getFullYear()}`; }
 function parseNumber(value) { 
-    let str = value.toString().toUpperCase(); let multiplier = 1;
-    if (str.includes('K')) { multiplier = 1000; str = str.replace('K', ''); }
-    return (parseInt(str.replace(/[^0-9-]/g, '')) || 0) * multiplier; 
+    let str = value.toString().toLowerCase().replace(/\s|đ/g, '');
+    if (!str) return 0;
+    str = str.replace(/tr/g, 'm'); // chuẩn hóa "tr" -> "m"
+
+    let multiplier = 1, unit = null;
+    if (str.includes('m')) { multiplier = 1000000; unit = 'm'; }
+    else if (str.includes('k')) { multiplier = 1000; unit = 'k'; }
+
+    if (unit) {
+        let [left, right] = str.split(unit);
+        left = left.replace(',', '.').replace(/[^0-9.]/g, '');
+        right = (right || '').replace(/[^0-9]/g, '');
+        let base = parseFloat(left) || 0;
+        let frac = right ? parseFloat('0.' + right) : 0; // phần sau đơn vị = thập phân
+        return Math.round((base + frac) * multiplier);
+    }
+    // Dạng đầy đủ: dấu chấm là phân cách nghìn
+    return parseInt(str.replace(/[^0-9-]/g, ''), 10) || 0; 
 }
 function formatNumberWithCommas(value) {
     if (!value) return '';
@@ -886,11 +916,34 @@ window.closeEditForm = function() { document.getElementById('editModal').classLi
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
 document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
+// Sinh mã GD bằng bộ đếm riêng trên Firebase (không phụ thuộc dữ liệu đang load)
+async function getNextTransactionId() {
+    let num = null;
+    try {
+        const res = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`);
+        num = await res.json();
+    } catch (e) { num = null; }
 
+    // Lần đầu chưa có bộ đếm -> khởi tạo từ ID lớn nhất hiện có
+    if (num === null || num === undefined || isNaN(num)) {
+        num = 0;
+        const allLoadedTxs = [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])];
+        allLoadedTxs.forEach(item => {
+            if (item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
+                const n = parseInt(String(item.id).replace('GD', ''), 10);
+                if (!isNaN(n) && n > num) num = n;
+            }
+        });
+    }
+
+    const nextNum = num + 1;
+    await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`, { method: 'PUT', body: JSON.stringify(nextNum) });
+    return "GD" + String(nextNum).padStart(3, '0');
+}
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
-    if (tx.action === 'addTransaction') { let maxId = 0; const allLoadedTxs = [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])]; allLoadedTxs.forEach(item => { if (item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) { let num = parseInt(String(item.id).replace('GD', ''), 10); if (!isNaN(num) && num > maxId) maxId = num; } }); tx.id = "GD" + String(maxId + 1).padStart(3, '0'); }
+    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(); }
     const month = parseInt(tx.date.split('/')[1], 10); const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
     if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); } else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
@@ -1770,8 +1823,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
-  ['addAmount','editAmount','searchAmount'].forEach(id => { const el = document.getElementById(id); if(el) el.oninput = function() { this.value = formatNumberWithCommas(this.value); }; });
-  
+['addAmount','editAmount','searchAmount'].forEach(id => { 
+    const el = document.getElementById(id); 
+    if(el) el.oninput = function() { 
+        if (/[a-zA-Z]/.test(this.value)) return; // có chữ (k/m/tr) -> để người dùng gõ tiếp
+        this.value = formatNumberWithCommas(this.value); 
+    }; 
+});  
   document.getElementById('addForm').onsubmit = async function(e) { e.preventDefault(); closeAddForm(); const [y,m,d] = document.getElementById('addDate').value.split('-'); const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId }; await submitTx(tx); };
   document.getElementById('editForm').onsubmit = async function(e) { e.preventDefault(); closeEditForm(); const [y,m,d] = document.getElementById('editDate').value.split('-'); const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId }; await submitTx(tx); };
 
@@ -1841,8 +1899,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       showCustomConfirm('Khôi Phục Cài Đặt Gốc', 'Toàn bộ dữ liệu giao dịch, từ khoá và cài đặt của bạn trên Firebase sẽ bị <strong>XÓA VĨNH VIỄN</strong>. Bạn có chắc chắn không?', 'XÓA TẤT CẢ', async () => {
           showLoading(true, 'tab4');
           try {
-              await fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/categories.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/keywords.json`, { method: 'DELETE' }); await fetch(`${FIREBASE_URL}/categoryIcons.json`, { method: 'DELETE' });
-              localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
+              await Promise.all([
+    fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }),
+    fetch(`${FIREBASE_URL}/categories.json`, { method: 'DELETE' }),
+    fetch(`${FIREBASE_URL}/meta.json`, { method: 'DELETE' }) // xóa cả bộ đếm mã GD
+]);
+localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
           } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
       });
   };
