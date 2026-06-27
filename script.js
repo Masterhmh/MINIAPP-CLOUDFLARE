@@ -129,31 +129,36 @@ function applyPrivacyMode() {
 // HÀM ĐỊNH DẠNG TIỀN NÂNG CẤP:
 function formatCurrencyWithUnit(value) {
     const format = localStorage.getItem('settingCurrencyFormat') || 'full';
-    let num = parseInt(value.toString().replace(/[^0-9-]/g, '')) || 0;
+    const num = parseInt(value.toString().replace(/[^0-9-]/g, ''), 10) || 0;
 
-    // 1) Nhánh TRIỆU (kiểm tra trước)
-    if (format === 'short' && Math.abs(num) >= 1000000) {
-        let m = Math.round(num / 100000) / 10;
-        let intPart = Math.trunc(m);
-        let decDigit = Math.round(Math.abs(m - intPart) * 10);
-        let intStr = intPart.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        let result = decDigit > 0 ? `${intStr}M${decDigit}` : `${intStr}M`;
-        return { val: result, unit: '' };
-    }
+    // Chế độ đầy đủ: 1.250.000đ
+    if (format !== 'short') return { val: num.toLocaleString('vi-VN'), unit: 'đ' };
 
-    // 2) Nhánh NGHÌN
-    if (format === 'short' && Math.abs(num) >= 1000) {
-        let shortNum = num / 1000;
-        let rounded = Math.round(shortNum * 10) / 10;
-        let intPart = Math.trunc(rounded);
-        let decDigit = Math.round(Math.abs(rounded - intPart) * 10);
-        let intStr = intPart.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-        let result = decDigit > 0 ? `${intStr},${decDigit}` : intStr;
-        return { val: result + 'K', unit: '' };
-    }
+    const sign = num < 0 ? '-' : '';
+    let abs = Math.abs(num);
 
-    // 3) Đầy đủ
-    return { val: num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'), unit: 'đ' };
+    // Dưới 1.000đ: giữ nguyên
+    if (abs < 1000) return { val: sign + abs.toString(), unit: 'đ' };
+
+    // Làm tròn bỏ phần lẻ nhỏ:
+    //  - >= 1 tỷ : làm tròn tới TRIỆU
+    //  - < 1 tỷ  : làm tròn tới NGHÌN (số < 1 triệu cũng gọn về K)
+    abs = abs >= 1e9 ? Math.round(abs / 1e6) * 1e6 : Math.round(abs / 1e3) * 1e3;
+
+    const pad3 = n => n.toString().padStart(3, '0');
+    const grp = (topDiv, subDiv, suffix) => {
+        const top = Math.floor(abs / topDiv);
+        const sub = Math.floor(abs / subDiv) % 1000;
+        return sub > 0
+            ? `${top.toLocaleString('vi-VN')}${suffix}${pad3(sub)}`
+            : `${top.toLocaleString('vi-VN')}${suffix}`;
+    };
+
+    // Lưu ý: làm tròn TRƯỚC khi chọn nhánh nên việc "lên bậc"
+    // (999,6K -> 1M, 999,6M -> 1B) tự xử lý đúng.
+    if (abs >= 1e9) return { val: sign + grp(1e9, 1e6, 'B'), unit: '' };
+    if (abs >= 1e6) return { val: sign + grp(1e6, 1e3, 'M'), unit: '' };
+    return { val: sign + grp(1e3, 1, 'K'), unit: '' };
 }
 
 function escapeHTML(str) {
