@@ -416,34 +416,34 @@ function displayTransactions() {
 }
 
 // ---------------- CÁC BÁO CÁO ----------------
-function getWeekNumber(d) { 
+function getWeekNumber(d) {
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); 
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
     const dayNum = d.getUTCDay() || 7;
     if (startOfWeek === 1) d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     else d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() + 1));
-    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1)); 
-    return Math.ceil((((d - yearStart) / 86400000) + 1)/7); 
+    var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1)/7);
 }
 
 function formatWeekInput(date) { return `${date.getFullYear()}-W${String(getWeekNumber(date)).padStart(2, '0')}`; }
 
-function getDateFromWeekString(weekStr) { 
+function getDateFromWeekString(weekStr) {
     const startDay = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
     if (!weekStr) return null;
-    const [yearStr, weekPart] = weekStr.split('-W'); 
-    if(!yearStr || !weekPart) return null; 
-    const year = parseInt(yearStr); const week = parseInt(weekPart); 
-    const simple = new Date(year, 0, 1 + (week - 1) * 7); 
-    const dow = simple.getDay(); 
-    const start = new Date(simple); 
+    const [yearStr, weekPart] = weekStr.split('-W');
+    if(!yearStr || !weekPart) return null;
+    const year = parseInt(yearStr); const week = parseInt(weekPart);
+    const simple = new Date(year, 0, 1 + (week - 1) * 7);
+    const dow = simple.getDay();
+    const start = new Date(simple);
     if (startDay === 1) {
         if (dow <= 4) start.setDate(simple.getDate() - simple.getDay() + 1);
         else start.setDate(simple.getDate() + 8 - simple.getDay());
     } else {
         start.setDate(simple.getDate() - simple.getDay());
     }
-    return start; 
+    return start;
 }
 
 async function getTransactionsInRange(startDate, endDate) {
@@ -473,10 +473,11 @@ async function getTransactionsInRange(startDate, endDate) {
 function renderCalendar(txs, dateObj, mode) {
     const grid = document.getElementById('calendarGrid');
     const box = document.getElementById('calendarStatbox');
-    
+
     if (mode !== 'monthly' && mode !== 'weekly') { box.style.display = 'none'; return; }
     box.style.display = 'block'; grid.innerHTML = '';
 
+    // Gom dữ liệu thu/chi theo từng ngày
     const dailyData = {};
     txs.forEach(t => {
         if (!t || !t.date) return;
@@ -491,13 +492,17 @@ function renderCalendar(txs, dateObj, mode) {
 
     const header = document.querySelector('.calendar-header');
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
-    
+
+    // ============ LỊCH TUẦN ============
     if (mode === 'weekly') {
-        if (header) header.style.display = 'none';
+        if (header) {
+            header.style.display = 'grid';
+            if (startOfWeek === 1) { header.innerHTML = `<span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>`; }
+            else { header.innerHTML = `<span>CN</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span>`; }
+        }
         grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
         grid.style.borderTop = '1px solid var(--border-color)';
         grid.style.borderRadius = '10px';
-        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
         for (let i = 0; i < 7; i++) {
             const d = new Date(dateObj); d.setDate(d.getDate() + i);
             const dayKey = formatDateToYYYYMMDD(d);
@@ -513,15 +518,16 @@ function renderCalendar(txs, dateObj, mode) {
             }
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
-            dayDiv.innerHTML = `<span style="font-size:0.65rem; color:var(--text-3); font-weight:600;">${dayNames[d.getDay()]}</span><span class="calendar-date">${d.getDate()}</span>${balHTML}`;
-            
+            dayDiv.innerHTML = `<span class="calendar-date">${d.getDate()}</span>${balHTML}`;
+
             dayDiv.onclick = () => { triggerHaptic('light'); document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected-day')); dayDiv.classList.add('selected-day'); openDailyDetailView(d.getDate(), d.getMonth() + 1, d.getFullYear(), txs); };
             grid.appendChild(dayDiv);
         }
     } else {
+    // ============ LỊCH THÁNG ============
         if (header) {
-            header.style.display = 'grid'; 
-            if (startOfWeek === 1) { header.innerHTML = `<span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>`; } 
+            header.style.display = 'grid';
+            if (startOfWeek === 1) { header.innerHTML = `<span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>`; }
             else { header.innerHTML = `<span>CN</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span>`; }
         }
         grid.style.gridTemplateColumns = 'repeat(7, 1fr)';
@@ -531,7 +537,7 @@ function renderCalendar(txs, dateObj, mode) {
         const year = dateObj.getFullYear(); const month = dateObj.getMonth();
         let firstDay = new Date(year, month, 1).getDay();
         if (startOfWeek === 1) firstDay = firstDay === 0 ? 6 : firstDay - 1;
-        
+
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         for (let i = 0; i < firstDay; i++) { grid.innerHTML += `<div class="calendar-day empty"></div>`; }
 
@@ -554,7 +560,7 @@ function renderCalendar(txs, dateObj, mode) {
 
             const dayDiv = document.createElement('div'); dayDiv.className = classes.join(' ');
             dayDiv.innerHTML = `<span class="calendar-date">${i}</span>${balHTML}`;
-            
+
             dayDiv.onclick = () => { triggerHaptic('light'); document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected-day')); dayDiv.classList.add('selected-day'); openDailyDetailView(i, month + 1, year, txs); };
             grid.appendChild(dayDiv);
         }
@@ -773,8 +779,65 @@ window.closeDetailModal = function() {
     triggerHaptic('light'); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
 
-async function loadWeeklyReport(weekStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = getDateFromWeekString(weekStr); if (!startDate) throw new Error("Dữ liệu tuần không hợp lệ"); const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6); const prevStartDate = new Date(startDate); prevStartDate.setDate(prevStartDate.getDate() - 7); const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`; const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7']; const labels = [], incs = [], exps = []; for(let i=0; i<7; i++) { const d = new Date(startDate); d.setDate(d.getDate() + i); labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`); const dateStr = formatDateToDDMMYYYY(d); const dayTx = currentTx.filter(t => t.date === dateStr); let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } renderCalendar(currentTx, startDate, 'weekly'); processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'weekly', txs: currentTx, periodStr: weekStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
-async function loadMonthlyReport(monthStr) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const [year, month] = monthStr.split('-').map(Number); const startDate = new Date(year, month - 1, 1); const endDate = new Date(year, month, 0); let prevM = month - 1; let prevY = year; if(prevM === 0) { prevM = 12; prevY = year - 1; } const prevStartDate = new Date(prevY, prevM - 1, 1); const prevEndDate = new Date(prevY, prevM, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`; const labels = [`Tháng ${month}`], incs = [0], exps = [0]; currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; }); renderCalendar(currentTx, startDate, 'monthly'); processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
+// ----- LỊCH TUẦN -----
+async function loadWeeklyReport(weekStr) {
+  showLoading(true, 'tab2');
+  document.querySelector('#tab2 .chart-container').style.display='none';
+  document.getElementById('placeholderTab2').style.display='none';
+  try {
+    const startDate = getDateFromWeekString(weekStr);
+    if (!startDate) throw new Error("Dữ liệu tuần không hợp lệ");
+    const endDate = new Date(startDate); endDate.setDate(endDate.getDate() + 6);
+    const prevStartDate = new Date(startDate); prevStartDate.setDate(prevStartDate.getDate() - 7);
+    const prevEndDate = new Date(endDate); prevEndDate.setDate(prevEndDate.getDate() - 7);
+    const [currentTx, prevTx] = await Promise.all([
+      getTransactionsInRange(startDate, endDate),
+      getTransactionsInRange(prevStartDate, prevEndDate)
+    ]);
+    document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (${formatDateToDDMMYYYY(startDate).substring(0,5)} - ${formatDateToDDMMYYYY(endDate).substring(0,5)})`;
+    const dayNames = ['Chủ nhật','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
+    const labels = [], incs = [], exps = [];
+    for(let i=0; i<7; i++) {
+      const d = new Date(startDate); d.setDate(d.getDate() + i);
+      labels.push(`${dayNames[d.getDay()]}\nNgày ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`);
+      const dateStr = formatDateToDDMMYYYY(d);
+      const dayTx = currentTx.filter(t => t.date === dateStr);
+      let inc = 0, exp = 0; dayTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; });
+      incs.push(inc); exps.push(exp);
+    }
+    renderCalendar(currentTx, startDate, 'weekly');
+    processReportData(currentTx, prevTx, labels, incs, exps);
+    cachedChartData = { mode: 'weekly', txs: currentTx, periodStr: weekStr };
+  } catch(e) { showToast(e.message, 'error'); }
+  finally { showLoading(false, 'tab2'); }
+}
+
+// ----- LỊCH THÁNG -----
+async function loadMonthlyReport(monthStr) {
+  showLoading(true, 'tab2');
+  document.querySelector('#tab2 .chart-container').style.display='none';
+  document.getElementById('placeholderTab2').style.display='none';
+  try {
+    const [year, month] = monthStr.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+    let prevM = month - 1; let prevY = year;
+    if(prevM === 0) { prevM = 12; prevY = year - 1; }
+    const prevStartDate = new Date(prevY, prevM - 1, 1);
+    const prevEndDate = new Date(prevY, prevM, 0);
+    const [currentTx, prevTx] = await Promise.all([
+      getTransactionsInRange(startDate, endDate),
+      getTransactionsInRange(prevStartDate, prevEndDate)
+    ]);
+    document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`;
+    const labels = [`Tháng ${month}`], incs = [0], exps = [0];
+    currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; });
+    renderCalendar(currentTx, startDate, 'monthly');
+    processReportData(currentTx, prevTx, labels, incs, exps);
+    cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr };
+  } catch(e) { showToast(e.message, 'error'); }
+  finally { showLoading(false, 'tab2'); }
+}
 async function loadCustomReport(startMonth, endMonth, year) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = new Date(year, startMonth - 1, 1); const endDate = new Date(year, endMonth, 0); const prevStartDate = new Date(year - 1, startMonth - 1, 1); const prevEndDate = new Date(year - 1, endMonth, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`; const labels = [], incs = [], exps = []; for(let m=startMonth; m<=endMonth; m++) { labels.push(`Tháng ${m}`); const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year); let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } document.getElementById('calendarStatbox').style.display = 'none'; processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'custom', txs: currentTx, periodStr: `${startMonth}-${endMonth}-${year}` }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
 
 function updateTimeNavUI() {
