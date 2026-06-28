@@ -497,7 +497,7 @@ function displayDetailTransactionsList(txs) {
 }
 
 window.closeDetailModal = function() {
-    triggerHaptic('light'); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
+    triggerHaptic('light'); document.querySelectorAll('.calendar-day.selected-day').forEach(el => el.classList.remove('selected-day')); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
 
 // ----- LỊCH TUẦN -----
