@@ -9,12 +9,26 @@
 //   (app-core.js, currency.js, app-reports.js, app-crud.js, app-export.js).
 //   parseNumber lấy từ currency.js (bản strict, trả null khi nhập sai).
 // Thứ tự nạp: CUỐI CÙNG.
+//   Ghi chú: bọc fetchTransactions để hiện "—" mờ ở hero Tab 1 khi đang tải
+//   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch).
 // ============================================================================
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
   // --- THÊM DÒNG NÀY ĐỂ ÁP DỤNG TRẠNG THÁI LƯU CỨNG KHI VỪĂ MỞ APP ---
   applyPrivacyMode(); 
+
+  // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" MỜ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
+  if (typeof window.fetchTransactions === 'function' && !window.__tab1LoadingWrapped) {
+    window.__tab1LoadingWrapped = true;
+    const _origFetchTransactions = window.fetchTransactions;
+    window.fetchTransactions = function() {
+      const dim = '<span style="opacity:0.35;">—</span>';
+      ['heroExpenseMain', 'heroIncome', 'heroBalanceSub'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = dim; });
+      const comp = document.getElementById('heroExpenseCompare'); if (comp) comp.innerHTML = '';
+      return _origFetchTransactions.apply(this, arguments);
+    };
+  }
     
   document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
   const currentMonthValue = new Date().getMonth() + 1;
