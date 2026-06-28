@@ -39,17 +39,17 @@
           <div><i class="fas fa-money-bill-transfer"></i> Chi tiêu trong ngày</div>
           <i class="fas fa-eye-slash privacy-toggle-btn" onclick="togglePrivacy()" style="font-size: 1.15rem; cursor: pointer; padding: 4px; color: rgba(255,255,255,0.8);"></i>
         </div>
-        <div class="hero-balance" id="heroExpenseMain">0đ</div>
+        <div class="hero-balance" id="heroExpenseMain">0 ₫</div>
         <div id="heroExpenseCompare"></div>
         <div class="hero-sub">
           <div class="hero-stat">
             <div class="hero-stat-label"><i class="fas fa-hand-holding-dollar"></i> Thu nhập</div>
-            <div class="hero-stat-val" id="heroIncome">0đ</div>
+            <div class="hero-stat-val" id="heroIncome">0 ₫</div>
           </div>
           <div class="divider-v"></div>
           <div class="hero-stat">
             <div class="hero-stat-label"><i class="fas fa-wallet"></i> Số dư</div>
-            <div class="hero-stat-val" id="heroBalanceSub">0đ</div>
+            <div class="hero-stat-val" id="heroBalanceSub">0 ₫</div>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@
                   <i class="fas fa-hand-holding-dollar"></i>
                   <span class="stat-tag">Thu nhập</span>
               </div>
-              <div class="stat-num income" id="tab2Income">0đ</div>
+              <div class="stat-num income" id="tab2Income">0 ₫</div>
               <div class="stat-compare" id="tab2IncomeCompare">-</div>
             </div>
             
@@ -136,7 +136,7 @@
                   <i class="fas fa-money-bill-transfer"></i>
                   <span class="stat-tag">Chi tiêu</span>
               </div>
-              <div class="stat-num expense" id="tab2Expense">0đ</div>
+              <div class="stat-num expense" id="tab2Expense">0 ₫</div>
               <div class="stat-compare" id="tab2ExpenseCompare">-</div>
             </div>
             
@@ -148,7 +148,7 @@
                   </div>
                   <i class="fas fa-eye-slash privacy-toggle-btn" onclick="togglePrivacy()" style="cursor:pointer; color:var(--text-3); font-size: 1.1rem;"></i>
               </div>
-              <div class="stat-num balance" id="tab2Balance">0đ</div>
+              <div class="stat-num balance" id="tab2Balance">0 ₫</div>
               <div class="stat-compare" id="tab2BalanceCompare">-</div>
             </div>
           </div>
@@ -374,7 +374,7 @@
           </div>
           <div class="field-group">
             <div class="field-label">Số tiền</div>
-            <input type="text" id="addAmount" class="field-input" placeholder="0đ" required>
+            <input type="text" id="addAmount" class="field-input" placeholder="0 ₫" required>
           </div>
           <div class="field-group">
             <div class="field-label">Nội dung</div>
@@ -452,13 +452,13 @@
                  <div style="font-size: 0.75rem; color: var(--income); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                      <i class="fas fa-hand-holding-dollar"></i> THU NHẬP
                  </div>
-                 <div id="detailTotalIncome" style="font-size: 1.1rem; font-weight: 800; color: var(--income);">+0đ</div>
+                 <div id="detailTotalIncome" style="font-size: 1.1rem; font-weight: 800; color: var(--income);">+0 ₫</div>
              </div>
              <div style="flex: 1; background: var(--expense-bg); padding: 12px; border-radius: 12px; text-align: center;">
                  <div style="font-size: 0.75rem; color: var(--expense); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
                      <i class="fas fa-money-bill-transfer"></i> CHI TIÊU
                  </div>
-                 <div id="detailTotalExpense" style="font-size: 1.1rem; font-weight: 800; color: var(--expense);">-0đ</div>
+                 <div id="detailTotalExpense" style="font-size: 1.1rem; font-weight: 800; color: var(--expense);">-0 ₫</div>
              </div>
           </div>
           
@@ -560,5 +560,6 @@
   </div>
 
   <script src="script.js" defer></script>
+  <script src="currency.js" defer></script>
 </body>
 </html>
