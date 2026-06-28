@@ -10,7 +10,9 @@
 //   parseNumber lấy từ currency.js (bản strict, trả null khi nhập sai).
 // Thứ tự nạp: CUỐI CÙNG.
 //   Ghi chú: bọc fetchTransactions để hiện "—" mờ ở hero Tab 1 khi đang tải
-//   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch).
+//   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch). Tương tự, bọc
+//   loadWeeklyReport/loadMonthlyReport/loadCustomReport để hiện "—" mờ ở
+//   các thẻ Tab 2 khi đang tải báo cáo.
 // ============================================================================
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
@@ -28,6 +30,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const comp = document.getElementById('heroExpenseCompare'); if (comp) comp.innerHTML = '';
       return _origFetchTransactions.apply(this, arguments);
     };
+  }
+
+  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" MỜ Ở CÁC THẺ TAB 2 KHI ĐANG TẢI ---
+  if (!window.__tab2LoadingWrapped) {
+    const setTab2Dim = function() {
+      const dim = '<span style="opacity:0.35;">—</span>';
+      ['tab2Income', 'tab2Expense', 'tab2Balance', 'tab2IncomeCompare', 'tab2ExpenseCompare', 'tab2BalanceCompare'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = dim; });
+    };
+    let wrappedAny = false;
+    ['loadWeeklyReport', 'loadMonthlyReport', 'loadCustomReport'].forEach(function(fn) {
+      if (typeof window[fn] === 'function') {
+        const orig = window[fn];
+        window[fn] = function() { setTab2Dim(); return orig.apply(this, arguments); };
+        wrappedAny = true;
+      }
+    });
+    if (wrappedAny) window.__tab2LoadingWrapped = true;
   }
     
   document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
