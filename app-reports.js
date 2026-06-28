@@ -211,6 +211,7 @@ function renderCalendar(txs, dateObj, mode) {
 
     const header = document.querySelector('.calendar-header');
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
+    const todayKey = formatDateToYYYYMMDD(new Date());
 
     // ============ LỊCH TUẦN ============
     if (mode === 'weekly') {
@@ -237,6 +238,7 @@ function renderCalendar(txs, dateObj, mode) {
             }
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
+            if (dayKey === todayKey) dayDiv.classList.add('today');
             dayDiv.innerHTML = `<span class="calendar-date">${d.getDate()}</span>${balHTML}`;
 
             dayDiv.onclick = () => { triggerHaptic('light'); document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected-day')); dayDiv.classList.add('selected-day'); openDailyDetailView(d.getDate(), d.getMonth() + 1, d.getFullYear(), txs); };
