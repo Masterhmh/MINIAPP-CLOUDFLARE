@@ -1,5 +1,5 @@
 // ============================================================================
-// app-reports.js — HIỂN THỊ GIAO DỊCH, BÁO CÁO & TÌM KIẾM
+// app-reports.js — HIỂN THỊ GIAO DỌH, BÁO CÁO & TÌM KIẾM
 // ----------------------------------------------------------------------------
 // Vai trò: Tab 1 (tải & hiển thị giao dịch trong ngày, phân trang, so sánh) và
 //   Tab 2 (báo cáo tuần/tháng/năm/tùy chọn: lịch, biểu đồ cột/đường, biểu đồ
@@ -12,7 +12,7 @@
 // Thứ tự nạp: sau app-core.js và currency.js.
 // ============================================================================
 
-// ---------------- TAB 1: GIAO DỊCH ----------------
+// ---------------- TAB 1: GIAO DỌH ----------------
 window.fetchTransactions = async function(forceRefresh = false) {
   const tDate = document.getElementById('transactionDate').value;
   if (!tDate) return;
@@ -27,8 +27,13 @@ window.fetchTransactions = async function(forceRefresh = false) {
   const currDateObj = new Date(y, m - 1, d); currDateObj.setDate(currDateObj.getDate() - 1);
   const prevDateStr = formatDateToDDMMYYYY(currDateObj); const prevM = String(currDateObj.getMonth() + 1).padStart(2, '0');
   let compareSuffix = diffDays !== 0 ? `so với ngày ${prevDateStr}` : "so với hôm qua";
-  
-  if (!forceRefresh && cachedTransactions && cachedTransactions.cacheKey === cacheKey) { displayTransactions(); return; }
+
+  // CACHE NHIỀU NGÀY: đã tải ngày nào thì dùng lại, không gọi mạng (trừ khi ép làm mới)
+  if (!window.dayTxCache) window.dayTxCache = {};
+  if (!forceRefresh) {
+    if (cachedTransactions && cachedTransactions.cacheKey === cacheKey) { displayTransactions(); return; }
+    if (window.dayTxCache[cacheKey]) { cachedTransactions = window.dayTxCache[cacheKey]; currentPageTab1 = 1; displayTransactions(); return; }
+  }
 
   showLoading(true, 'tab1');
   try {
@@ -44,6 +49,7 @@ window.fetchTransactions = async function(forceRefresh = false) {
     dataCurr.sort((a,b) => b.id.localeCompare(a.id)); dataPrev.sort((a,b) => b.id.localeCompare(a.id));
     
     cachedTransactions = { cacheKey, data: dataCurr, prevData: dataPrev, compareSuffix: compareSuffix };
+    window.dayTxCache[cacheKey] = cachedTransactions;
     currentPageTab1 = 1; displayTransactions();
   } catch (err) {
   cachedTransactions = { cacheKey, data: [], prevData: [], compareSuffix: compareSuffix };
@@ -83,7 +89,7 @@ function displayTransactions() {
   if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
   
   const headerTitle = document.querySelector('#tab1 .section-title');
-  if(headerTitle) headerTitle.innerHTML = `GIAO DỊCH TRONG NGÀY <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
+  if(headerTitle) headerTitle.innerHTML = `GIAO DỌH TRONG NGÀY <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
 
   if (data.length === 0) {
     document.getElementById('placeholderTab1').style.display = 'block';
@@ -213,7 +219,7 @@ function renderCalendar(txs, dateObj, mode) {
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
     const todayKey = formatDateToYYYYMMDD(new Date());
 
-    // ============ LỊCH TUẦN ============
+    // ============ LỌH TUẦN ============
     if (mode === 'weekly') {
         if (header) {
             header.style.display = 'grid';
@@ -245,7 +251,7 @@ function renderCalendar(txs, dateObj, mode) {
             grid.appendChild(dayDiv);
         }
     } else {
-    // ============ LỊCH THÁNG ============
+    // ============ LỌH THÁNG ============
         if (header) {
             header.style.display = 'grid';
             if (startOfWeek === 1) { header.innerHTML = `<span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>`; }
@@ -500,7 +506,7 @@ window.closeDetailModal = function() {
     triggerHaptic('light'); document.querySelectorAll('.calendar-day.selected-day').forEach(el => el.classList.remove('selected-day')); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
 
-// ----- LỊCH TUẦN -----
+// ----- LỌH TUẦN -----
 async function loadWeeklyReport(weekStr) {
   showLoading(true, 'tab2');
   document.querySelector('#tab2 .chart-container').style.display='none';
@@ -533,7 +539,7 @@ async function loadWeeklyReport(weekStr) {
   finally { showLoading(false, 'tab2'); }
 }
 
-// ----- LỊCH THÁNG -----
+// ----- LỌH THÁNG -----
 async function loadMonthlyReport(monthStr) {
   showLoading(true, 'tab2');
   document.querySelector('#tab2 .chart-container').style.display='none';
