@@ -559,7 +559,20 @@
     </button>
   </div>
 
-  <script src="script.js" defer></script>
+  <!-- ============================================================
+       NẠP MODULE THEO THỨ TỰ (script.js cũ được giữ lạm backup, không nạp)
+       1) app-core.js  : tiện ích nền + Tab 1
+       2) currency.js  : ghi đè parseNumber & định dạng tiền (chuẩn QT)
+       3) app-reports.js: báo cáo + biểu đồ + tìm kiếm
+       4) app-crud.js  : từ khóa, danh mục, CRUD, icon picker
+       5) app-export.js: xuất PDF/CSV
+       6) app-init.js  : gắn sự kiện & khởi động (cuối cùng)
+       ============================================================ -->
+  <script src="app-core.js" defer></script>
   <script src="currency.js" defer></script>
+  <script src="app-reports.js" defer></script>
+  <script src="app-crud.js" defer></script>
+  <script src="app-export.js" defer></script>
+  <script src="app-init.js" defer></script>
 </body>
 </html>
