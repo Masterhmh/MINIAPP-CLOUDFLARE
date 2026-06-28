@@ -9,9 +9,9 @@
 //   (app-core.js, currency.js, app-reports.js, app-crud.js, app-export.js).
 //   parseNumber lấy từ currency.js (bản strict, trả null khi nhập sai).
 // Thứ tự nạp: CUỐI CÙNG.
-//   Ghi chú: bọc fetchTransactions để hiện \"—\" mờ ở hero Tab 1 khi đang tải
+//   Ghi chú: bọc fetchTransactions để hiện "—" mờ ở hero Tab 1 khi đang tải
 //   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch). Tương tự, bọc
-//   loadWeeklyReport/loadMonthlyReport/loadCustomReport để hiện \"—\" mờ ở
+//   loadWeeklyReport/loadMonthlyReport/loadCustomReport để hiện "—" mờ ở
 //   các thẻ Tab 2 khi đang tải báo cáo.
 // ============================================================================
 
@@ -20,22 +20,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- THÊM DÒNG NÀY ĐỂ ÁP DỤNG TRẠNG THÁI LƯU CỨNG KHI VỪĂ MỞ APP ---
   applyPrivacyMode(); 
 
-  // --- BỌC fetchTransactions ĐỂ HIỂN THỊ \"—\" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
+  // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
   if (typeof window.fetchTransactions === 'function' && !window.__tab1LoadingWrapped) {
     window.__tab1LoadingWrapped = true;
     const _origFetchTransactions = window.fetchTransactions;
     window.fetchTransactions = function() {
-      const dim = '<span style=\"opacity:0.35;\">—</span>';
+      const dim = '<span style="opacity:0.35;">—</span>';
       ['heroExpenseMain', 'heroIncome', 'heroBalanceSub'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = dim; });
       const comp = document.getElementById('heroExpenseCompare'); if (comp) comp.innerHTML = '';
       return _origFetchTransactions.apply(this, arguments);
     };
   }
 
-  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ \"—\" Mờ Ở CÁC THẻ TAB 2 KHI ĐANG TẢI ---
+  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẻ TAB 2 KHI ĐANG TẢI ---
   if (!window.__tab2LoadingWrapped) {
     const setTab2Dim = function() {
-      const dim = '<span style=\"opacity:0.35;\">—</span>';
+      const dim = '<span style="opacity:0.35;">—</span>';
       ['tab2Income', 'tab2Expense', 'tab2Balance', 'tab2IncomeCompare', 'tab2ExpenseCompare', 'tab2BalanceCompare'].forEach(function(id) { const el = document.getElementById(id); if (el) el.innerHTML = dim; });
     };
     let wrappedAny = false;
@@ -55,10 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
-  if(heroCardTab1) { heroCardTab1.style.cursor = 'pointer'; heroCardTab1.onclick = (e) => { if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn') || e.target.closest('.privacy-toggle-btn')) return; const dateInput = document.getElementById('transactionDate'); if (dateInput) { dateInput.value = formatDateToYYYYMMDD(new Date()); window.fetchTransactions(false); triggerHaptic('light'); showToast(\"Đã quay về dữ liệu ngày hôm nay\", \"info\"); } }; }
+  if(heroCardTab1) { heroCardTab1.style.cursor = 'pointer'; heroCardTab1.onclick = (e) => { if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn') || e.target.closest('.privacy-toggle-btn')) return; const dateInput = document.getElementById('transactionDate'); if (dateInput) { dateInput.value = formatDateToYYYYMMDD(new Date()); window.fetchTransactions(false); triggerHaptic('light'); showToast("Đã quay về dữ liệu ngày hôm nay", "info"); } }; }
 
   let startY = 0; const tab1Content = document.getElementById('tab1');
-  if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast(\"Đang làm mới giao dịch...\", \"info\"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
+  if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
   // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
   // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Vuốt sang trái (dx<0) -> tab kế tiếp; vuốt sang phải (dx>0) -> tab trước
       const targetIdx = dx < 0 ? idx + 1 : idx - 1;
       if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return; // không lặp vòng
-      const targetBtn = document.querySelector(`.nav-btn[data-tab=\"${TAB_ORDER[targetIdx]}\"]`);
+      const targetBtn = document.querySelector(`.nav-btn[data-tab="${TAB_ORDER[targetIdx]}"]`);
       if (targetBtn) { triggerHaptic('light'); targetBtn.click(); }
     }, { passive: true });
   }
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
-      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline flex-1 m-0'; deleteBtn.style.display = 'none'; deleteBtn.innerHTML = '<i class=\"fas fa-trash\"></i> Xóa';
+      const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline flex-1 m-0'; deleteBtn.style.display = 'none'; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
       deleteBtn.onclick = () => { 
           if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
           triggerHaptic('medium');
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }; 
       kwActionContainer.appendChild(deleteBtn);
 
-      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel flex-1 m-0'; cancelBtn.style.display = 'none'; cancelBtn.innerHTML = '<i class=\"fas fa-times\"></i> Hủy';
+      const cancelBtn = document.createElement('button'); cancelBtn.id = 'cancelKeywordBtn'; cancelBtn.className = 'btn-cancel flex-1 m-0'; cancelBtn.style.display = 'none'; cancelBtn.innerHTML = '<i class="fas fa-times"></i> Hủy';
       cancelBtn.onclick = window.cancelEditKeyword; kwActionContainer.appendChild(cancelBtn);
   }
 
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('nextPeriodBtn').onclick = () => { triggerHaptic('light'); shiftPeriod(1); };
   document.getElementById('weekPicker').onchange = (e) => { triggerHaptic('light'); const d = getDateFromWeekString(e.target.value); if(d) { activePeriodDate = d; updateTimeNavUI(); } };
   document.getElementById('monthPicker').onchange = (e) => { triggerHaptic('light'); const val = e.target.value; if(val) { const [y, m] = val.split('-'); activePeriodDate = new Date(y, m-1, 1); updateTimeNavUI(); } };
-  document.getElementById('fetchCustomDataBtn').onclick = () => { triggerHaptic('light'); const s = parseInt(document.getElementById('startMonth').value); const e = parseInt(document.getElementById('endMonth').value); if(s > e) return showToast(\"Tháng bắt đầu phải nhỏ hơn kết thúc\", \"warning\"); loadCustomReport(s, e, new Date().getFullYear()); };
+  document.getElementById('fetchCustomDataBtn').onclick = () => { triggerHaptic('light'); const s = parseInt(document.getElementById('startMonth').value); const e = parseInt(document.getElementById('endMonth').value); if(s > e) return showToast("Tháng bắt đầu phải nhỏ hơn kết thúc", "warning"); loadCustomReport(s, e, new Date().getFullYear()); };
   
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');
     const c = document.getElementById('searchContent').value.toLowerCase(), a = document.getElementById('searchAmount').value, cat = document.getElementById('searchCategory').value;
-    if(!c && !a && !cat) return showToast(\"Nhập điều kiện tìm kiếm\", \"warning\");
+    if(!c && !a && !cat) return showToast("Nhập điều kiện tìm kiếm", "warning");
     let sM = 1, eM = 12;
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
     else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
@@ -216,8 +216,8 @@ document.getElementById('editForm').onsubmit = async function(e) {
       const sCat = document.getElementById('searchCategory'), kCat = document.getElementById('keywordCategory'), addCat = document.getElementById('addCategory'), editCat = document.getElementById('editCategory');
       const sVal = sCat?.value, kVal = kCat?.value, addVal = addCat?.value, editVal = editCat?.value;
 
-      if(sCat) { sCat.innerHTML = '<option value=\"\">Tất cả danh mục</option>'; cats.forEach(c => sCat.appendChild(new Option(c, c))); if(preserveValues && sVal) sCat.value = sVal; }
-      if(kCat) { kCat.innerHTML = '<option value=\"\">Chọn phân loại</option>'; cats.forEach(c => kCat.appendChild(new Option(c, c))); if(preserveValues && kVal) { kCat.value = kVal; } else if (preserveValues && document.getElementById('iconPickerCategory').value) { const newVal = document.getElementById('iconPickerCategory').value.trim(); if (cats.includes(newVal)) kCat.value = newVal; } }
+      if(sCat) { sCat.innerHTML = '<option value="">Tất cả danh mục</option>'; cats.forEach(c => sCat.appendChild(new Option(c, c))); if(preserveValues && sVal) sCat.value = sVal; }
+      if(kCat) { kCat.innerHTML = '<option value="">Chọn phân loại</option>'; cats.forEach(c => kCat.appendChild(new Option(c, c))); if(preserveValues && kVal) { kCat.value = kVal; } else if (preserveValues && document.getElementById('iconPickerCategory').value) { const newVal = document.getElementById('iconPickerCategory').value.trim(); if (cats.includes(newVal)) kCat.value = newVal; } }
       if(addCat) { addCat.innerHTML = ''; cats.forEach(c => addCat.appendChild(new Option(c, c))); if(preserveValues && addVal) addCat.value = addVal; }
       if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
       
@@ -225,7 +225,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
           const btn = document.createElement('button'); 
           btn.id = 'openIconPickerBtn'; 
           btn.type = 'button'; 
-          btn.innerHTML = '<i class=\"fas fa-cog\"></i>'; 
+          btn.innerHTML = '<i class="fas fa-cog"></i>'; 
           btn.className = 'btn-icon-picker';
           btn.onclick = window.openIconPickerModal;
           
@@ -292,7 +292,7 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
       toggleChartBtn.onclick = () => {
           triggerHaptic('light');
           window.currentChartType = window.currentChartType === 'bar' ? 'line' : 'bar';
-          document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class=\"fas fa-chart-line\"></i>' : '<i class=\"fas fa-chart-bar\"></i>';
+          document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
           const isTab2 = document.getElementById('tab2').classList.contains('active');
           if (isTab2 && window.mChart) {
               window.mChart.config.type = window.currentChartType;
