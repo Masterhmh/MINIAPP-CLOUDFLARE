@@ -1,5 +1,5 @@
 // ============================================================================
-// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỊCH & ICON PICKER
+// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỌH & ICON PICKER
 // ----------------------------------------------------------------------------
 // Vai trò: Tab 3 (quản lý từ khóa: tải, hiển thị, sửa/hủy), nạp danh mục,
 //   thêm/sửa/xóa giao dịch (modal Add/Edit), sinh mã giao dịch, ghi/đọc
@@ -138,6 +138,7 @@ async function submitTx(tx) {
     if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
 
     triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
+    window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
@@ -177,6 +178,7 @@ window.deleteTransaction = function(id) {
               if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
 
               triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
+              window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
