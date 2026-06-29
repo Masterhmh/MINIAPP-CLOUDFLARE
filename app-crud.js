@@ -96,27 +96,44 @@ window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
-// Sinh mã GD bằng bộ đếm riêng trên Firebase (không phụ thuộc dữ liệu đang load)
+// Sinh mã GD bằng bộ đếm riêng trên Firebase, ĐỒNG THỜI đối chiếu với mã lớn nhất thực tế
+// (gồm cả mã do Bot tạo) -> không bao giờ cấp trùng mã, tránh ghi đè/xóa nhầm dữ liệu.
 async function getNextTransactionId() {
-    let num = null;
+    // 1) Đọc bộ đếm hiện tại trên Firebase (nếu có)
+    let counter = 0;
     try {
         const res = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`);
-        num = await res.json();
-    } catch (e) { num = null; }
+        const v = await res.json();
+        if (typeof v === 'number' && !isNaN(v)) counter = v;
+    } catch (e) { counter = 0; }
 
-    // Lần đầu chưa có bộ đếm -> khởi tạo từ ID lớn nhất hiện có
-    if (num === null || num === undefined || isNaN(num)) {
-        num = 0;
-        const allLoadedTxs = [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])];
-        allLoadedTxs.forEach(item => {
-            if (item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
-                const n = parseInt(String(item.id).replace('GD', ''), 10);
-                if (!isNaN(n) && n > num) num = n;
+    // 2) Quét số GD lớn nhất THỰC TẾ đang có trên Firebase (gồm cả mã do Bot tạo) để KHÔNG cấp trùng mã
+    let maxExisting = 0;
+    const scanIds = (obj) => {
+        if (!obj || typeof obj !== 'object') return;
+        Object.keys(obj).forEach(id => {
+            if (String(id).startsWith('GD') && !String(id).includes('_')) {
+                const n = parseInt(String(id).replace('GD', ''), 10);
+                if (!isNaN(n) && n > maxExisting) maxExisting = n;
             }
         });
-    }
+    };
+    try {
+        const res = await fetch(`${FIREBASE_URL}/transactions.json`);
+        const all = await res.json();
+        if (all && typeof all === 'object') Object.values(all).forEach(monthObj => scanIds(monthObj));
+    } catch (e) { /* lỗi mạng: vẫn còn bộ đếm + cache làm phương án dự phòng */ }
 
-        const nextNum = num + 1;
+    // 3) Dự phòng thêm: quét dữ liệu đang load sẵn trên máy
+    [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])].forEach(item => {
+        if (item && item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
+            const n = parseInt(String(item.id).replace('GD', ''), 10);
+            if (!isNaN(n) && n > maxExisting) maxExisting = n;
+        }
+    });
+
+    // 4) Lấy số lớn hơn giữa bộ đếm và max thực tế rồi +1 -> không bao giờ trùng mã
+    const nextNum = Math.max(counter, maxExisting) + 1;
     const putRes = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`, { method: 'PUT', body: JSON.stringify(nextNum) });
     if (!putRes.ok) throw new Error(`Không cập nhật được bộ đếm mã GD (${putRes.status})`);
     return "GD" + String(nextNum).padStart(3, '0');
@@ -165,7 +182,14 @@ window.deleteTransaction = function(id) {
           if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
           if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
           if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
-          const monthToUpdate = tx ? parseInt(tx.date.split('/')[1], 10) : 1;
+
+          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
+          if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
+              triggerHapticNotification('error');
+              showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
+              return;
+          }
+          const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
 
           showToast("Đang xóa giao dịch...", "info");
           try {
