@@ -170,8 +170,13 @@ window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) 
     document.getElementById('customConfirmOk').onclick = () => { triggerHaptic('medium'); closeModal(); onConfirm(); };
 };
 
-function showToast(message, type = "info", duration, showProgress = true) {
+// showToast(message, type, duration, showProgress)
+// - showProgress KHÔNG truyền -> mặc định tắt thanh tiến trình (toast tức thời),
+//   nhưng TỰ BẬT cho toast lỗi (type === 'error') để có đủ thời gian đọc.
+// - Truyền true/false để override thủ công khi cần.
+function showToast(message, type = "info", duration, showProgress) {
   if (duration == null) duration = type === 'error' ? 4000 : (type === 'success' ? 2200 : 1500);
+  if (showProgress == null) showProgress = (type === 'error');
   // Chống dồn: toast mới trùng nội dung với toast đang hiện -> chỉ reset đồng hồ
   if (isShowingToast && currentToastEl && currentToastMsg === message) { armToastTimer(currentToastEl, duration); return; }
   toastQueue.push({ message, type, duration, showProgress });
