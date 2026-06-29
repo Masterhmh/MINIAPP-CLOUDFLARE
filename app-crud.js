@@ -96,53 +96,45 @@ window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
-// Sinh mã GD bằng bộ đếm riêng trên Firebase, ĐỒNG THỜI đối chiếu với mã lớn nhất thực tế
-// (gồm cả mã do Bot tạo) -> không bao giờ cấp trùng mã, tránh ghi đè/xóa nhầm dữ liệu.
-async function getNextTransactionId() {
-    // 1) Đọc bộ đếm hiện tại trên Firebase (nếu có)
-    let counter = 0;
-    try {
-        const res = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`);
-        const v = await res.json();
-        if (typeof v === 'number' && !isNaN(v)) counter = v;
-    } catch (e) { counter = 0; }
-
-    // 2) Quét số GD lớn nhất THỰC TẾ đang có trên Firebase (gồm cả mã do Bot tạo) để KHÔNG cấp trùng mã
-    let maxExisting = 0;
+// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG của giao dịch: lấy mã GD lớn nhất ĐANG CÓ trong tháng đó rồi +1.
+// Đọc trực tiếp dữ liệu tháng trên Firebase (gồm cả mã do Bot tạo) nên không cấp trùng trong tháng -> không ghi đè.
+async function getNextTransactionId(month) {
+    let maxInMonth = 0;
     const scanIds = (obj) => {
         if (!obj || typeof obj !== 'object') return;
         Object.keys(obj).forEach(id => {
             if (String(id).startsWith('GD') && !String(id).includes('_')) {
                 const n = parseInt(String(id).replace('GD', ''), 10);
-                if (!isNaN(n) && n > maxExisting) maxExisting = n;
+                if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
             }
         });
     };
+    // Đọc đúng node tháng đó trên Firebase
     try {
-        const res = await fetch(`${FIREBASE_URL}/transactions.json`);
-        const all = await res.json();
-        if (all && typeof all === 'object') Object.values(all).forEach(monthObj => scanIds(monthObj));
-    } catch (e) { /* lỗi mạng: vẫn còn bộ đếm + cache làm phương án dự phòng */ }
+        const res = await fetch(`${FIREBASE_URL}/transactions/month_${month}.json`);
+        const data = await res.json();
+        scanIds(data);
+    } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
 
-    // 3) Dự phòng thêm: quét dữ liệu đang load sẵn trên máy
+    // Dự phòng: quét dữ liệu đang load trên máy nhưng CHỈ tính các giao dịch cùng tháng
     [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])].forEach(item => {
-        if (item && item.id && String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
+        if (!item || !item.id || !item.date) return;
+        const m = parseInt(String(item.date).split('/')[1], 10);
+        if (m !== month) return;
+        if (String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
             const n = parseInt(String(item.id).replace('GD', ''), 10);
-            if (!isNaN(n) && n > maxExisting) maxExisting = n;
+            if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
         }
     });
 
-    // 4) Lấy số lớn hơn giữa bộ đếm và max thực tế rồi +1 -> không bao giờ trùng mã
-    const nextNum = Math.max(counter, maxExisting) + 1;
-    const putRes = await fetch(`${FIREBASE_URL}/meta/lastTxNum.json`, { method: 'PUT', body: JSON.stringify(nextNum) });
-    if (!putRes.ok) throw new Error(`Không cập nhật được bộ đếm mã GD (${putRes.status})`);
+    const nextNum = maxInMonth + 1;
     return "GD" + String(nextNum).padStart(3, '0');
 }
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
-    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(); }
     const month = parseInt(tx.date.split('/')[1], 10);
+    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month); }
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
     // GHI LÊN FIREBASE TRƯỚC — xác nhận OK rồi mới cập nhật giao diện
