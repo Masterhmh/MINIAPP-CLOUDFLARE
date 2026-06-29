@@ -130,6 +130,25 @@ async function getNextTransactionId(month) {
     const nextNum = maxInMonth + 1;
     return "GD" + String(nextNum).padStart(3, '0');
 }
+
+// Gửi POST sang Google Sheet (GAS) CÓ KIỂM TRA + THỬ LẠI; trả về true nếu thành công, false nếu thất bại.
+// Tránh "nuốt" lỗi đồng bộ sheet một cách im lặng (chống lệch dữ liệu Firebase <-> Google Sheet).
+async function postToSheetWithRetry(payload, retries = 2) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(payload) });
+            if (res.ok) {
+                try {
+                    const data = await res.clone().json();
+                    if (!data || data.success !== false) return true; // GAS trả {success:false} mới coi là lỗi
+                } catch (e) { return true; } // 200 nhưng không phải JSON -> vẫn coi là OK
+            }
+        } catch (e) { console.log("Lỗi đồng bộ Sheet (lần " + (attempt + 1) + "):", e); }
+        if (attempt < retries) await new Promise(r => setTimeout(r, 500));
+    }
+    return false;
+}
+
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -152,7 +171,8 @@ async function submitTx(tx) {
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
 
-    fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(tx) }).catch(e => console.log("Lỗi backup Sheet:", e));
+    // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại thay vì nuốt lỗi im lặng
+    postToSheetWithRetry(tx).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning'); } });
     return true;
   } catch(e) {
     triggerHapticNotification('error');
@@ -199,7 +219,8 @@ window.deleteTransaction = function(id) {
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
 
-              fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}) }).catch(e => console.log("Lỗi xóa Sheet:", e));
+              // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
+              postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
           } catch(e) {
               triggerHapticNotification('error');
               showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
