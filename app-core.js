@@ -48,6 +48,7 @@ window.customCategoryIcons = {};
 window.currentChartType = 'bar'; // Mặc định biểu đồ cột
 
 let toastQueue = [], isShowingToast = false, currentEditKeyword = null;
+let currentToastEl = null, currentToastMsg = null, currentToastTimer = null;
 
 const itemsPerPage = 10;
 let currentPageTab1 = 1, currentPageCategory = 1, currentPageSearch = 1;
@@ -169,15 +170,37 @@ window.showCustomConfirm = function(title, messageHtml, confirmText, onConfirm) 
     document.getElementById('customConfirmOk').onclick = () => { triggerHaptic('medium'); closeModal(); onConfirm(); };
 };
 
-function showToast(message, type = "info") { toastQueue.push({ message, type }); if (!isShowingToast) processToastQueue(); }
+function showToast(message, type = "info", duration, showProgress = true) {
+  if (duration == null) duration = type === 'error' ? 4000 : (type === 'success' ? 2200 : 1500);
+  // Chống dồn: toast mới trùng nội dung với toast đang hiện -> chỉ reset đồng hồ
+  if (isShowingToast && currentToastEl && currentToastMsg === message) { armToastTimer(currentToastEl, duration); return; }
+  toastQueue.push({ message, type, duration, showProgress });
+  if (!isShowingToast) processToastQueue();
+}
+function armToastTimer(toast, duration) {
+  if (currentToastTimer) clearTimeout(currentToastTimer);
+  const bar = toast.querySelector('.toast-progress');
+  if (bar) { bar.style.animation = 'none'; void bar.offsetWidth; bar.style.animation = `premiumToastProgress ${duration}ms linear forwards`; }
+  currentToastTimer = setTimeout(dismissCurrentToast, duration);
+}
+function dismissCurrentToast() {
+  if (!currentToastEl) return;
+  if (currentToastTimer) { clearTimeout(currentToastTimer); currentToastTimer = null; }
+  const el = currentToastEl; currentToastEl = null; currentToastMsg = null;
+  el.classList.remove('show');
+  setTimeout(() => { el.remove(); processToastQueue(); }, 400);
+}
 function processToastQueue() {
   if (toastQueue.length === 0) { isShowingToast = false; return; }
-  isShowingToast = true; const { message, type } = toastQueue.shift();
+  isShowingToast = true; const { message, type, duration, showProgress } = toastQueue.shift();
   const toast = document.createElement('div'); toast.className = `premium-toast toast-${type}`;
   let icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
-  toast.innerHTML = `<i class="fas ${icon} toast-icon"></i><span class="toast-message">${escapeHTML(message)}</span><div class="toast-progress"></div>`;
+  const progressHTML = (showProgress && duration > 0) ? `<div class="toast-progress" style="animation-duration:${duration}ms"></div>` : '';
+  toast.innerHTML = `<i class="fas ${icon} toast-icon"></i><span class="toast-message">${escapeHTML(message)}</span>${progressHTML}`;
+  toast.addEventListener('click', dismissCurrentToast);
   document.body.appendChild(toast); void toast.offsetWidth; toast.classList.add('show');
-  setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { toast.remove(); processToastQueue(); }, 400); }, 3000);
+  currentToastEl = toast; currentToastMsg = message;
+  currentToastTimer = setTimeout(dismissCurrentToast, duration);
 }
 
 function showLoading(show, tabId) {
