@@ -13,44 +13,8 @@
 
 // Báo cho Telegram biết App đã sẵn sàng để hiển thị ngay lập tức
 if (window.Telegram && window.Telegram.WebApp) {
-    const tg = Telegram.WebApp;
-    tg.ready();
-    tg.expand();
-
-    // ---------------- CHẾ ĐỘ TOÀN MÀN HÌNH (GIỐNG BOTFATHER) ----------------
-    // requestFullscreen chỉ có từ Bot API 8.0+. Bọc try/catch + kiểm tra kiểu
-    // hàm để các client cũ không bị lỗi (sẽ tự rơi về chế độ expand thường).
-    const requestTgFullscreen = () => {
-        try {
-            if (typeof tg.requestFullscreen === 'function' && !tg.isFullscreen) {
-                tg.requestFullscreen();
-            }
-        } catch (e) {}
-    };
-    requestTgFullscreen();
-
-    // ---------------- CHỪA VÙNG AN TOÀN (SAFE AREA) ----------------
-    // Khi toàn màn hình, thanh trạng thái (tai thỏ/giờ/pin) và cụm nút điều
-    // khiển Telegram (nút X, menu ...) sẽ đè lên phần đầu app. Ta cộng
-    // safeAreaInset (thiết bị) với contentSafeAreaInset (vùng nút Telegram) để
-    // chừa padding phía trên cho .content-wrapper, đồng thời đẩy thanh nav dưới
-    // lên theo vùng an toàn phía dưới (home indicator).
-    const applyTgInsets = () => {
-        const safe = tg.safeAreaInset || {};
-        const content = tg.contentSafeAreaInset || {};
-        const top = (safe.top || 0) + (content.top || 0);
-        const bottom = (safe.bottom || 0) + (content.bottom || 0);
-        const wrapper = document.querySelector('.content-wrapper');
-        if (wrapper) wrapper.style.paddingTop = top + 'px';
-        const nav = document.querySelector('.bottom-nav');
-        if (nav) nav.style.bottom = (20 + bottom) + 'px';
-    };
-    applyTgInsets();
-    if (typeof tg.onEvent === 'function') {
-        tg.onEvent('safeAreaChanged', applyTgInsets);
-        tg.onEvent('contentSafeAreaChanged', applyTgInsets);
-        tg.onEvent('fullscreenChanged', applyTgInsets);
-    }
+    Telegram.WebApp.ready();
+    Telegram.WebApp.expand();
 }
 
 // Flag đánh dấu tab 2 cần reload khi có thay đổi giao dịch
