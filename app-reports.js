@@ -1,5 +1,5 @@
 // ============================================================================
-// app-reports.js — HIỂN THỊ GIAO DỌH, BÁO CÁO & TÌM KIẾM
+// app-reports.js — HIỂN THỊ GIAO DỊCH, BÁO CÁO & TÌM KIẾM
 // ----------------------------------------------------------------------------
 // Vai trò: Tab 1 (tải & hiển thị giao dịch trong ngày, phân trang, so sánh) và
 //   Tab 2 (báo cáo tuần/tháng/năm/tùy chọn: lịch, biểu đồ cột/đường, biểu đồ
@@ -12,7 +12,7 @@
 // Thứ tự nạp: sau app-core.js và currency.js.
 // ============================================================================
 
-// ---------------- TAB 1: GIAO DỌH ----------------
+// ---------------- TAB 1: GIAO DỊCH ----------------
 window.fetchTransactions = async function(forceRefresh = false) {
   const tDate = document.getElementById('transactionDate').value;
   if (!tDate) return;
@@ -89,7 +89,7 @@ function displayTransactions() {
   if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
   
   const headerTitle = document.querySelector('#tab1 .section-title');
-  if(headerTitle) headerTitle.innerHTML = `GIAO DỌH TRONG NGÀY <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
+  if(headerTitle) headerTitle.innerHTML = `GIAO DỊCH TRONG NGÀY <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
 
   if (data.length === 0) {
     document.getElementById('placeholderTab1').style.display = 'block';
