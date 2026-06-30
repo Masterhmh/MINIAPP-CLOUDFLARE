@@ -1,5 +1,5 @@
 // ============================================================================
-// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỌH & ICON PICKER
+// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỊCH & ICON PICKER
 // ----------------------------------------------------------------------------
 // Vai trò: Tab 3 (quản lý từ khóa: tải, hiển thị, sửa/hủy), nạp danh mục,
 //   thêm/sửa/xóa giao dịch (modal Add/Edit), sinh mã giao dịch, ghi/đọc
