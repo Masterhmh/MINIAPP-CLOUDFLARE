@@ -238,8 +238,8 @@ function renderCalendar(txs, dateObj, mode) {
             if (data.inc > 0 || data.exp > 0) {
                 const incObj = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
                 const expObj = data.exp > 0 ? formatCurrencyWithUnit(data.exp) : null;
-                let incStr = incObj ? `<span class="calendar-balance positive cal-row-amt">+${incObj.val}${incObj.unit}</span>` : '';
-                let expStr = expObj ? `<span class="calendar-balance negative cal-row-amt">-${expObj.val}${expObj.unit}</span>` : '';
+                let incStr = incObj ? `<span class="calendar-balance positive cal-row-amt">${incObj.val}${incObj.unit.trim()==='₫'?'':incObj.unit}</span>` : '';
+                let expStr = expObj ? `<span class="calendar-balance negative cal-row-amt">${expObj.val}${expObj.unit.trim()==='₫'?'':expObj.unit}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr}${expStr}</div>`;
             }
 
@@ -277,8 +277,8 @@ function renderCalendar(txs, dateObj, mode) {
             if (data.inc > 0 || data.exp > 0) {
                 const incObj2 = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
                 const expObj2 = data.exp > 0 ? formatCurrencyWithUnit(data.exp) : null;
-                let incStr2 = incObj2 ? `<span class="calendar-balance positive cal-row-amt">+${incObj2.val}${incObj2.unit}</span>` : '';
-                let expStr2 = expObj2 ? `<span class="calendar-balance negative cal-row-amt">-${expObj2.val}${expObj2.unit}</span>` : '';
+                let incStr2 = incObj2 ? `<span class="calendar-balance positive cal-row-amt">${incObj2.val}${incObj2.unit.trim()==='₫'?'':incObj2.unit}</span>` : '';
+                let expStr2 = expObj2 ? `<span class="calendar-balance negative cal-row-amt">${expObj2.val}${expObj2.unit.trim()==='₫'?'':expObj2.unit}</span>` : '';
                 balHTML = `<div class="cal-amt-col">${incStr2}${expStr2}</div>`;
             }
 
