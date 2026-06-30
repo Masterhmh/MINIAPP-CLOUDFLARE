@@ -1,14 +1,18 @@
 // ============================================================================
-// app-tab1ui.js — THANH CÔNG CỤ NỔI (+) & LỊCH THÁNG/TUẦN CHO TAB 1
+// app-tab1ui.js — NÚT "+" TRÊN THANH ĐIỀU HƯỚNG & LỊCH THÁNG/TUẦN (TAB 2)
 // ----------------------------------------------------------------------------
-// Vai trò: Nâng cấp giao diện Tab 1 mà KHÔNG sửa các file cũ:
-//   1) Nút "+" nổi (speed-dial) góc phải dưới: Thêm thu nhập / Thêm chi tiêu /
-//      Tìm kiếm / Giới thiệu / Cài đặt. Ẩn hàng quick-actions cũ.
-//   2) Lịch tháng/tuần thu gọn ngay dưới hero card: mũi tên lên/xuống ẩn-hiện,
-//      mũi tên trái/phải lùi/tiến kỳ, chọn ngày để xem giao dịch ngày đó.
-// Phụ thuộc (đều là biến/hàm toàn cục có sẵn): fetchTransactions, fetchMonthData,
-//   formatDateToYYYYMMDD, formatCurrencyWithUnit, triggerHaptic, openAddForm,
-//   openSearchModal, transactionDate (input ẩn).
+// Vai trò: Nâng cấp giao diện mà KHÔNG sửa các file cũ:
+//   1) Thêm nút "+" NẰM NGAY TRÊN THANH ĐIỀU HƯỚNG (bottom-nav), bên phải,
+//      ngang hàng với các tab. Bấm vào bung menu: Thêm thu nhập / Thêm chi tiêu
+//      / Tìm kiếm / Giới thiệu / Cài đặt.
+//   2) Ẩn 2 tab "Cài đặt" và "Giới thiệu" khỏi thanh điều hướng (đã gom vào +).
+//   3) Khi chọn "Thêm thu nhập" / "Thêm chi tiêu": modal chỉ hiển thị đúng 1
+//      loại (ẩn ô chọn Thu nhập/Chi tiêu), tiêu đề đổi theo loại.
+//   4) Lịch tháng/tuần thu gọn đặt ở TAB 2 (Báo cáo): mũi tên lên/xuống ẩn-hiện,
+//      mũi tên trái/phải lùi/tiến kỳ, bấm 1 ngày sẽ mở Tab 1 xem ngày đó.
+// Phụ thuộc (biến/hàm toàn cục có sẵn): fetchTransactions, fetchMonthData,
+//   formatDateToYYYYMMDD, triggerHaptic, openAddForm, openSearchModal,
+//   transactionDate (input ẩn).
 // Thứ tự nạp: CUỐI CÙNG (sau app-init.js).
 // ============================================================================
 (function () {
@@ -27,6 +31,7 @@
     if (document.getElementById(STYLE_ID)) return;
     var css = ''
       + '#tab1 .quick-actions{display:none !important;}'
+      // --- LỊCH ---
       + '.t1cal{margin:0 0 16px;}'
       + '.t1cal-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:14px;padding:8px 10px;}'
       + '.t1cal-title{display:flex;align-items:center;gap:8px;background:none;border:none;color:var(--text-1);font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;padding:6px;border-radius:10px;}'
@@ -53,26 +58,28 @@
       + '.t1cal-day.selected{background:var(--primary);border-color:var(--primary);}'
       + '.t1cal-day.selected .d-num,.t1cal-day.selected .d-inc,.t1cal-day.selected .d-exp{color:#fff;}'
       + '.t1cal-week .t1cal-day{min-height:62px;}'
-      + '.t1fab-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;visibility:hidden;transition:opacity .25s ease;z-index:60;}'
-      + '.t1fab-backdrop.open{opacity:1;visibility:visible;}'
-      + '.t1fab{position:fixed;right:18px;bottom:90px;z-index:61;display:flex;flex-direction:column;align-items:flex-end;gap:14px;}'
-      + '.t1fab-items{display:flex;flex-direction:column;align-items:flex-end;gap:12px;}'
-      + '.t1fab-item{display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(12px) scale(.9);pointer-events:none;transition:opacity .2s ease,transform .2s ease;}'
-      + '.t1fab.open .t1fab-item{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}'
-      + '.t1fab.open .t1fab-item:nth-child(1){transition-delay:.02s;}'
-      + '.t1fab.open .t1fab-item:nth-child(2){transition-delay:.05s;}'
-      + '.t1fab.open .t1fab-item:nth-child(3){transition-delay:.08s;}'
-      + '.t1fab.open .t1fab-item:nth-child(4){transition-delay:.11s;}'
-      + '.t1fab.open .t1fab-item:nth-child(5){transition-delay:.14s;}'
-      + '.t1fab-label{background:var(--bg-card);color:var(--text-1);font-size:.8rem;font-weight:600;padding:6px 11px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.18);white-space:nowrap;border:1px solid var(--border-color);}'
-      + '.t1fab-mini{width:46px;height:46px;border-radius:50%;border:none;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer;flex-shrink:0;}'
-      + '.t1fab-mini.inc{background:#10B981;}'
-      + '.t1fab-mini.exp{background:#F43F5E;}'
-      + '.t1fab-mini.search{background:#6366F1;}'
-      + '.t1fab-mini.about{background:#0EA5E9;}'
-      + '.t1fab-mini.settings{background:#64748B;}'
-      + '.t1fab-main{width:58px;height:58px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--primary,#6366F1),var(--primary-light,#818cf8));color:#fff;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(99,102,241,.45);cursor:pointer;transition:transform .3s ease;}'
-      + '.t1fab.open .t1fab-main{transform:rotate(135deg);}';
+      // --- NÚT "+" TRONG BOTTOM-NAV ---
+      + '.bottom-nav .t1navadd{cursor:pointer;}'
+      + '.t1navadd .t1navadd-circle{display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin:0 auto;border-radius:50%;background:linear-gradient(135deg,var(--primary,#6366F1),var(--primary-light,#818cf8));color:#fff;font-size:1.2rem;box-shadow:0 4px 12px rgba(99,102,241,.45);transition:transform .3s ease;}'
+      + '.t1navadd.open .t1navadd-circle{transform:rotate(135deg);}'
+      // --- MENU BUNG RA TỪ NÚT "+" ---
+      + '.t1menu-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;visibility:hidden;transition:opacity .25s ease;z-index:80;}'
+      + '.t1menu-backdrop.open{opacity:1;visibility:visible;}'
+      + '.t1menu{position:fixed;right:14px;bottom:84px;z-index:81;display:flex;flex-direction:column;align-items:flex-end;gap:12px;}'
+      + '.t1menu-item{display:flex;align-items:center;gap:10px;opacity:0;transform:translateY(12px) scale(.9);pointer-events:none;transition:opacity .2s ease,transform .2s ease;}'
+      + '.t1menu.open .t1menu-item{opacity:1;transform:translateY(0) scale(1);pointer-events:auto;}'
+      + '.t1menu.open .t1menu-item:nth-child(1){transition-delay:.02s;}'
+      + '.t1menu.open .t1menu-item:nth-child(2){transition-delay:.05s;}'
+      + '.t1menu.open .t1menu-item:nth-child(3){transition-delay:.08s;}'
+      + '.t1menu.open .t1menu-item:nth-child(4){transition-delay:.11s;}'
+      + '.t1menu.open .t1menu-item:nth-child(5){transition-delay:.14s;}'
+      + '.t1menu-label{background:var(--bg-card);color:var(--text-1);font-size:.8rem;font-weight:600;padding:6px 11px;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.18);white-space:nowrap;border:1px solid var(--border-color);}'
+      + '.t1menu-mini{width:46px;height:46px;border-radius:50%;border:none;color:#fff;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 6px 16px rgba(0,0,0,.25);cursor:pointer;flex-shrink:0;}'
+      + '.t1menu-mini.inc{background:#10B981;}'
+      + '.t1menu-mini.exp{background:#F43F5E;}'
+      + '.t1menu-mini.search{background:#6366F1;}'
+      + '.t1menu-mini.about{background:#0EA5E9;}'
+      + '.t1menu-mini.settings{background:#64748B;}';
     var s = document.createElement('style'); s.id = STYLE_ID; s.textContent = css;
     document.head.appendChild(s);
   }
@@ -80,60 +87,80 @@
   function hap(style) { try { if (typeof window.triggerHaptic === 'function') window.triggerHaptic(style || 'light'); } catch (e) {} }
 
   // ============================================================
-  // NÚT "+" NỔI (SPEED-DIAL)
+  // MENU "+" (gắn vào bottom-nav)
   // ============================================================
-  function closeFab() { var f = document.querySelector('.t1fab'); var b = document.querySelector('.t1fab-backdrop'); if (f) f.classList.remove('open'); if (b) b.classList.remove('open'); }
-  function openFab() { var f = document.querySelector('.t1fab'); var b = document.querySelector('.t1fab-backdrop'); if (f) f.classList.add('open'); if (b) b.classList.add('open'); }
+  function closeMenu() { var m = document.querySelector('.t1menu'); var b = document.querySelector('.t1menu-backdrop'); var n = document.querySelector('.t1navadd'); if (m) m.classList.remove('open'); if (b) b.classList.remove('open'); if (n) n.classList.remove('open'); }
+  function openMenu() { var m = document.querySelector('.t1menu'); var b = document.querySelector('.t1menu-backdrop'); var n = document.querySelector('.t1navadd'); if (m) m.classList.add('open'); if (b) b.classList.add('open'); if (n) n.classList.add('open'); }
+  function toggleMenu() { var m = document.querySelector('.t1menu'); if (m && m.classList.contains('open')) closeMenu(); else openMenu(); }
 
-  function fabAdd(type) {
-    closeFab();
+  // Mở form Thêm với DUY NHẤT 1 loại (ẩn ô chọn Thu nhập/Chi tiêu)
+  function openAdd(type) {
+    closeMenu();
     if (typeof window.openAddForm !== 'function') return;
+    var want = type === 'Thu nhập' ? 'Thu nhập' : 'Chi tiêu';
     Promise.resolve(window.openAddForm()).then(function () {
-      var pills = document.querySelectorAll('#addModal .type-pill');
+      var modal = document.getElementById('addModal');
+      if (!modal) return;
+      var pills = modal.querySelectorAll('.type-pill');
+      var row = null;
       pills.forEach(function (p) {
-        if (type === 'Thu nhập' && p.textContent.indexOf('Thu nhập') !== -1) p.click();
-        if (type === 'Chi tiêu' && p.textContent.indexOf('Chi tiêu') !== -1) p.click();
+        if (p.textContent.indexOf(want) !== -1) { p.click(); row = p.parentElement; }
       });
+      if (row) row.style.display = 'none';            // ẩn ô chọn loại
+      var title = modal.querySelector('.modal-title');
+      if (title) title.textContent = (want === 'Thu nhập' ? 'Thêm thu nhập' : 'Thêm chi tiêu');
     });
   }
 
-  function goTab(tab) { closeFab(); var btn = document.querySelector('.nav-btn[data-tab="' + tab + '"]'); if (btn) btn.click(); }
+  function goTab(tab) {
+    closeMenu();
+    var btn = document.querySelector('.nav-btn[data-tab="' + tab + '"]');
+    if (btn) btn.click();                              // nút vẫn click được dù đang ẩn
+    else if (typeof window.openTab === 'function') window.openTab(tab);
+  }
 
-  function buildFab() {
-    if (document.querySelector('.t1fab')) return;
-    var backdrop = document.createElement('div'); backdrop.className = 't1fab-backdrop'; backdrop.onclick = closeFab;
-    var fab = document.createElement('div'); fab.className = 't1fab';
-    var items = document.createElement('div'); items.className = 't1fab-items';
+  function buildNav() {
+    var nav = document.querySelector('.bottom-nav');
+    if (!nav || nav.querySelector('.t1navadd')) return;
+    // 1) Ẩn 2 tab Cài đặt (tab4) & Giới thiệu (tab5) khỏi thanh điều hướng
+    ['tab4', 'tab5'].forEach(function (t) {
+      var b = nav.querySelector('.nav-btn[data-tab="' + t + '"]');
+      if (b) b.style.display = 'none';
+    });
+    // 2) Tạo nút "+" bằng cách nhân bản 1 nav-btn (giữ đúng cỡ/bố cục), bỏ data-tab
+    var sample = nav.querySelector('.nav-btn');
+    var addBtn;
+    if (sample) { addBtn = sample.cloneNode(true); addBtn.removeAttribute('data-tab'); addBtn.classList.remove('active'); }
+    else { addBtn = document.createElement('button'); addBtn.className = 'nav-btn'; }
+    addBtn.classList.add('t1navadd');
+    addBtn.innerHTML = '<span class="t1navadd-circle"><i class="fas fa-plus"></i></span>';
+    addBtn.onclick = function (e) { if (e) e.preventDefault(); hap('light'); toggleMenu(); };
+    nav.appendChild(addBtn);                           // đặt ở cuối (bên phải)
+  }
+
+  function buildMenu() {
+    if (document.querySelector('.t1menu')) return;
+    var backdrop = document.createElement('div'); backdrop.className = 't1menu-backdrop'; backdrop.onclick = closeMenu;
+    var menu = document.createElement('div'); menu.className = 't1menu';
     var defs = [
-      { cls: 'inc', icon: 'fa-hand-holding-dollar', label: 'Thêm thu nhập', act: function () { fabAdd('Thu nhập'); } },
-      { cls: 'exp', icon: 'fa-money-bill-transfer', label: 'Thêm chi tiêu', act: function () { fabAdd('Chi tiêu'); } },
-      { cls: 'search', icon: 'fa-search', label: 'Tìm kiếm', act: function () { closeFab(); if (typeof window.openSearchModal === 'function') window.openSearchModal(); } },
+      { cls: 'inc', icon: 'fa-hand-holding-dollar', label: 'Thêm thu nhập', act: function () { openAdd('Thu nhập'); } },
+      { cls: 'exp', icon: 'fa-money-bill-transfer', label: 'Thêm chi tiêu', act: function () { openAdd('Chi tiêu'); } },
+      { cls: 'search', icon: 'fa-search', label: 'Tìm kiếm', act: function () { closeMenu(); if (typeof window.openSearchModal === 'function') window.openSearchModal(); } },
       { cls: 'about', icon: 'fa-circle-info', label: 'Giới thiệu', act: function () { goTab('tab5'); } },
       { cls: 'settings', icon: 'fa-cog', label: 'Cài đặt', act: function () { goTab('tab4'); } }
     ];
     defs.forEach(function (d) {
-      var it = document.createElement('div'); it.className = 't1fab-item';
-      it.innerHTML = '<span class="t1fab-label">' + d.label + '</span><button class="t1fab-mini ' + d.cls + '"><i class="fas ' + d.icon + '"></i></button>';
+      var it = document.createElement('div'); it.className = 't1menu-item';
+      it.innerHTML = '<span class="t1menu-label">' + d.label + '</span><button class="t1menu-mini ' + d.cls + '"><i class="fas ' + d.icon + '"></i></button>';
       it.onclick = function () { hap('light'); d.act(); };
-      items.appendChild(it);
+      menu.appendChild(it);
     });
-    var main = document.createElement('button'); main.className = 't1fab-main'; main.innerHTML = '<i class="fas fa-plus"></i>';
-    main.onclick = function () { hap('light'); var f = document.querySelector('.t1fab'); if (f && f.classList.contains('open')) closeFab(); else openFab(); };
-    fab.appendChild(items); fab.appendChild(main);
-    document.body.appendChild(backdrop); document.body.appendChild(fab);
-    updateFabVisibility();
-  }
-
-  function updateFabVisibility() {
-    var fab = document.querySelector('.t1fab'); if (!fab) return;
-    var t1 = document.getElementById('tab1');
-    var visible = !!(t1 && t1.classList.contains('active'));
-    fab.style.display = visible ? 'flex' : 'none';
-    if (!visible) closeFab();
+    document.body.appendChild(backdrop);
+    document.body.appendChild(menu);
   }
 
   // ============================================================
-  // LỊCH THÁNG / TUẦN
+  // LỊCH THÁNG / TUẦN (đặt ở TAB 2)
   // ============================================================
   function startOfWeek(date) {
     var sow = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
@@ -175,7 +202,6 @@
     });
   }
 
-  // Gom thu/chi theo từng ngày trong khoảng [start,end]
   function getRangeData(start, end) {
     var months = {}; var cur = new Date(start);
     while (cur <= end) { months[cur.getMonth() + 1] = true; cur.setDate(cur.getDate() + 1); }
@@ -256,7 +282,9 @@
           hap('light');
           var inp2 = document.getElementById('transactionDate');
           if (inp2) inp2.value = key;
-          if (typeof window.fetchTransactions === 'function') window.fetchTransactions(false);
+          var b = document.querySelector('.nav-btn[data-tab="tab1"]');
+          if (b) b.click();                                  // sang Tab 1 xem ngày đã chọn
+          else if (typeof window.fetchTransactions === 'function') window.fetchTransactions(false);
           markSelected();
         };
         grid.appendChild(cell);
@@ -294,7 +322,7 @@
 
   function buildCalendar() {
     if (document.querySelector('.t1cal')) return;
-    var hero = document.querySelector('#tab1 .hero-card'); if (!hero || !hero.parentNode) return;
+    var t2 = document.getElementById('tab2'); if (!t2) return;
     var wrap = document.createElement('div'); wrap.className = 't1cal' + (calOpen ? ' open' : '');
     wrap.innerHTML = ''
       + '<div class="t1cal-bar">'
@@ -306,7 +334,7 @@
       + '<div class="t1cal-wk" id="t1calWk"></div>'
       + '<div class="t1cal-grid" id="t1calGrid"></div>'
       + '</div>';
-    hero.parentNode.insertBefore(wrap, hero.nextSibling);
+    t2.insertBefore(wrap, t2.firstChild);              // đặt ở đầu Tab 2
 
     document.getElementById('t1calTitle').onclick = function () { hap('light'); toggleCal(); };
     document.getElementById('t1calPrev').onclick = function () { hap('light'); shift(-1); };
@@ -333,13 +361,16 @@
   // ---------------- KHỞI ĐỘNG ----------------
   function init() {
     injectStyles();
-    buildCalendar();
-    buildFab();
+    buildCalendar();   // -> Tab 2
+    buildNav();        // nút "+" trong bottom-nav + ẩn tab Cài đặt/Giới thiệu
+    buildMenu();       // menu bung ra
     wrapFetch();
     document.querySelectorAll('.nav-btn').forEach(function (b) {
-      b.addEventListener('click', function () { setTimeout(updateFabVisibility, 0); });
+      b.addEventListener('click', function () {
+        closeMenu();
+        if (b.dataset && b.dataset.tab === 'tab2' && calOpen) setTimeout(render, 60);
+      });
     });
-    updateFabVisibility();
     setLabel();
   }
 
