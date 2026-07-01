@@ -1,13 +1,13 @@
 // ============================================================================
 // app-upgrade.js — NÂNG CẤP GIAO DIỆN (nạp CUỐI CÙNG, sau app-init.js)
 // ----------------------------------------------------------------------------
-// Vai trò: bổ sung tính năng/giao diện mới MÀ KHÔNG sửa các file cũ:
-//   1) Tab 1: bấm dòng ngày -> mở bảng chọn ngày GỐC của hệ điều hành.
-//   2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu.
-//   3) Cài đặt / Giới thiệu dạng trang toàn màn hình (nút Quay Lại bên phải + vuốt để quay lại).
-//   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi.
-//   5) Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa.
-//   6) Nút đóng ✕ rõ ràng cho các modal trượt.
+// 1) Tab 1: bấm dòng ngày -> bảng chọn ngày GỐC của OS.
+// 2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Cài đặt / Giới thiệu.
+// 3) Cài đặt / Giới thiệu dạng trang toàn màn hình (Quay Lại bên phải + vuốt).
+// 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
+// 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
+// 6) Nút đóng ✕ cho modal.
+// 7) Tab Tìm kiếm (tab thứ 4) thay cho mục Tìm kiếm trong FAB.
 // ============================================================================
 
 (function () {
@@ -75,7 +75,6 @@
     modal.appendChild(btn);
   }
 
-  // Cử chỉ vuốt sang phải để quay lại (đóng trang toàn màn hình)
   function enableSwipeBack(pageId) {
     var el = document.getElementById(pageId);
     if (!el) return;
@@ -99,8 +98,29 @@
     }, { passive: true });
   }
 
+  // Đưa Tìm kiếm ra tab thứ 4 + bỏ khỏi menu FAB
+  function setupSearchTab() {
+    var fabMenu = document.getElementById('fabMenu');
+    if (fabMenu) {
+      fabMenu.querySelectorAll('.fab-item').forEach(function (it) {
+        var lbl = it.querySelector('.fab-item-label');
+        if (lbl && lbl.textContent.trim() === 'Tìm kiếm') it.remove();
+      });
+    }
+    var group = document.querySelector('.nav-tabs-group');
+    if (group && !document.getElementById('navSearchBtn')) {
+      var btn = document.createElement('button');
+      btn.id = 'navSearchBtn';
+      btn.className = 'nav-btn';
+      btn.type = 'button';
+      btn.innerHTML = '<div class="nav-icon-wrap"><i class="fas fa-search"></i></div><span class="nav-label">Tìm kiếm</span>';
+      btn.onclick = function () { triggerHaptic('light'); if (typeof window.openSearchModal === 'function') window.openSearchModal(); };
+      group.appendChild(btn);
+    }
+  }
+
   // ------------------------------------------------------------------
-  // 1) WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
+  // WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
   // ------------------------------------------------------------------
   var _origOpenAddForm = window.openAddForm;
   window.openAddForm = async function (lockType) {
@@ -138,7 +158,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 2) WRAP closeAllModals — đóng luôn popup lịch chọn ngày
+  // WRAP closeAllModals — đóng luôn popup lịch chọn ngày
   // ------------------------------------------------------------------
   var _origCloseAll = window.closeAllModals;
   window.closeAllModals = function () {
@@ -148,7 +168,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 3) WRAP updateTimeNavUI — đồng bộ thanh điều khiển lịch (Tab 2)
+  // WRAP updateTimeNavUI — đồng bộ thanh điều khiển lịch (Tab 2)
   // ------------------------------------------------------------------
   var _origUpdateTimeNavUI = window.updateTimeNavUI;
   window.updateTimeNavUI = function () {
@@ -177,7 +197,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 4) MENU FAB (nút ＋)
+  // MENU FAB (nút ＋)
   // ------------------------------------------------------------------
   window.toggleFabMenu = function () {
     triggerHaptic('light');
@@ -200,7 +220,7 @@
   window.fabAbout = function () { closeFabMenu(); openFullscreen('aboutPage'); };
 
   // ------------------------------------------------------------------
-  // 5) TRANG TOÀN MÀN HÌNH (Cài đặt / Giới thiệu)
+  // TRANG TOÀN MÀN HÌNH (Cài đặt / Giới thiệu)
   // ------------------------------------------------------------------
   function openFullscreen(id) {
     triggerHaptic('light');
@@ -216,7 +236,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 6) POPUP LỊ CH TÙY CHỌN (dự phòng)
+  // POPUP LỊ CH TÙY CHỌN (dự phòng)
   // ------------------------------------------------------------------
   var dpDate = new Date();
   var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
@@ -269,13 +289,14 @@
   }
 
   // ------------------------------------------------------------------
-  // 7) KHỎI TẠO SAU KHI DOM SẮN SÀNG
+  // KHỎI TẠO SAU KHI DOM SẮN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     var fabBtn = document.getElementById('fabBtn');
     if (fabBtn) fabBtn.onclick = window.toggleFabMenu;
 
     setupHeroDateNative();
+    setupSearchTab();
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };
@@ -300,7 +321,6 @@
     addModalCloseX('pdfPreviewModal', 'closeAllModals');
     addModalCloseX('datePickerModal', 'closeDatePicker');
 
-    // Trang Cài đặt / Giới thiệu: thêm chữ "Quay Lại" vào nút + bật vuốt để quay lại
     document.querySelectorAll('.fs-back').forEach(function (b) {
       if (!b.querySelector('.fs-back-label')) {
         var s = document.createElement('span');
