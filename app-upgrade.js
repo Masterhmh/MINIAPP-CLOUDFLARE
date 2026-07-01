@@ -7,7 +7,7 @@
 // 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
-// 7) Tab Tìm kiếm (tab thứ 4) + tối giản modal tìm kiếm (1 ô nội dung/số tiền).
+// 7) Tab Tìm kiếm + tối giản modal tìm kiếm (1 ô, tìm toàn bộ, hỗ trợ 50k/50m/50tr).
 // 8) Đếm tổng giao dịch (modal chi tiết + tìm kiếm) + sắp xếp kết quả theo ngày mới nhất.
 // ============================================================================
 
@@ -138,16 +138,23 @@
     return parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
   }
 
-  // Tối giản modal tìm kiếm: 1 ô nhập (nội dung hoặc số tiền), bỏ ô số tiền & phân loại
+  // Tối giản modal tìm kiếm: 1 ô (nội dung hoặc số tiền), tìm TOÀN BỘ dữ liệu,
+  // hỗ trợ nhập số tiền dạng 50k / 50m / 50tr (dùng parseNumber).
   function setupSearchSimplify() {
     var amt = document.getElementById('searchAmount');
     if (amt) { var g1 = amt.closest('.field-group'); if (g1) g1.style.display = 'none'; }
     var cat = document.getElementById('searchCategory');
     if (cat) { var g2 = cat.closest('.field-group'); if (g2) g2.style.display = 'none'; }
 
+    // Bỏ chọn thời gian -> mặc định tìm toàn bộ
+    var pills = document.querySelector('#searchModal .period-pills');
+    if (pills) pills.style.display = 'none';
+    var customC = document.getElementById('searchCustomFilterContainer');
+    if (customC) customC.style.display = 'none';
+
     var content = document.getElementById('searchContent');
     if (content) {
-      content.placeholder = 'Nhập nội dung hoặc số tiền cần tìm';
+      content.placeholder = 'Nhập nội dung hoặc số tiền (vd: 50k, 1tr5)';
       var grp = content.closest('.field-group');
       var lab = grp ? grp.querySelector('.field-label') : null;
       if (lab) lab.textContent = 'Nội dung hoặc số tiền';
@@ -160,24 +167,19 @@
         var term = ((document.getElementById('searchContent') || {}).value || '').trim();
         if (!term) return showToast('Nhập nội dung hoặc số tiền cần tìm', 'warning');
         var termLower = term.toLowerCase();
-        var digits = term.replace(/[^0-9]/g, '');
-        var amountNum = digits ? parseFloat(digits) : null;
-
-        var sM = 1, eM = 12;
-        if (document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
-        else if (document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
+        var amountNum = (typeof window.parseNumber === 'function') ? window.parseNumber(term) : null;
 
         showLoading(true, 'search');
         try {
           var fetchPromises = [];
-          for (var m = sM; m <= eM; m++) { (function (mm) { fetchPromises.push(fetchMonthData(mm)); })(m); }
+          for (var m = 1; m <= 12; m++) { (function (mm) { fetchPromises.push(fetchMonthData(mm)); })(m); }
           var monthsResults = await Promise.all(fetchPromises);
           var txs = [];
           monthsResults.forEach(function (monthData) {
             monthData.forEach(function (t) {
               if (!t) return;
               var contentMatch = t.content && t.content.toLowerCase().indexOf(termLower) !== -1;
-              var amountMatch = (amountNum !== null) && Math.abs(t.amount - amountNum) < 0.01;
+              var amountMatch = (amountNum !== null && amountNum !== undefined) && Math.abs(t.amount - amountNum) < 0.01;
               if (contentMatch || amountMatch) txs.push(t);
             });
           });
