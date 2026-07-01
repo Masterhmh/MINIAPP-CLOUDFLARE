@@ -1,18 +1,47 @@
 // ============================================================================
 // app-upgrade.js — NÂNG CẤP GIAO DIỆN (nạp CUỐI CÙNG, sau app-init.js)
 // ----------------------------------------------------------------------------
-// Vai trò: bổ sung các tính năng/giao diện mới MÀ KHÔNG sửa các file cũ:
+// Vai trò: bổ sung tính năng/giao diện mới MÀ KHÔNG sửa các file cũ:
 //   1) Tab 1: bấm chữ ngày -> mở lịch chọn ngày (popup).
-//   2) Nút ＋ (FAB) trên thanh nav: Thêm thu nhập / Thêm chi tiêu / Tìm kiếm /
-//      Cài đặt / Giới thiệu. Thêm thu nhập/chi tiêu -> form khóa loại tương ứng.
-//   3) Cài đặt / Giới thiệu hiển thị dạng trang toàn màn hình.
-//   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi tuần hoặc tháng.
-// Hoạt động bằng cách bao (wrap) một số hàm toàn cục có sẵn:
-//   openAddForm, closeAllModals, updateTimeNavUI.
+//   2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu.
+//   3) Cài đặt / Giới thiệu dạng trang toàn màn hình.
+//   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi.
+//   5) Hiển thị ngày dạng dd/MM/yyyy ở form Thêm/Sửa (lớp phủ đè ô date mặc định).
 // ============================================================================
 
 (function () {
   'use strict';
+
+  // ------------------------------------------------------------------
+  // Tiện ích hiển thị ngày dd/MM/yyyy đè lên ô <input type="date">
+  // ------------------------------------------------------------------
+  function fmtDMY(yyyymmdd) {
+    if (!yyyymmdd) return '';
+    var p = String(yyyymmdd).split('-');
+    if (p.length !== 3) return '';
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+  function syncDateDisplay(inputId, displayId) {
+    var i = document.getElementById(inputId), d = document.getElementById(displayId);
+    if (i && d) d.textContent = fmtDMY(i.value);
+  }
+  window.__syncDateDisplay = syncDateDisplay;
+  function setupDateDisplay(inputId, displayId) {
+    var input = document.getElementById(inputId);
+    if (!input || document.getElementById(displayId)) return;
+    input.classList.add('date-native');
+    var wrap = document.createElement('div');
+    wrap.className = 'date-field-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    var span = document.createElement('span');
+    span.className = 'date-display';
+    span.id = displayId;
+    wrap.appendChild(span);
+    input.addEventListener('change', function () { syncDateDisplay(inputId, displayId); });
+    input.addEventListener('input', function () { syncDateDisplay(inputId, displayId); });
+    syncDateDisplay(inputId, displayId);
+  }
 
   // ------------------------------------------------------------------
   // 1) WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
@@ -26,13 +55,11 @@
     var titleEl = addModal ? addModal.querySelector('.modal-title') : null;
     var locked = (lockType === 'Thu nhập' || lockType === 'Chi tiêu');
 
-    // Ẩn/hiện + đặt tiêu đề TRƯỚC khi gọi hàm gốc (hàm gốc mới bật hiệu ứng hiện modal)
     if (typeGroup) typeGroup.style.display = locked ? 'none' : '';
     if (titleEl) titleEl.textContent = locked ? (lockType === 'Thu nhập' ? 'Thêm thu nhập' : 'Thêm chi tiêu') : 'Thêm giao dịch mới';
 
     if (typeof _origOpenAddForm === 'function') { await _origOpenAddForm(); }
 
-    // Sau khi hàm gốc chạy xong: đặt đúng loại + đảm bảo vẫn ẩn ô chọn loại
     if (locked && addModal) {
       var addTypeInput = document.getElementById('addType');
       if (addTypeInput) addTypeInput.value = lockType;
@@ -45,6 +72,15 @@
       if (typeGroup) typeGroup.style.display = '';
       if (titleEl) titleEl.textContent = 'Thêm giao dịch mới';
     }
+
+    syncDateDisplay('addDate', 'addDateDisplay');
+  };
+
+  // WRAP openEditForm — cập nhật hiển thị ngày dd/MM/yyyy sau khi mở form sửa
+  var _origOpenEditForm = window.openEditForm;
+  window.openEditForm = async function (tx) {
+    if (typeof _origOpenEditForm === 'function') { await _origOpenEditForm(tx); }
+    syncDateDisplay('editDate', 'editDateDisplay');
   };
 
   // ------------------------------------------------------------------
@@ -77,7 +113,6 @@
     if (label && src && src.textContent) label.textContent = src.textContent;
   }
 
-  // Điều hướng lịch (tiến/lùi tuần hoặc tháng) — dùng chung trạng thái với báo cáo
   window.calShift = function (dir) {
     triggerHaptic('light');
     if (typeof currentFilterMode === 'undefined') return;
@@ -183,18 +218,15 @@
   // 7) KHỎI TẠO SAU KHI DOM SẮN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
-    // Nút FAB
     var fabBtn = document.getElementById('fabBtn');
     if (fabBtn) fabBtn.onclick = window.toggleFabMenu;
 
-    // Bấm chữ ngày (Tab 1) -> mở lịch chọn ngày
     var dateText = document.getElementById('displayCurrentDate');
     if (dateText) {
       dateText.style.cursor = 'pointer';
       dateText.addEventListener('click', function (e) { e.stopPropagation(); window.openDatePicker(); });
     }
 
-    // Điều khiển lịch Tab 2
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };
     var calWidget = document.getElementById('calendarWidget');
@@ -206,6 +238,10 @@
       var c = calWidget.classList.toggle('cal-collapsed');
       localStorage.setItem('calCollapsed', c);
     };
+
+    // Hiển thị ngày dd/MM/yyyy cho form Thêm & Sửa
+    setupDateDisplay('addDate', 'addDateDisplay');
+    setupDateDisplay('editDate', 'editDateDisplay');
 
     try { syncCalendarControlBar(); } catch (e) {}
   });
