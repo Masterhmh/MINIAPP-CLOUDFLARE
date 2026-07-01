@@ -16,17 +16,24 @@
 
   // ------------------------------------------------------------------
   // 1) WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
+  //    Ẩn ô chọn loại TRƯỚC khi form hiện để tránh nháy.
   // ------------------------------------------------------------------
   var _origOpenAddForm = window.openAddForm;
   window.openAddForm = async function (lockType) {
-    if (typeof _origOpenAddForm === 'function') { await _origOpenAddForm(); }
     var addModal = document.getElementById('addModal');
-    if (!addModal) return;
-    var typeRow = addModal.querySelector('.type-row');
+    var typeRow = addModal ? addModal.querySelector('.type-row') : null;
     var typeGroup = typeRow ? typeRow.closest('.field-group') : null;
-    var titleEl = addModal.querySelector('.modal-title');
+    var titleEl = addModal ? addModal.querySelector('.modal-title') : null;
+    var locked = (lockType === 'Thu nhập' || lockType === 'Chi tiêu');
 
-    if (lockType === 'Thu nhập' || lockType === 'Chi tiêu') {
+    // Ẩn/hiện + đặt tiêu đề TRƯỚC khi gọi hàm gốc (hàm gốc mới bật hiệu ứng hiện modal)
+    if (typeGroup) typeGroup.style.display = locked ? 'none' : '';
+    if (titleEl) titleEl.textContent = locked ? (lockType === 'Thu nhập' ? 'Thêm thu nhập' : 'Thêm chi tiêu') : 'Thêm giao dịch mới';
+
+    if (typeof _origOpenAddForm === 'function') { await _origOpenAddForm(); }
+
+    // Sau khi hàm gốc chạy xong: đặt đúng loại + đảm bảo vẫn ẩn ô chọn loại
+    if (locked && addModal) {
       var addTypeInput = document.getElementById('addType');
       if (addTypeInput) addTypeInput.value = lockType;
       addModal.querySelectorAll('.type-pill').forEach(function (p) {
@@ -34,7 +41,7 @@
       });
       if (typeGroup) typeGroup.style.display = 'none';
       if (titleEl) titleEl.textContent = (lockType === 'Thu nhập' ? 'Thêm thu nhập' : 'Thêm chi tiêu');
-    } else {
+    } else if (!locked) {
       if (typeGroup) typeGroup.style.display = '';
       if (titleEl) titleEl.textContent = 'Thêm giao dịch mới';
     }
