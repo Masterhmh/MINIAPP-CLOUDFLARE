@@ -1,4 +1,4 @@
-/* PATCH: bottom nav layout like mock (tabs left, + button right) */
+/* PATCH: bottom nav layout like mock (tabs left, + button right/outside) */
 
 .bottom-nav{
   position: fixed;
@@ -18,35 +18,53 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
+  padding-right: 78px; /* chừa chỗ để nút + nằm lệch ra ngoài */
   z-index: 1000;
 }
 
-.bottom-tabs{display:flex; align-items:center; gap: 6px; flex:1; justify-content: space-around; padding-right: 10px;}
+.bottom-tabs{
+  display:flex;
+  align-items:center;
+  gap: 6px;
+  flex:1;
+  justify-content: space-around;
+  padding-right: 10px;
+}
 
+/* Nút + tròn tách riêng sang bên phải (nhô ra ngoài khung pill) */
 .fab-btn.fab-right{
-  position: static;
-  transform: none;
-  width: 56px;
-  height: 56px;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  border: none;
-  background: rgba(255,255,255,0.18);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
-  color: var(--text-1);
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+  color: #1f2937;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 56px;
+  flex: 0 0 58px;
 }
 
-.fab-btn.fab-right i{font-size: 1.2rem;}
+body.theme-dark .fab-btn.fab-right,
+body.theme-auto .fab-btn.fab-right{
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--text-1);
+  border: 1px solid rgba(255,255,255,0.22);
+}
 
-/* make tab buttons more compact when inside bottom-tabs */
+.fab-btn.fab-right:active{ transform: translateY(-50%) scale(0.95); }
+.fab-btn.fab-right i{font-size: 1.25rem;}
+
+/* tab buttons more compact */
 .bottom-tabs .nav-btn{min-width: 74px; height: 58px;}
 
 /* calendar toggle UI */
 .time-nav-center{gap:8px;}
 .calendar-toggle-btn{width: 30px; height: 30px; border-radius: 10px;}
-
