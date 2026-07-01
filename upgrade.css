@@ -1,18 +1,18 @@
 /* ============================================================================
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
-   - Thanh nav 3 tab (viên thuốc, chia đều) + nút FAB (＋) tách riêng
+   - Thanh nav 3 tab (~3/5 chiều rộng) + nút FAB (＋) tách riêng
    - Menu FAB: Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu
    - Trang toàn màn hình (Cài đặt / Giới thiệu)
    - Thanh điều khiển ẩn/hiện lịch Tab 2 (nhãn + ẩn/hiện bên trái, mũi tên bên phải)
    - Popup lịch chọn ngày Tab 1
    ============================================================================ */
 
-/* ---------- THANH NAV: 3 TAB (VIÊN THUỐC) + NÚT FAB TÁCH RIÊNG ---------- */
+/* ---------- THANH NAV: 3 TAB (~3/5 MÀN HÌNH) + NÚT FAB TÁCH RIÊNG ---------- */
 /* Bỏ nền/viền/bóng của bottom-nav để nó chỉ làm khung chứa trong suốt */
 .bottom-nav { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border: none !important; height: auto !important; padding: 0 !important; justify-content: space-between !important; gap: 12px; }
 
-/* Cụm 3 tab: giãn lấp đầy chiều ngang, 3 tab chia đều nhau (rộng, cân đối) */
-.nav-tabs-group { display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0 10px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+/* Cụm 3 tab: cố định ~3/5 (60%) chiều rộng màn hình, 3 tab chia đều bên trong */
+.nav-tabs-group { display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 0 0 60vw; width: 60vw; max-width: 340px; min-width: 0; height: 64px; padding: 0 10px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
 .nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; }
 
 /* Nút FAB là hình tròn độc lập bên phải */
