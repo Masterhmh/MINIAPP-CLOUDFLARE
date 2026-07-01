@@ -98,7 +98,7 @@ body {
         radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 40%);
     background-attachment: fixed;
     color: var(--text-1); 
-    padding: 0 0 110px 0; 
+    padding: 0 0 100px 0; 
     min-height: 100vh; 
     overflow-x: hidden; 
     transition: background-color 0.3s ease, color 0.3s ease; 
@@ -151,7 +151,17 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .hero-stat-val { font-size: 1.05rem; font-weight: 700; color: white; white-space: nowrap !important; }
 .divider-v { width: 1px; background: rgba(255,255,255,0.2); }
 
-/* removed quick-actions */
+.quick-actions { display: flex; gap: 10px; margin-bottom: 8px; }
+.qa-btn { flex: 1; background: transparent; border: none; padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.qa-btn-relative { position: relative; }
+.qa-icon { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.15rem; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+.qa-icon.filter { background: rgba(255, 184, 0, 0.12); color: var(--balance); }
+.qa-icon.add { background: rgba(16, 185, 129, 0.12); color: var(--income); }
+.qa-icon.search { background: var(--primary-alpha); color: var(--primary-light); }
+.qa-label { font-size: 0.75rem; font-weight: 600; color: var(--text-1); transition: color 0.25s ease; }
+.qa-btn:hover .qa-icon { transform: scale(1.08) translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); filter: brightness(1.1); }
+.qa-btn:hover .qa-label { color: var(--primary-light); }
+.qa-btn:active .qa-icon { transform: scale(0.95); }
 .hidden-picker { position: absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; }
 
 .tx-card, .stat-card, .info-card, .cat-progress-card, .time-nav-container, .filter-controls, .chart-placeholder, .keyword-group-card { background: var(--bg-card); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
@@ -196,13 +206,8 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .nav-arrow-btn { background: transparent; border: none; color: var(--text-2); padding: 8px 14px; cursor: pointer; transition: all 0.2s ease; border-radius: 8px; }
 .nav-arrow-btn:hover { color: var(--primary-light); background: rgba(255,255,255,0.05); transform: scale(1.1); }
 .nav-arrow-btn:active { transform: scale(0.9); }
-.time-nav-center { position: relative; flex: 1; text-align: center; display:flex; align-items:center; justify-content:center; gap:8px; }
+.time-nav-center { position: relative; flex: 1; text-align: center; }
 #currentPeriodLabel { font-weight: 700; color: var(--text-1); font-size: 0.9rem; }
-.calendar-toggle-btn{ background: transparent; border:none; color: var(--text-2); width: 34px; height: 34px; border-radius: 10px; cursor:pointer; transition: all .2s ease; display:flex; align-items:center; justify-content:center; }
-.calendar-toggle-btn:hover{ background: rgba(255,255,255,0.05); color: var(--primary-light); }
-.calendar-toggle-btn.rotated i{ transform: rotate(180deg); }
-.calendar-toggle-btn i{ transition: transform .2s ease; }
-
 .filter-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px; border-radius: var(--radius-md); }
 .filter-separator { font-size: 0.8rem; font-weight: 600; color: var(--text-2); }
 .btn-filter { width: 42px !important; flex: 0 0 42px !important; height: 42px !important; padding: 0 !important; display: flex; align-items: center; justify-content: center; border-radius: 50% !important; transition: all 0.25s ease; }
@@ -283,21 +288,6 @@ h1 { font-size: 1.1rem; font-weight: 800; color: var(--primary-light); margin: 1
 .modal-handle { width: 40px; height: 5px; background: var(--text-2); opacity: 0.4; border-radius: 3px; margin: 0 auto 20px; }
 .modal-title { font-size: 1.15rem; font-weight: 800; color: var(--text-1); margin-bottom: 24px; letter-spacing: -0.02em; text-transform: uppercase; display: flex; align-items: center; }
 .modal-actions { display: flex; gap: 12px; margin-top: 16px; align-items: center; flex-shrink: 0;}
-
-/* FAB menu */
-.fab-btn{ position:absolute; left:50%; transform: translateX(-50%); width: 56px; height:56px; border-radius: 50%; border:none; background: var(--grad-primary); box-shadow: 0 10px 30px rgba(6,182,212,0.35); color: #fff; cursor:pointer; display:flex; align-items:center; justify-content:center; transition: transform .2s ease, box-shadow .2s ease; }
-.fab-btn:active{ transform: translateX(-50%) scale(0.94); }
-.fab-btn i{ font-size: 1.15rem; }
-.bottom-nav{ position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: 64px; background: var(--nav-bg) !important; backdrop-filter: var(--glass-effect) !important; -webkit-backdrop-filter: var(--glass-effect) !important; border-radius: 32px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255,255,255,0.1) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; display: flex; justify-content: space-around; align-items: center; padding: 0 12px; z-index: 1000; }
-.fab-menu-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.fab-menu-item{ background: var(--bg-card); border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 12px; cursor:pointer; display:flex; flex-direction: column; align-items:center; justify-content:center; gap: 8px; color: var(--text-1); }
-.fab-mi-icon{ width: 44px; height:44px; border-radius: 50%; display:flex; align-items:center; justify-content:center; background: var(--primary-alpha); color: var(--primary-light); }
-.fab-mi-icon.income{ background: rgba(16,185,129,0.12); color: var(--income); }
-.fab-mi-icon.expense{ background: rgba(244,63,94,0.12); color: var(--expense); }
-.fab-mi-icon.search{ background: rgba(6,182,212,0.12); color: var(--primary-light); }
-.fab-mi-label{ font-size: .78rem; font-weight: 800; }
-
-/* keep rest of original file (settings, buttons, privacy, etc.) */
 
 .settings-group-title { font-size: 0.8rem; text-transform: uppercase; color: var(--text-3); font-weight: 700; margin: 24px 0 8px 16px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 8px; }
 .settings-group-title i { font-size: 0.9rem; }
@@ -421,6 +411,7 @@ input:checked + .slider:before { transform: translateX(20px); }
 select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important; background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 16px !important; padding-right: 36px !important; cursor: pointer; }
 .app-branding { text-align: center; font-size: 0.85rem; font-weight: 800; color: var(--text-2); padding-top: 8px; margin-bottom: -12px; letter-spacing: 0.02em; }
 
+.bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: 64px; background: var(--nav-bg) !important; backdrop-filter: var(--glass-effect) !important; -webkit-backdrop-filter: var(--glass-effect) !important; border-radius: 32px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255,255,255,0.1) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; display: flex; justify-content: space-around; align-items: center; padding: 0 12px; z-index: 1000; }
 .bottom-nav::before, .bottom-nav::after { display: none !important; }
 .nav-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: transparent; border: none; cursor: pointer; min-width: 60px; height: 54px; border-radius: 27px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .nav-icon-wrap { width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--text-2); background: transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
