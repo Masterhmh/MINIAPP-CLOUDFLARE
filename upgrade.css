@@ -1,18 +1,22 @@
 /* ============================================================================
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
-   - Thanh nav 3 tab + nút FAB (＋)
+   - Thanh nav 3 tab (viên thuốc) + nút FAB (＋) tách riêng
    - Menu FAB: Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu
    - Trang toàn màn hình (Cài đặt / Giới thiệu)
    - Thanh điều khiển ẩn/hiện lịch Tab 2
    - Popup lịch chọn ngày Tab 1
    ============================================================================ */
 
-/* ---------- THANH NAV: 3 TAB BÊN TRÁI + NÚT FAB BÊN PHẢI ---------- */
-.bottom-nav { justify-content: space-between !important; padding: 0 10px !important; gap: 6px; }
-.nav-tabs-group { display: flex; align-items: center; justify-content: space-around; gap: 2px; flex: 1; min-width: 0; }
+/* ---------- THANH NAV: 3 TAB (VIÊN THUỐC) + NÚT FAB TÁCH RIÊNG ---------- */
+/* Bỏ nền/viền/bóng của bottom-nav để nó chỉ làm khung chứa trong suốt */
+.bottom-nav { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border: none !important; height: auto !important; padding: 0 !important; justify-content: space-between !important; gap: 12px; }
 
-.fab-btn { flex-shrink: 0; width: 50px; height: 50px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--grad-primary); color: #fff; font-size: 1.25rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 18px rgba(6,182,212,0.45); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease; }
-.fab-btn:hover { box-shadow: 0 8px 24px rgba(6,182,212,0.6); filter: brightness(1.05); }
+/* Nhóm 3 tab trở thành "viên thuốc" bo tròn riêng */
+.nav-tabs-group { display: flex; align-items: center; justify-content: space-around; gap: 2px; flex: 1; min-width: 0; height: 64px; padding: 0 8px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+
+/* Nút FAB là hình tròn độc lập bên phải */
+.fab-btn { flex-shrink: 0; width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--grad-primary); color: #fff; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 30px rgba(6,182,212,0.45), inset 0 1px 1px rgba(255,255,255,0.2); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease; }
+.fab-btn:hover { box-shadow: 0 12px 34px rgba(6,182,212,0.6); filter: brightness(1.05); }
 .fab-btn:active { transform: scale(0.92); }
 .fab-btn.active { transform: rotate(45deg); }
 
@@ -20,7 +24,7 @@
 .fab-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 1550; }
 .fab-backdrop.show { opacity: 1; pointer-events: auto; }
 
-.fab-menu { position: fixed; right: 22px; bottom: 96px; display: flex; flex-direction: column; align-items: flex-end; gap: 14px; opacity: 0; transform: translateY(24px) scale(0.96); transform-origin: bottom right; pointer-events: none; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); z-index: 1600; }
+.fab-menu { position: fixed; right: 22px; bottom: 100px; display: flex; flex-direction: column; align-items: flex-end; gap: 14px; opacity: 0; transform: translateY(24px) scale(0.96); transform-origin: bottom right; pointer-events: none; transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1); z-index: 1600; }
 .fab-menu.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
 .fab-item { display: flex; align-items: center; gap: 12px; background: transparent; border: none; cursor: pointer; padding: 0; }
 .fab-item-label { background: var(--bg-card); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); padding: 8px 14px; border-radius: 12px; font-size: 0.85rem; font-weight: 700; color: var(--text-1); box-shadow: 0 4px 14px rgba(0,0,0,0.18); border: 1px solid rgba(255,255,255,0.15); white-space: nowrap; }
@@ -42,6 +46,10 @@ body.fullscreen-open { overflow: hidden; }
 .fs-title { font-size: 1.2rem; font-weight: 800; color: var(--text-1); text-transform: uppercase; letter-spacing: -0.01em; }
 
 /* ---------- THANH ĐIỀU KHIỂN ẨN/HIỆN LỊ CH TAB 2 ---------- */
+/* Ẩn thanh điều hướng thời gian cũ (bị thừa) — đã có thanh điều khiển lịch bên dưới.
+   Giữ phần tử trong DOM (không xóa) để currentPeriodLabel / weekPicker / monthPicker vẫn hoạt động. */
+#timeNavContainer { display: none !important; }
+
 .cal-ctrl-bar { display: none; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg-card); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-md); padding: 6px 10px; margin-bottom: 10px; }
 .cal-ctrl-arrow, .cal-ctrl-toggle { background: transparent; border: none; color: var(--text-2); cursor: pointer; padding: 8px 12px; border-radius: 8px; transition: all 0.2s ease; }
 .cal-ctrl-arrow:hover, .cal-ctrl-toggle:hover { color: var(--primary-light); background: rgba(255,255,255,0.06); }
