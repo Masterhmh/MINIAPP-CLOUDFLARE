@@ -4,7 +4,7 @@
 // Vai trò: bổ sung tính năng/giao diện mới MÀ KHÔNG sửa các file cũ:
 //   1) Tab 1: bấm dòng ngày -> mở bảng chọn ngày GỐC của hệ điều hành.
 //   2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu.
-//   3) Cài đặt / Giới thiệu dạng trang toàn màn hình.
+//   3) Cài đặt / Giới thiệu dạng trang toàn màn hình (nút Quay Lại bên phải + vuốt để quay lại).
 //   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi.
 //   5) Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa.
 //   6) Nút đóng ✕ rõ ràng cho các modal trượt.
@@ -13,9 +13,6 @@
 (function () {
   'use strict';
 
-  // ------------------------------------------------------------------
-  // Tiện ích hiển thị ngày dd/MM/yyyy đè lên ô <input type="date">
-  // ------------------------------------------------------------------
   function fmtDMY(yyyymmdd) {
     if (!yyyymmdd) return '';
     var p = String(yyyymmdd).split('-');
@@ -44,7 +41,6 @@
     syncDateDisplay(inputId, displayId);
   }
 
-  // Tab 1: phủ ô date gốc trong suốt lên dòng ngày -> bấm mở bảng chọn ngày gốc của OS
   function setupHeroDateNative() {
     var heroDate = document.getElementById('displayCurrentDate');
     var tInput = document.getElementById('transactionDate');
@@ -63,7 +59,6 @@
     tInput.addEventListener('click', function (e) { e.stopPropagation(); });
   }
 
-  // Thêm nút đóng ✕ vào góc trên bên phải của modal
   function addModalCloseX(modalId, closeFnName) {
     var modal = document.getElementById(modalId);
     if (!modal || modal.querySelector('.modal-close-x')) return;
@@ -78,6 +73,30 @@
       if (typeof window[closeFnName] === 'function') window[closeFnName]();
     });
     modal.appendChild(btn);
+  }
+
+  // Cử chỉ vuốt sang phải để quay lại (đóng trang toàn màn hình)
+  function enableSwipeBack(pageId) {
+    var el = document.getElementById(pageId);
+    if (!el) return;
+    var sx = 0, sy = 0, tracking = false;
+    el.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { tracking = false; return; }
+      tracking = true;
+      sx = e.touches[0].clientX;
+      sy = e.touches[0].clientY;
+      e.stopPropagation();
+    }, { passive: true });
+    el.addEventListener('touchend', function (e) {
+      e.stopPropagation();
+      if (!tracking) return;
+      tracking = false;
+      var dx = e.changedTouches[0].clientX - sx;
+      var dy = e.changedTouches[0].clientY - sy;
+      if (dx > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        window.closeFullscreen(pageId);
+      }
+    }, { passive: true });
   }
 
   // ------------------------------------------------------------------
@@ -112,7 +131,6 @@
     syncDateDisplay('addDate', 'addDateDisplay');
   };
 
-  // WRAP openEditForm — cập nhật hiển thị ngày dd/MM/yyyy sau khi mở form sửa
   var _origOpenEditForm = window.openEditForm;
   window.openEditForm = async function (tx) {
     if (typeof _origOpenEditForm === 'function') { await _origOpenEditForm(tx); }
@@ -274,7 +292,6 @@
     setupDateDisplay('addDate', 'addDateDisplay');
     setupDateDisplay('editDate', 'editDateDisplay');
 
-    // Nút đóng ✕ cho các modal trượt
     addModalCloseX('detailModal', 'closeDetailModal');
     addModalCloseX('searchModal', 'closeSearchModal');
     addModalCloseX('addModal', 'closeAddForm');
@@ -282,6 +299,18 @@
     addModalCloseX('iconPickerModal', 'closeIconPickerModal');
     addModalCloseX('pdfPreviewModal', 'closeAllModals');
     addModalCloseX('datePickerModal', 'closeDatePicker');
+
+    // Trang Cài đặt / Giới thiệu: thêm chữ "Quay Lại" vào nút + bật vuốt để quay lại
+    document.querySelectorAll('.fs-back').forEach(function (b) {
+      if (!b.querySelector('.fs-back-label')) {
+        var s = document.createElement('span');
+        s.className = 'fs-back-label';
+        s.textContent = 'Quay Lại';
+        b.appendChild(s);
+      }
+    });
+    enableSwipeBack('settingsPage');
+    enableSwipeBack('aboutPage');
 
     try { syncCalendarControlBar(); } catch (e) {}
   });

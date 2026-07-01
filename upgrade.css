@@ -2,7 +2,7 @@
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
    - Thanh nav 3 tab (~3/5) + FAB tách riêng / Menu FAB / Trang toàn màn hình
    - Thanh điều khiển lịch Tab 2 / Ô ngày dd/MM/yyyy / Tab 1 dùng lịch gốc
-   - Nút đóng ✕ cho modal
+   - Nút đóng ✕ cho modal / Nút Quay Lại bên phải
    ============================================================================ */
 
 /* ---------- THANH NAV: 3 TAB (~3/5 MÀN HÌNH) + NÚT FAB TÁCH RIÊNG ---------- */
@@ -33,11 +33,13 @@ body.fullscreen-open { overflow: hidden; }
 .fullscreen-page { position: fixed; inset: 0; z-index: 3000; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 48px; background-color: var(--bg-base); background-image: radial-gradient(circle at 15% 20%, rgba(6,182,212,0.15) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(59,130,246,0.15) 0%, transparent 40%); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
 .fullscreen-page.show { transform: translateX(0); }
 .fs-inner { max-width: 600px; margin: 0 auto; }
-.fs-header { position: sticky; top: 0; display: flex; align-items: center; gap: 14px; padding: 16px 0 12px; margin-bottom: 6px; background: transparent; z-index: 2; }
-.fs-back { flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; transition: all 0.2s ease; }
-.fs-back:hover { background: var(--bg-card2); transform: translateX(-2px); }
-.fs-back:active { transform: scale(0.92); }
-.fs-title { font-size: 1.2rem; font-weight: 800; color: var(--text-1); text-transform: uppercase; letter-spacing: -0.01em; }
+/* Tiêu đề bên trái, nút Quay Lại bên phải */
+.fs-header { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 0 12px; margin-bottom: 6px; background: transparent; z-index: 2; }
+.fs-title { order: 1; font-size: 1.2rem; font-weight: 800; color: var(--text-1); text-transform: uppercase; letter-spacing: -0.01em; }
+.fs-back { order: 2; width: auto; min-height: 42px; padding: 8px 16px; border-radius: 22px; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.95rem; transition: all 0.2s ease; }
+.fs-back:hover { background: var(--bg-card2); color: var(--primary-light); }
+.fs-back:active { transform: scale(0.94); }
+.fs-back-label { font-size: 0.9rem; font-weight: 700; }
 
 /* ---------- THANH ĐIỀU KHIỂN ẨN/HIỆN LỊ CH TAB 2 ---------- */
 #timeNavContainer { display: none !important; }
