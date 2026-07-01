@@ -8,6 +8,7 @@
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
 // 7) Tab Tìm kiếm (tab thứ 4) thay cho mục Tìm kiếm trong FAB.
+// 8) Đếm tổng số giao dịch trong modal chi tiết.
 // ============================================================================
 
 (function () {
@@ -98,7 +99,6 @@
     }, { passive: true });
   }
 
-  // Đưa Tìm kiếm ra tab thứ 4 + bỏ khỏi menu FAB
   function setupSearchTab() {
     var fabMenu = document.getElementById('fabMenu');
     if (fabMenu) {
@@ -156,6 +156,20 @@
     if (typeof _origOpenEditForm === 'function') { await _origOpenEditForm(tx); }
     syncDateDisplay('editDate', 'editDateDisplay');
   };
+
+  // WRAP displayDetailTransactionsList — hiện tổng số giao dịch trên tiêu đề danh sách
+  var _origDisplayDetailList = window.displayDetailTransactionsList;
+  if (typeof _origDisplayDetailList === 'function') {
+    window.displayDetailTransactionsList = function (txs) {
+      var r = _origDisplayDetailList.apply(this, arguments);
+      var title = document.getElementById('detailListTitle');
+      if (title) {
+        var n = (txs && txs.length) ? txs.length : 0;
+        title.innerHTML = 'Giao dịch chi tiết <span style="font-size:0.72rem; color:var(--text-2); text-transform:none; font-weight:600;">(Tổng: ' + n + ')</span>';
+      }
+      return r;
+    };
+  }
 
   // ------------------------------------------------------------------
   // WRAP closeAllModals — đóng luôn popup lịch chọn ngày
