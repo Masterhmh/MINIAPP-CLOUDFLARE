@@ -8,7 +8,7 @@
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
 // 7) Tab Tìm kiếm (tab thứ 4) thay cho mục Tìm kiếm trong FAB.
-// 8) Đếm tổng số giao dịch trong modal chi tiết.
+// 8) Đếm tổng giao dịch (modal chi tiết + tab Tìm kiếm) + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
 // ============================================================================
 
 (function () {
@@ -119,6 +119,27 @@
     }
   }
 
+  // Nhãn đếm tổng cho tab Tìm kiếm
+  function setupSearchCount() {
+    var container = document.getElementById('searchResultsContainer');
+    if (!container || document.getElementById('searchCountLabel')) return;
+    var lbl = document.createElement('div');
+    lbl.id = 'searchCountLabel';
+    lbl.className = 'chart-title text-left';
+    lbl.style.display = 'none';
+    lbl.style.marginTop = '4px';
+    lbl.style.marginBottom = '10px';
+    container.parentNode.insertBefore(lbl, container);
+  }
+
+  // Khóa sắp xếp theo ngày (dd/MM/yyyy) -> số so sánh được
+  function searchDateKey(t) {
+    if (!t || !t.date) return 0;
+    var p = String(t.date).split('/');
+    if (p.length !== 3) return 0;
+    return parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
+  }
+
   // ------------------------------------------------------------------
   // WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
   // ------------------------------------------------------------------
@@ -166,6 +187,31 @@
       if (title) {
         var n = (txs && txs.length) ? txs.length : 0;
         title.innerHTML = 'Giao dịch chi tiết <span style="font-size:0.72rem; color:var(--text-2); text-transform:none; font-weight:600;">(Tổng: ' + n + ')</span>';
+      }
+      return r;
+    };
+  }
+
+  // WRAP displaySearchResults — sắp xếp theo ngày mới nhất trước + hiện tổng kết quả
+  var _origDisplaySearch = window.displaySearchResults;
+  if (typeof _origDisplaySearch === 'function') {
+    window.displaySearchResults = function () {
+      try {
+        if (typeof cachedSearchResults !== 'undefined' && Array.isArray(cachedSearchResults)) {
+          cachedSearchResults.sort(function (a, b) { return searchDateKey(b) - searchDateKey(a); });
+        }
+      } catch (e) {}
+      var r = _origDisplaySearch.apply(this, arguments);
+      var lbl = document.getElementById('searchCountLabel');
+      if (lbl) {
+        var n = 0;
+        try { if (typeof cachedSearchResults !== 'undefined' && cachedSearchResults) n = cachedSearchResults.length; } catch (e) {}
+        if (n > 0) {
+          lbl.style.display = 'block';
+          lbl.innerHTML = 'Kết quả <span style="font-size:0.72rem; color:var(--text-2); text-transform:none; font-weight:600;">(Tổng: ' + n + ')</span>';
+        } else {
+          lbl.style.display = 'none';
+        }
       }
       return r;
     };
@@ -311,6 +357,7 @@
 
     setupHeroDateNative();
     setupSearchTab();
+    setupSearchCount();
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };
