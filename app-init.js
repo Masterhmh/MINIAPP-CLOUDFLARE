@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const m = document.getElementById('fabMenuModal');
     if (m) m.classList.remove('show');
     setTimeout(() => {
-      // chỉ tắt overlay khi không có modal nào khác đang mở
       const any = document.querySelectorAll('.modal-sheet.show').length > 0;
       if (!any) document.getElementById('modalOverlay').classList.remove('show');
     }, 300);
@@ -49,11 +48,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 300);
   };
 
-  // FAB button
   const fabBtn = document.getElementById('fabBtn');
   if (fabBtn) fabBtn.onclick = () => openFabMenu();
 
-  // FAB menu actions
   const incomeBtn = document.getElementById('fabIncomeBtn');
   if (incomeBtn) incomeBtn.onclick = () => { closeFabMenu(); setTimeout(() => openAddForm('Thu nhập'), 260); };
   const expenseBtn = document.getElementById('fabExpenseBtn');
@@ -65,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const aboutBtn = document.getElementById('fabAboutBtn');
   if (aboutBtn) aboutBtn.onclick = () => { closeFabMenu(); setTimeout(() => openAboutModal(), 260); };
 
-  // -------- Tab nav (remove tab4/tab5) --------
+  // -------- Tab nav --------
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.onclick = () => {
       const targetTab = b.dataset.tab;
@@ -108,7 +105,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, { passive: true });
   }
 
-  // -------- Tab1 date logic: select date from hero-date (open calendar) --------
+  // -------- Tab1 date logic --------
   const dateInput = document.getElementById('transactionDate');
   if (dateInput) {
     dateInput.value = formatDateToYYYYMMDD(new Date());
@@ -123,7 +120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // prev/next day
   const prevDayBtn = document.getElementById('prevDayBtn');
   if(prevDayBtn) prevDayBtn.onclick = (e) => { e.stopPropagation(); triggerHaptic('light'); if (!dateInput.value) return; const [y, m, d] = dateInput.value.split('-'); const currDate = new Date(y, m - 1, d); currDate.setDate(currDate.getDate() - 1); dateInput.value = formatDateToYYYYMMDD(currDate); window.fetchTransactions(false); };
   const nextDayBtn = document.getElementById('nextDayBtn');
@@ -141,7 +137,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // period controls (keep original behavior)
   document.getElementById('filterWeeklyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('weekly'); };
   document.getElementById('filterMonthlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('monthly'); };
   document.getElementById('filterYearlyBtn').onclick = () => { triggerHaptic('light'); setFilterMode('yearly'); };
@@ -165,7 +160,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateTimeNavUI();
   }
 
-  // --- Settings init ---
   if(typeof initSettings === 'function') initSettings();
   window.initCategories();
 

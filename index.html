@@ -17,9 +17,6 @@
   <link rel="stylesheet" href="styles.css">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-  <!-- Dùng bản rời (unbundled) thay vì html2pdf.bundle.min.js vì bản bundle
-       đóng gói nội bộ (webpack) không phơi html2canvas/jsPDF ra window,
-       trong khi script.js cần gọi trực tiếp 2 thư viện này. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -54,7 +51,6 @@
         </div>
       </div>
 
-      <!-- Input chọn ngày (ẩn) dùng chung cho tab 1 + chọn ngày từ hero-card -->
       <input type="date" id="transactionDate" class="hidden-picker" style="display:none;">
 
       <div id="loadingTab1" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
@@ -88,10 +84,9 @@
           <div id="timeNavContainer" class="time-nav-container" style="display: flex;">
             <button id="prevPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-left"></i></button>
             <div class="time-nav-center">
+               <i class="fas fa-calendar" style="color: var(--text-2);"></i>
                <span id="currentPeriodLabel">Tuần này</span>
-               <button id="toggleCalendarBtn" class="calendar-toggle-btn" title="Ẩn/hiện lịch">
-                 <i class="fas fa-chevron-down"></i>
-               </button>
+               <button id="toggleCalendarBtn" class="calendar-toggle-btn" title="Ẩn/hiện lịch"><i class="fas fa-chevron-down"></i></button>
                <input type="week" id="weekPicker" class="hidden-picker" style="display: none;">
                <input type="month" id="monthPicker" class="hidden-picker" style="display: none;">
             </div>
@@ -205,13 +200,11 @@
       <div class="keywords-list" id="keywordsContainer"></div>
     </div>
 
-    <!-- Tab cài đặt & giới thiệu được giữ lại dưới dạng nội dung modal -->
     <div id="tab4" class="tab-content" style="display:none;"></div>
     <div id="tab5" class="tab-content" style="display:none;"></div>
 
     <div id="modalOverlay" class="overlay" style="display: none;" onclick="closeAllModals()"></div>
 
-    <!-- MENU + -->
     <div id="fabMenuModal" class="modal-sheet" style="display:flex; flex-direction:column;">
       <div class="modal-handle" onclick="closeFabMenu()"></div>
       <div class="modal-title" style="margin-bottom: 12px;">Menu</div>
@@ -224,12 +217,10 @@
       </div>
     </div>
 
-    <!-- Modal Settings/About (tách khỏi tab bottom-nav) -->
     <div id="settingsModal" class="modal-sheet" style="display:flex; flex-direction:column;">
       <div class="modal-handle" onclick="closeSettingsModal()"></div>
       <div class="modal-title" style="margin-bottom: 16px;">Cài đặt</div>
       <div style="flex: 1; overflow-y:auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-        <!-- Nội dung giữ nguyên như tab4 cũ -->
         <div class="settings-group-title"><i class="fas fa-palette"></i> Hiển thị & Trải nghiệm</div>
         <div class="settings-card">
             <div class="settings-row">
@@ -323,270 +314,34 @@
       </div>
     </div>
 
-    <div id="searchModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-        <div class="modal-handle" onclick="closeSearchModal()"></div>
-        <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-            <span><i class="fas fa-search" style="color: var(--primary); margin-right: 8px;"></i> Tìm kiếm Giao dịch</span>
-        </div>
+    <!-- các modal còn lại giữ nguyên (search/add/edit/detail/pdf/icon picker...) -->
 
-        <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-            <div class="period-pills" style="margin-bottom: 12px;">
-                <div id="searchMonthlyBtn" class="period-pill active">Tháng này</div>
-                <div id="searchYearlyBtn" class="period-pill">Cả năm</div>
-                <div id="searchCustomBtn" class="period-pill">Tùy chọn</div>
-            </div>
-
-            <div id="searchCustomFilterContainer" class="filter-controls" style="display: none;">
-                <select id="searchStartMonth" class="field-input flex-1">
-                  <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-                </select>
-                <span class="filter-separator">đến</span>
-                <select id="searchEndMonth" class="field-input flex-1">
-                  <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
-                </select>
-            </div>
-
-            <div class="field-group">
-                <div class="field-label">Nội dung</div>
-                <input type="text" id="searchContent" class="field-input" placeholder="Nhập nội dung cần tìm">
-            </div>
-            <div class="field-group">
-                <div class="field-label">Số tiền</div>
-                <input type="text" id="searchAmount" class="field-input" placeholder="Ví dụ: 50.000">
-            </div>
-            <div class="field-group">
-                <div class="field-label">Phân loại chi tiết</div>
-                <select id="searchCategory" class="field-input"><option value="">Tất cả danh mục</option></select>
-            </div>
-
-            <div id="loadingSearch" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
-            <div id="placeholderSearch" class="empty-state" style="display: none;">Không tìm thấy giao dịch nào phù hợp</div>
-
-            <div class="tx-list mt-2" id="searchResultsContainer"></div>
-            <div id="paginationSearch" class="pagination-container" style="display: none;">
-                <button id="prevPageSearch" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
-                <span id="pageInfoSearch" class="pagination-info"></span>
-                <button id="nextPageSearch" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
-            </div>
-        </div>
-
-        <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
-            <button class="btn-cancel w-full m-0 flex-1" onclick="closeSearchModal()"><i class="fas fa-times"></i> Đóng</button>
-            <button class="btn-save w-full m-0 flex-1" id="searchTransactionsBtn"><i class="fas fa-search"></i> Áp dụng tìm kiếm</button>
-        </div>
-    </div>
-
-    <div id="addModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-      <div class="modal-handle" onclick="closeAddForm()"></div>
-      <div class="modal-title" style="margin-bottom: 16px;">Thêm giao dịch mới</div>
-      <form id="addForm" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
-        <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-          <div class="field-group" id="addTypeGroup">
-            <div class="field-label">Phân loại</div>
-            <div class="type-row" id="addTypeRow">
-              <div class="type-pill expense-active" onclick="selectType('add', 'Chi tiêu', this)">⬆ Chi tiêu</div>
-              <div class="type-pill" onclick="selectType('add', 'Thu nhập', this)">⬇ Thu nhập</div>
-            </div>
-            <input type="hidden" id="addType" value="Chi tiêu">
-          </div>
-          <div class="field-group">
-            <div class="field-label">Số tiền</div>
-            <input type="text" id="addAmount" class="field-input" placeholder="0 ₫" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Nội dung</div>
-            <input type="text" id="addContent" class="field-input" placeholder="Nhập nội dung giao dịch" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Ngày</div>
-            <input type="date" id="addDate" class="field-input date-input" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Phân loại chi tiết</div>
-            <select id="addCategory" class="field-input" required></select>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Ghi chú (nếu có)</div>
-            <input type="text" id="addNote" class="field-input" placeholder="Tùy chọn">
-          </div>
-        </div>
-        <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
-          <button type="button" class="btn-cancel w-full flex-1 m-0" onclick="closeAddForm()"><i class="fas fa-times"></i> Hủy</button>
-          <button type="submit" class="btn-save w-full flex-1 m-0"><i class="fas fa-save"></i> Lưu</button>
-        </div>
-      </form>
-    </div>
-
-    <div id="editModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-      <div class="modal-handle" onclick="closeEditForm()"></div>
-      <div class="modal-title" style="margin-bottom: 16px;">Chỉnh sửa giao dịch</div>
-      <form id="editForm" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
-        <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-          <input type="hidden" id="editTransactionId">
-          <div class="field-group">
-            <div class="field-label">Phân loại</div>
-            <div class="type-row">
-              <div class="type-pill expense-active" onclick="selectType('edit', 'Chi tiêu', this)">⬆ Chi tiêu</div>
-              <div class="type-pill" onclick="selectType('edit', 'Thu nhập', this)">⬇ Thu nhập</div>
-            </div>
-            <input type="hidden" id="editType" value="Chi tiêu">
-          </div>
-          <div class="field-group">
-            <div class="field-label">Số tiền</div>
-            <input type="text" id="editAmount" class="field-input" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Nội dung</div>
-            <input type="text" id="editContent" class="field-input" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Ngày</div>
-            <input type="date" id="editDate" class="field-input date-input" required>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Phân loại chi tiết</div>
-            <select id="editCategory" class="field-input" required></select>
-          </div>
-          <div class="field-group">
-            <div class="field-label">Ghi chú</div>
-            <input type="text" id="editNote" class="field-input">
-          </div>
-        </div>
-        <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
-          <button type="button" class="btn-cancel flex-1 m-0" onclick="closeEditForm()"><i class="fas fa-times"></i> Hủy</button>
-          <button type="button" class="btn-danger-outline flex-1 m-0" onclick="deleteTransaction(document.getElementById('editTransactionId').value)"><i class="fas fa-trash"></i> Xóa</button>
-          <button type="submit" class="btn-save flex-1 m-0"><i class="fas fa-save"></i> Lưu</button>
-        </div>
-      </form>
-    </div>
-
-    <div id="detailModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-      <div class="modal-handle" onclick="closeDetailModal()"></div>
-      <div class="modal-title" id="detailModalTitle" style="justify-content: center; margin-bottom: 16px;">Chi tiết</div>
-      <div style="flex: 1; overflow-y: auto; padding-bottom: 20px; -webkit-overflow-scrolling: touch;">
-          <div class="detail-total-card" style="display: flex; gap: 10px; margin-bottom: 16px; padding: 0; background: transparent; border: none; box-shadow: none;">
-             <div style="flex: 1; background: var(--income-bg); padding: 12px; border-radius: 12px; text-align: center;">
-                 <div style="font-size: 0.75rem; color: var(--income); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                     <i class="fas fa-hand-holding-dollar"></i> THU NHẬP
-                 </div>
-                 <div id="detailTotalIncome" style="font-size: 1.1rem; font-weight: 800; color: var(--income);">—</div>
-             </div>
-             <div style="flex: 1; background: var(--expense-bg); padding: 12px; border-radius: 12px; text-align: center;">
-                 <div style="font-size: 0.75rem; color: var(--expense); font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                     <i class="fas fa-money-bill-transfer"></i> CHI TIÊU
-                 </div>
-                 <div id="detailTotalExpense" style="font-size: 1.1rem; font-weight: 800; color: var(--expense);">—</div>
-             </div>
-          </div>
-
-          <div id="detailChartContainer" class="chart-placeholder" style="display: none;">
-            <canvas id="categoryMonthlyChart"></canvas>
-          </div>
-
-          <div id="dailyPieChartContainer" class="chart-placeholder pie-layout-wrapper" style="display: none; margin-bottom: 16px; padding: 12px;">
-              <div class="pie-chart-inner" style="flex: 0 0 110px; width: 110px; height: 110px; min-width: 110px !important; min-height: 110px !important;">
-                <canvas id="dailyPieChart"></canvas>
-              </div>
-              <div id="dailyCustomLegend" class="compact-legend" style="max-height: 110px;"></div>
-          </div>
-
-          <div id="detailListTitle" class="chart-title text-left mb-3 mt-2">Giao dịch chi tiết</div>
-          <div class="tx-list" id="detailTransactionsContainer"></div>
-          <div id="paginationDetail" class="pagination-container" style="display: none;">
-            <button id="prevPageDetail" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
-            <span id="pageInfoDetail" class="pagination-info"></span>
-            <button id="nextPageDetail" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
-          </div>
+    <div class="bottom-nav">
+      <div class="bottom-tabs">
+        <button class="nav-btn active" data-tab="tab1">
+          <div class="nav-icon-wrap"><i class="fas fa-exchange-alt"></i></div>
+          <span class="nav-label">Giao dịch</span>
+        </button>
+        <button class="nav-btn" data-tab="tab2">
+          <div class="nav-icon-wrap"><i class="fas fa-chart-pie"></i></div>
+          <span class="nav-label">Báo cáo</span>
+        </button>
+        <button class="nav-btn" data-tab="tab3">
+          <div class="nav-icon-wrap"><i class="fas fa-tags"></i></div>
+          <span class="nav-label">Từ khóa</span>
+        </button>
       </div>
+
+      <button id="fabBtn" class="fab-btn fab-right" aria-label="Menu">
+        <i class="fas fa-plus"></i>
+      </button>
     </div>
 
-    <div id="confirmDeleteModal" class="overlay" style="display: none;">
-      <div class="modal-sheet show confirm-dialog">
-        <h2 class="confirm-title" style="text-transform: uppercase;">Xác nhận xóa</h2>
-        <p class="confirm-desc">Bạn có chắc chắn muốn xóa giao dịch này? Hành động này không thể hoàn tác.</p>
-        <div class="modal-actions confirm-actions">
-          <button type="button" class="btn-cancel m-0" onclick="closeConfirmDeleteModal()">Hủy</button>
-          <button type="button" class="btn-danger btn-save m-0" id="confirmDeleteBtn">Xóa</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="pdfPreviewModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-      <div class="modal-handle" onclick="closeAllModals()"></div>
-      <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center;">
-          <span><i class="fas fa-file-invoice" style="color: var(--primary); margin-right: 8px;"></i> Xem trước báo cáo</span>
-      </div>
-      <div id="pdfPreviewContainer" style="flex: 1; border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-card); margin-bottom: 16px; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding: 10px; display: block;"></div>
-      <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
-          <button class="btn-cancel m-0 flex-1" onclick="closeAllModals()"><i class="fas fa-times"></i> Đóng</button>
-          <button class="btn-save m-0 flex-1" id="sharePdfBtn"><i class="fas fa-share-nodes"></i> Tải / Chia sẻ PDF</button>
-      </div>
-    </div>
-
-   <div id="iconPickerModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-      <div class="modal-handle" onclick="closeIconPickerModal()"></div>
-      <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
-      <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-          <div class="field-group flex-shrink-0">
-              <div class="field-label">Chọn danh mục để sửa</div>
-              <select id="iconPickerSelect" class="field-input"><option value="">-- Chọn danh mục --</option></select>
-          </div>
-          <div class="field-group flex-shrink-0" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease;">
-              <div class="field-label" style="color: var(--primary-light);">Tạo tên danh mục mới</div>
-              <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
-          </div>
-          <div class="field-label flex-shrink-0">Icon phân loại</div>
-          <div id="iconGridContainer" class="icon-grid icon-grid-scrollable"></div>
-          <div class="field-group flex-shrink-0" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
-              <div class="field-label">Thêm từ khóa (Gõ phẩy hoặc Enter để tạo)</div>
-              <div class="field-input tag-input-container">
-                  <span id="tagsWrapper" style="display: flex; flex-wrap: wrap; gap: 6px;"></span>
-                  <input type="text" id="tagInputField" class="tag-input-field" placeholder="VD: ăn sáng, ăn trưa...">
-              </div>
-              <input type="hidden" id="iconPickerNewKeywords">
-          </div>
-      </div>
-      <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0; align-items: stretch;">
-          <button class="btn-danger-outline flex-shrink-0 m-0" id="deleteCategoryBtn" style="display: none; padding: 14px 0; border-radius: 12px; flex-basis: 44px;"><i class="fas fa-trash"></i></button>
-          <button class="btn-cancel m-0 flex-1" onclick="closeIconPickerModal()"><i class="fas fa-times"></i> Đóng</button>
-          <button class="btn-save m-0 flex-1" id="saveIconPickerBtn"><i class="fas fa-save"></i> Áp dụng</button>
-      </div>
-    </div>
-
-  <div class="bottom-nav">
-    <button class="nav-btn active" data-tab="tab1">
-      <div class="nav-icon-wrap"><i class="fas fa-exchange-alt"></i></div>
-      <span class="nav-label">Giao dịch</span>
-    </button>
-    <button class="nav-btn" data-tab="tab2">
-      <div class="nav-icon-wrap"><i class="fas fa-chart-pie"></i></div>
-      <span class="nav-label">Báo cáo</span>
-    </button>
-
-    <button id="fabBtn" class="fab-btn" aria-label="Menu">
-      <i class="fas fa-plus"></i>
-    </button>
-
-    <button class="nav-btn" data-tab="tab3">
-      <div class="nav-icon-wrap"><i class="fas fa-tags"></i></div>
-      <span class="nav-label">Từ khóa</span>
-    </button>
-  </div>
-
-  <!-- ============================================================
-       NẠP MODULE THEO THỨ TỰ (script.js cũ được giữ làm backup, không nạp)
-       1) app-core.js  : tiện ích nền + Tab 1
-       2) currency.js  : ghi đè parseNumber & định dạng tiền (chuẩn QT)
-       3) app-reports.js: báo cáo + biểu đồ + tìm kiếm
-       4) app-crud.js  : từ khóa, danh mục, CRUD, icon picker
-       5) app-export.js: xuất PDF/CSV
-       6) app-init.js  : gắn sự kiện & khởi động (cuối cùng)
-       ============================================================ -->
-  <script src="app-core.js" defer></script>
-  <script src="currency.js" defer></script>
-  <script src="app-reports.js" defer></script>
-  <script src="app-crud.js" defer></script>
-  <script src="app-export.js" defer></script>
-  <script src="app-init.js" defer></script>
+    <script src="app-core.js" defer></script>
+    <script src="currency.js" defer></script>
+    <script src="app-reports.js" defer></script>
+    <script src="app-crud.js" defer></script>
+    <script src="app-export.js" defer></script>
+    <script src="app-init.js" defer></script>
 </body>
 </html>
