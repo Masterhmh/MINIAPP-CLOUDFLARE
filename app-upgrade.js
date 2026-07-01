@@ -7,8 +7,8 @@
 // 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
-// 7) Tab Tìm kiếm (tab thứ 4) thay cho mục Tìm kiếm trong FAB.
-// 8) Đếm tổng giao dịch (modal chi tiết + tab Tìm kiếm) + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
+// 7) Tab Tìm kiếm (tab thứ 4) + tối giản modal tìm kiếm (1 ô nội dung/số tiền).
+// 8) Đếm tổng giao dịch (modal chi tiết + tìm kiếm) + sắp xếp kết quả theo ngày mới nhất.
 // ============================================================================
 
 (function () {
@@ -119,7 +119,6 @@
     }
   }
 
-  // Nhãn đếm tổng cho tab Tìm kiếm
   function setupSearchCount() {
     var container = document.getElementById('searchResultsContainer');
     if (!container || document.getElementById('searchCountLabel')) return;
@@ -132,12 +131,62 @@
     container.parentNode.insertBefore(lbl, container);
   }
 
-  // Khóa sắp xếp theo ngày (dd/MM/yyyy) -> số so sánh được
   function searchDateKey(t) {
     if (!t || !t.date) return 0;
     var p = String(t.date).split('/');
     if (p.length !== 3) return 0;
     return parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
+  }
+
+  // Tối giản modal tìm kiếm: 1 ô nhập (nội dung hoặc số tiền), bỏ ô số tiền & phân loại
+  function setupSearchSimplify() {
+    var amt = document.getElementById('searchAmount');
+    if (amt) { var g1 = amt.closest('.field-group'); if (g1) g1.style.display = 'none'; }
+    var cat = document.getElementById('searchCategory');
+    if (cat) { var g2 = cat.closest('.field-group'); if (g2) g2.style.display = 'none'; }
+
+    var content = document.getElementById('searchContent');
+    if (content) {
+      content.placeholder = 'Nhập nội dung hoặc số tiền cần tìm';
+      var grp = content.closest('.field-group');
+      var lab = grp ? grp.querySelector('.field-label') : null;
+      if (lab) lab.textContent = 'Nội dung hoặc số tiền';
+    }
+
+    var searchBtn = document.getElementById('searchTransactionsBtn');
+    if (searchBtn) {
+      searchBtn.onclick = async function () {
+        triggerHaptic('light');
+        var term = ((document.getElementById('searchContent') || {}).value || '').trim();
+        if (!term) return showToast('Nhập nội dung hoặc số tiền cần tìm', 'warning');
+        var termLower = term.toLowerCase();
+        var digits = term.replace(/[^0-9]/g, '');
+        var amountNum = digits ? parseFloat(digits) : null;
+
+        var sM = 1, eM = 12;
+        if (document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
+        else if (document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
+
+        showLoading(true, 'search');
+        try {
+          var fetchPromises = [];
+          for (var m = sM; m <= eM; m++) { (function (mm) { fetchPromises.push(fetchMonthData(mm)); })(m); }
+          var monthsResults = await Promise.all(fetchPromises);
+          var txs = [];
+          monthsResults.forEach(function (monthData) {
+            monthData.forEach(function (t) {
+              if (!t) return;
+              var contentMatch = t.content && t.content.toLowerCase().indexOf(termLower) !== -1;
+              var amountMatch = (amountNum !== null) && Math.abs(t.amount - amountNum) < 0.01;
+              if (contentMatch || amountMatch) txs.push(t);
+            });
+          });
+          cachedSearchResults = txs;
+          currentPageSearch = 1;
+          displaySearchResults();
+        } catch (e) { showToast(e.message, 'error'); } finally { showLoading(false, 'search'); }
+      };
+    }
   }
 
   // ------------------------------------------------------------------
@@ -178,7 +227,7 @@
     syncDateDisplay('editDate', 'editDateDisplay');
   };
 
-  // WRAP displayDetailTransactionsList — hiện tổng số giao dịch trên tiêu đề danh sách
+  // WRAP displayDetailTransactionsList — hiện tổng số giao dịch trên tiêu đề
   var _origDisplayDetailList = window.displayDetailTransactionsList;
   if (typeof _origDisplayDetailList === 'function') {
     window.displayDetailTransactionsList = function (txs) {
@@ -192,7 +241,7 @@
     };
   }
 
-  // WRAP displaySearchResults — sắp xếp theo ngày mới nhất trước + hiện tổng kết quả
+  // WRAP displaySearchResults — sắp xếp theo ngày mới nhất + đếm tổng
   var _origDisplaySearch = window.displaySearchResults;
   if (typeof _origDisplaySearch === 'function') {
     window.displaySearchResults = function () {
@@ -358,6 +407,7 @@
     setupHeroDateNative();
     setupSearchTab();
     setupSearchCount();
+    setupSearchSimplify();
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };
