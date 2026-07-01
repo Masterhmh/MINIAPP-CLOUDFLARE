@@ -5,6 +5,7 @@
    - Trang toàn màn hình (Cài đặt / Giới thiệu)
    - Thanh điều khiển ẩn/hiện lịch Tab 2 (nhãn + ẩn/hiện bên trái, mũi tên bên phải)
    - Popup lịch chọn ngày Tab 1
+   - Can trái ô chọn ngày trên iOS
    ============================================================================ */
 
 /* ---------- THANH NAV: 3 TAB (~3/5 MÀN HÌNH) + NÚT FAB TÁCH RIÊNG ---------- */
@@ -64,6 +65,13 @@ body.fullscreen-open { overflow: hidden; }
 .cal-ctrl-toggle i { transition: transform 0.3s ease; }
 #calendarWidget.cal-collapsed #calendarStatbox { display: none !important; }
 #calendarWidget.cal-collapsed .cal-ctrl-toggle i { transform: rotate(180deg); }
+
+/* ---------- CAN TRÁI Ô CHỌN NGÀY (iOS/Safari) ---------- */
+/* iOS mặc định căn giữa giá trị ngày trong <input type="date"> -> ép căn trái */
+input[type="date"].field-input,
+input[type="date"].date-input { text-align: left !important; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left !important; }
+input[type="date"]::-webkit-datetime-edit { text-align: left !important; }
 
 /* ---------- POPUP LỊ CH CHỌN NGÀY (TAB 1) ---------- */
 .dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
