@@ -4,18 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MINI APP QUẢN LÝ TÀI CHÍNH</title>
-
+  
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
+  
   <link rel="preconnect" href="https://cdnjs.cloudflare.com">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
+  
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
+  
   <link rel="stylesheet" href="styles.css">
-
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <!-- Dùng bản rời (unbundled) thay vì html2pdf.bundle.min.js vì bản bundle
        đóng gói nội bộ (webpack) không phơi html2canvas/jsPDF ra window,
@@ -26,7 +26,7 @@
 <body class="theme-auto">
   <div class="content-wrapper">
     <div class="app-branding">©masterhmh</div>
-
+    
     <div id="tab1" class="tab-content active">
       <div class="hero-card">
         <div class="hero-date-nav">
@@ -34,7 +34,7 @@
           <div class="hero-date" id="displayCurrentDate">Hôm nay, ...</div>
           <button id="nextDayBtn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
         </div>
-
+        
         <div class="hero-label" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
           <div><i class="fas fa-money-bill-transfer"></i> Chi tiêu trong ngày</div>
           <i class="fas fa-eye-slash privacy-toggle-btn" onclick="togglePrivacy()" style="font-size: 1.15rem; cursor: pointer; padding: 4px; color: rgba(255,255,255,0.8);"></i>
@@ -53,18 +53,31 @@
           </div>
         </div>
       </div>
-
-      <!-- Input chọn ngày (ẩn) dùng chung cho tab 1 + chọn ngày từ hero-card -->
-      <input type="date" id="transactionDate" class="hidden-picker" style="display:none;">
+      
+      <div class="quick-actions">
+        <div class="qa-btn qa-btn-relative" onclick="try{ document.getElementById('transactionDate').showPicker(); } catch(e){}">
+          <div class="qa-icon filter"><i class="fas fa-calendar-day"></i></div>
+          <span class="qa-label">Lọc ngày</span>
+          <input type="date" id="transactionDate" class="hidden-picker">
+        </div>
+        <div class="qa-btn" onclick="openAddForm()">
+          <div class="qa-icon add"><i class="fas fa-plus"></i></div>
+          <span class="qa-label">Thêm mới</span>
+        </div>
+        <div class="qa-btn" onclick="openSearchModal()">
+          <div class="qa-icon search"><i class="fas fa-search"></i></div>
+          <span class="qa-label">Tìm kiếm</span>
+        </div>
+      </div>
 
       <div id="loadingTab1" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
-
+           
       <div class="section-header">
         <span class="section-title">Giao dịch trong ngày</span>
       </div>
       <div id="placeholderTab1" class="empty-state" style="display: none;">Không có giao dịch nào trong ngày này</div>
       <div class="tx-list" id="transactionsContainer"></div>
-
+      
       <div id="pagination" class="pagination-container" style="display: none;">
         <button id="prevPage" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
         <span id="pageInfo" class="pagination-info"></span>
@@ -77,7 +90,7 @@
           <div class="section-header">
             <span class="section-title">Báo Cáo Tài Chính</span>
           </div>
-
+          
           <div class="period-pills">
             <div id="filterWeeklyBtn" class="period-pill active">Theo tuần</div>
             <div id="filterMonthlyBtn" class="period-pill">Theo tháng</div>
@@ -89,9 +102,6 @@
             <button id="prevPeriodBtn" class="nav-arrow-btn"><i class="fas fa-chevron-left"></i></button>
             <div class="time-nav-center">
                <span id="currentPeriodLabel">Tuần này</span>
-               <button id="toggleCalendarBtn" class="calendar-toggle-btn" title="Ẩn/hiện lịch">
-                 <i class="fas fa-chevron-down"></i>
-               </button>
                <input type="week" id="weekPicker" class="hidden-picker" style="display: none;">
                <input type="month" id="monthPicker" class="hidden-picker" style="display: none;">
             </div>
@@ -120,7 +130,7 @@
               <div class="stat-num income" id="tab2Income">—</div>
               <div class="stat-compare" id="tab2IncomeCompare">-</div>
             </div>
-
+            
             <div class="stat-card">
               <div class="stat-header card-expense">
                   <i class="fas fa-money-bill-transfer"></i>
@@ -129,7 +139,7 @@
               <div class="stat-num expense" id="tab2Expense">—</div>
               <div class="stat-compare" id="tab2ExpenseCompare">-</div>
             </div>
-
+            
             <div class="stat-card">
               <div class="stat-header card-balance" style="display: flex; justify-content: space-between; width: 100%;">
                   <div style="display:flex; align-items:center; gap:6px;">
@@ -156,10 +166,10 @@
           </div>
 
           <div id="placeholderTab2" class="empty-state" style="display: none;">Dữ liệu báo cáo sẽ hiển thị ở đây</div>
-
+          
           <div class="chart-container" style="display: none;">
             <div id="chartTitleTab2" class="chart-title text-left w-full mb-2">Thu nhập & Chi tiêu</div>
-
+            
             <div class="chart-placeholder w-full" style="position: relative;">
                <button id="toggleChartBtn" class="chart-toggle-btn" title="Chuyển đổi biểu đồ">
                    <i class="fas fa-chart-line"></i>
@@ -168,14 +178,14 @@
             </div>
 
             <div id="pieChartTitleTab2" class="chart-title text-left w-full mt-4">Chi tiêu theo danh mục</div>
-
+            
             <div class="chart-placeholder pie-layout-wrapper" style="margin-bottom: 12px;">
               <div class="pie-chart-inner">
                 <canvas id="monthlyPieChart"></canvas>
               </div>
               <div id="monthlyCustomLegend" class="compact-legend"></div>
             </div>
-
+            
             <div id="monthlyCategoryProgressList"></div>
           </div>
       </div>
@@ -193,149 +203,129 @@
         <div class="field-label">Từ khóa</div>
         <input type="text" id="keywordInput" class="field-input" placeholder="Nhập từ khóa (VD: đổ dầu, đổ xăng)">
       </div>
-
+      
       <div id="keywordActionContainer" class="type-row mt-4 mb-3">
         <button id="addKeywordBtn" class="btn-save flex-1 m-0"><i class="fas fa-plus"></i> Thêm</button>
         <button id="fetchKeywordsBtn" class="btn-soft flex-1 m-0"><i class="fas fa-bars"></i> Tất cả từ khóa</button>
       </div>
-
+      
       <div id="loadingTab3" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
-
+      
       <div id="placeholderTab3" class="empty-state" style="display: none;">Chưa có từ khóa nào</div>
       <div class="keywords-list" id="keywordsContainer"></div>
     </div>
 
-    <!-- Tab cài đặt & giới thiệu được giữ lại dưới dạng nội dung modal -->
-    <div id="tab4" class="tab-content" style="display:none;"></div>
-    <div id="tab5" class="tab-content" style="display:none;"></div>
+    <div id="tab4" class="tab-content">
+      <div class="section-header">
+        <span class="section-title">Cài Đặt</span>
+      </div>
+
+      <div class="settings-group-title"><i class="fas fa-palette"></i> Hiển thị & Trải nghiệm</div>
+      <div class="settings-card">
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-moon"></i><span>Chế độ nền</span></div>
+              <select id="settingTheme" class="settings-select">
+                  <option value="auto">Hệ thống</option>
+                  <option value="light">Sáng</option>
+                  <option value="dark">Tối</option>
+              </select>
+          </div>
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-home"></i><span>Khởi động vào</span></div>
+              <select id="settingDefaultTab" class="settings-select">
+                  <option value="tab1">Giao dịch</option>
+                  <option value="tab2">Báo cáo</option>
+              </select>
+          </div>
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-calendar-alt"></i><span>Ngày đầu tuần</span></div>
+              <select id="settingStartOfWeek" class="settings-select">
+                  <option value="1">Thứ Hai</option>
+                  <option value="0">Chủ Nhật</option>
+              </select>
+          </div>
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-coins"></i><span>Định dạng tiền</span></div>
+              <select id="settingCurrencyFormat" class="settings-select">
+                  <option value="full">Đầy đủ</option>
+                  <option value="short">Rút gọn</option>
+              </select>
+          </div>
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-eye-slash"></i><span>Ẩn số dư</span></div>
+              <label class="toggle-switch">
+                  <input type="checkbox" id="settingPrivacyMode">
+                  <span class="slider round"></span>
+              </label>
+          </div>
+          <div class="settings-row">
+              <div class="settings-info"><i class="fas fa-mobile-alt"></i><span>Phản hồi rung</span></div>
+              <label class="toggle-switch">
+                  <input type="checkbox" id="settingHaptic" checked>
+                  <span class="slider round"></span>
+              </label>
+          </div>
+      </div>
+
+      <div class="settings-group-title"><i class="fas fa-database"></i> Dữ Liệu & Hệ thống</div>
+      <div class="settings-card">
+          <div class="settings-row-col">
+              <div class="settings-info mb-2"><i class="fab fa-telegram" style="color: #0088cc;"></i><span>Telegram Chat ID</span></div>
+              <input type="text" id="settingChatId" class="field-input" placeholder="Nhập ID nhận Backup" style="background: rgba(0,0,0,0.03) !important; box-shadow: none; border: 1px solid var(--border-color);">
+              <button id="backupTelegramBtn" class="btn-soft mt-3" style="padding: 10px;"><i class="fas fa-cloud-arrow-up text-primary-color"></i> Backup dữ liệu CSV</button>
+          </div>
+          <div class="settings-row danger-row" id="hardResetBtn">
+              <i class="fas fa-trash"></i> Xóa tất cả dữ liệu!
+          </div>
+      </div>
+    </div>
+
+    <div id="tab5" class="tab-content">
+      <div class="section-header">
+        <span class="section-title">Giới Thiệu</span>
+      </div>
+      <div class="info-card">
+        <div class="chart-title">Về MiniApp</div>
+        <p class="info-text">Miniapp tài chính trên Telegram giúp bạn theo dõi thu nhập và chi tiêu dễ dàng. Dựa vào dữ liệu trong Google Sheet, nó sẽ hiển thị danh sách giao dịch trong ngày, biểu đồ chi tiêu và thu nhập.</p>
+      </div>
+      <div class="info-card">
+        <div class="chart-title">Ủng Hộ</div>
+        <p class="info-text">Nếu bạn thấy nó hữu ích, hãy ủng hộ mình một ly cà phê nhé!</p>
+        <div class="info-list">
+          <div><i class="fas fa-university"></i> <strong>Ngân hàng:</strong> SHB</div>
+          <div><i class="fas fa-user"></i> <strong>Chủ tài khoản:</strong> Hoang Manh Hung</div>
+          <div><i class="fas fa-credit-card"></i> <strong>Số tài khoản:</strong> 6666.6789.9999</div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="chart-title">Liên Hệ</div>
+        <div class="info-list">
+          <div><i class="fab fa-telegram"></i> <strong>Telegram:</strong> <a href="https://t.me/masterhmh" target="_blank" rel="noopener" style="color: var(--primary-light); text-decoration: none;">@masterhmh</a></div>
+          <div><i class="fab fa-facebook"></i> <strong>Facebook:</strong> <a href="https://facebook.com/masterhmh" target="_blank" rel="noopener" style="color: var(--primary-light); text-decoration: none;">facebook.com/masterhmh</a></div>
+        </div>
+      </div>
+      <div class="qr-container">
+        <div class="qr-box">
+          <img id="qrImage" class="qr-image" src="https://i.pinimg.com/736x/7c/13/53/7c135389e26cbc6460626deb9e2aa5c6.jpg" alt="QR Code">
+        </div>
+      </div>
+    </div>
 
     <div id="modalOverlay" class="overlay" style="display: none;" onclick="closeAllModals()"></div>
-
-    <!-- MENU + -->
-    <div id="fabMenuModal" class="modal-sheet" style="display:flex; flex-direction:column;">
-      <div class="modal-handle" onclick="closeFabMenu()"></div>
-      <div class="modal-title" style="margin-bottom: 12px;">Menu</div>
-      <div class="fab-menu-grid">
-        <button class="fab-menu-item" id="fabIncomeBtn"><span class="fab-mi-icon income"><i class="fas fa-plus"></i></span><span class="fab-mi-label">Income</span></button>
-        <button class="fab-menu-item" id="fabExpenseBtn"><span class="fab-mi-icon expense"><i class="fas fa-minus"></i></span><span class="fab-mi-label">Expense</span></button>
-        <button class="fab-menu-item" id="fabSearchBtn"><span class="fab-mi-icon search"><i class="fas fa-magnifying-glass"></i></span><span class="fab-mi-label">Tìm kiếm</span></button>
-        <button class="fab-menu-item" id="fabSettingsBtn"><span class="fab-mi-icon"><i class="fas fa-cog"></i></span><span class="fab-mi-label">Cài đặt</span></button>
-        <button class="fab-menu-item" id="fabAboutBtn"><span class="fab-mi-icon"><i class="fas fa-circle-info"></i></span><span class="fab-mi-label">Giới thiệu</span></button>
-      </div>
-    </div>
-
-    <!-- Modal Settings/About (tách khỏi tab bottom-nav) -->
-    <div id="settingsModal" class="modal-sheet" style="display:flex; flex-direction:column;">
-      <div class="modal-handle" onclick="closeSettingsModal()"></div>
-      <div class="modal-title" style="margin-bottom: 16px;">Cài đặt</div>
-      <div style="flex: 1; overflow-y:auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-        <!-- Nội dung giữ nguyên như tab4 cũ -->
-        <div class="settings-group-title"><i class="fas fa-palette"></i> Hiển thị & Trải nghiệm</div>
-        <div class="settings-card">
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-moon"></i><span>Chế độ nền</span></div>
-                <select id="settingTheme" class="settings-select">
-                    <option value="auto">Hệ thống</option>
-                    <option value="light">Sáng</option>
-                    <option value="dark">Tối</option>
-                </select>
-            </div>
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-home"></i><span>Khởi động vào</span></div>
-                <select id="settingDefaultTab" class="settings-select">
-                    <option value="tab1">Giao dịch</option>
-                    <option value="tab2">Báo cáo</option>
-                </select>
-            </div>
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-calendar-alt"></i><span>Ngày đầu tuần</span></div>
-                <select id="settingStartOfWeek" class="settings-select">
-                    <option value="1">Thứ Hai</option>
-                    <option value="0">Chủ Nhật</option>
-                </select>
-            </div>
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-coins"></i><span>Định dạng tiền</span></div>
-                <select id="settingCurrencyFormat" class="settings-select">
-                    <option value="full">Đầy đủ</option>
-                    <option value="short">Rút gọn</option>
-                </select>
-            </div>
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-eye-slash"></i><span>Ẩn số dư</span></div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="settingPrivacyMode">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-            <div class="settings-row">
-                <div class="settings-info"><i class="fas fa-mobile-alt"></i><span>Phản hồi rung</span></div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="settingHaptic" checked>
-                    <span class="slider round"></span>
-                </label>
-            </div>
-        </div>
-
-        <div class="settings-group-title"><i class="fas fa-database"></i> Dữ Liệu & Hệ thống</div>
-        <div class="settings-card">
-            <div class="settings-row-col">
-                <div class="settings-info mb-2"><i class="fab fa-telegram" style="color: #0088cc;"></i><span>Telegram Chat ID</span></div>
-                <input type="text" id="settingChatId" class="field-input" placeholder="Nhập ID nhận Backup" style="background: rgba(0,0,0,0.03) !important; box-shadow: none; border: 1px solid var(--border-color);">
-                <button id="backupTelegramBtn" class="btn-soft mt-3" style="padding: 10px;"><i class="fas fa-cloud-arrow-up text-primary-color"></i> Backup dữ liệu CSV</button>
-            </div>
-            <div class="settings-row danger-row" id="hardResetBtn">
-                <i class="fas fa-trash"></i> Xóa tất cả dữ liệu!
-            </div>
-        </div>
-      </div>
-    </div>
-
-    <div id="aboutModal" class="modal-sheet" style="display:flex; flex-direction:column;">
-      <div class="modal-handle" onclick="closeAboutModal()"></div>
-      <div class="modal-title" style="margin-bottom: 16px;">Giới thiệu</div>
-      <div style="flex: 1; overflow-y:auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-        <div class="info-card">
-          <div class="chart-title">Về MiniApp</div>
-          <p class="info-text">Miniapp tài chính trên Telegram giúp bạn theo dõi thu nhập và chi tiêu dễ dàng. Dựa vào dữ liệu trong Google Sheet, nó sẽ hiển thị danh sách giao dịch trong ngày, biểu đồ chi tiêu và thu nhập.</p>
-        </div>
-        <div class="info-card">
-          <div class="chart-title">Ủng Hộ</div>
-          <p class="info-text">Nếu bạn thấy nó hữu ích, hãy ủng hộ mình một ly cà phê nhé!</p>
-          <div class="info-list">
-            <div><i class="fas fa-university"></i> <strong>Ngân hàng:</strong> SHB</div>
-            <div><i class="fas fa-user"></i> <strong>Chủ tài khoản:</strong> Hoang Manh Hung</div>
-            <div><i class="fas fa-credit-card"></i> <strong>Số tài khoản:</strong> 6666.6789.9999</div>
-          </div>
-        </div>
-        <div class="info-card">
-          <div class="chart-title">Liên Hệ</div>
-          <div class="info-list">
-            <div><i class="fab fa-telegram"></i> <strong>Telegram:</strong> <a href="https://t.me/masterhmh" target="_blank" rel="noopener" style="color: var(--primary-light); text-decoration: none;">@masterhmh</a></div>
-            <div><i class="fab fa-facebook"></i> <strong>Facebook:</strong> <a href="https://facebook.com/masterhmh" target="_blank" rel="noopener" style="color: var(--primary-light); text-decoration: none;">facebook.com/masterhmh</a></div>
-          </div>
-        </div>
-        <div class="qr-container">
-          <div class="qr-box">
-            <img id="qrImage" class="qr-image" src="https://i.pinimg.com/736x/7c/13/53/7c135389e26cbc6460626deb9e2aa5c6.jpg" alt="QR Code">
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div id="searchModal" class="modal-sheet" style="display: flex; flex-direction: column;">
         <div class="modal-handle" onclick="closeSearchModal()"></div>
         <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
             <span><i class="fas fa-search" style="color: var(--primary); margin-right: 8px;"></i> Tìm kiếm Giao dịch</span>
         </div>
-
+        
         <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
             <div class="period-pills" style="margin-bottom: 12px;">
                 <div id="searchMonthlyBtn" class="period-pill active">Tháng này</div>
                 <div id="searchYearlyBtn" class="period-pill">Cả năm</div>
                 <div id="searchCustomBtn" class="period-pill">Tùy chọn</div>
             </div>
-
+            
             <div id="searchCustomFilterContainer" class="filter-controls" style="display: none;">
                 <select id="searchStartMonth" class="field-input flex-1">
                   <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
@@ -345,7 +335,7 @@
                   <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
                 </select>
             </div>
-
+            
             <div class="field-group">
                 <div class="field-label">Nội dung</div>
                 <input type="text" id="searchContent" class="field-input" placeholder="Nhập nội dung cần tìm">
@@ -358,10 +348,10 @@
                 <div class="field-label">Phân loại chi tiết</div>
                 <select id="searchCategory" class="field-input"><option value="">Tất cả danh mục</option></select>
             </div>
-
+            
             <div id="loadingSearch" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
             <div id="placeholderSearch" class="empty-state" style="display: none;">Không tìm thấy giao dịch nào phù hợp</div>
-
+            
             <div class="tx-list mt-2" id="searchResultsContainer"></div>
             <div id="paginationSearch" class="pagination-container" style="display: none;">
                 <button id="prevPageSearch" class="pagination-btn" disabled><i class="fas fa-chevron-left"></i></button>
@@ -369,7 +359,7 @@
                 <button id="nextPageSearch" class="pagination-btn"><i class="fas fa-chevron-right"></i></button>
             </div>
         </div>
-
+        
         <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
             <button class="btn-cancel w-full m-0 flex-1" onclick="closeSearchModal()"><i class="fas fa-times"></i> Đóng</button>
             <button class="btn-save w-full m-0 flex-1" id="searchTransactionsBtn"><i class="fas fa-search"></i> Áp dụng tìm kiếm</button>
@@ -381,9 +371,9 @@
       <div class="modal-title" style="margin-bottom: 16px;">Thêm giao dịch mới</div>
       <form id="addForm" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
         <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
-          <div class="field-group" id="addTypeGroup">
+          <div class="field-group">
             <div class="field-label">Phân loại</div>
-            <div class="type-row" id="addTypeRow">
+            <div class="type-row">
               <div class="type-pill expense-active" onclick="selectType('add', 'Chi tiêu', this)">⬆ Chi tiêu</div>
               <div class="type-pill" onclick="selectType('add', 'Thu nhập', this)">⬇ Thu nhập</div>
             </div>
@@ -478,7 +468,7 @@
                  <div id="detailTotalExpense" style="font-size: 1.1rem; font-weight: 800; color: var(--expense);">—</div>
              </div>
           </div>
-
+          
           <div id="detailChartContainer" class="chart-placeholder" style="display: none;">
             <canvas id="categoryMonthlyChart"></canvas>
           </div>
@@ -499,7 +489,7 @@
           </div>
       </div>
     </div>
-
+    
     <div id="confirmDeleteModal" class="overlay" style="display: none;">
       <div class="modal-sheet show confirm-dialog">
         <h2 class="confirm-title" style="text-transform: uppercase;">Xác nhận xóa</h2>
@@ -562,14 +552,17 @@
       <div class="nav-icon-wrap"><i class="fas fa-chart-pie"></i></div>
       <span class="nav-label">Báo cáo</span>
     </button>
-
-    <button id="fabBtn" class="fab-btn" aria-label="Menu">
-      <i class="fas fa-plus"></i>
-    </button>
-
     <button class="nav-btn" data-tab="tab3">
       <div class="nav-icon-wrap"><i class="fas fa-tags"></i></div>
       <span class="nav-label">Từ khóa</span>
+    </button>
+    <button class="nav-btn" data-tab="tab4">
+      <div class="nav-icon-wrap"><i class="fas fa-cog"></i></div>
+      <span class="nav-label">Cài đặt</span>
+    </button>
+    <button class="nav-btn" data-tab="tab5">
+      <div class="nav-icon-wrap"><i class="fas fa-user"></i></div>
+      <span class="nav-label">Về app</span>
     </button>
   </div>
 
