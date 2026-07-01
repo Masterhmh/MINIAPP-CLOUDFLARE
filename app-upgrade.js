@@ -6,7 +6,8 @@
 //   2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu.
 //   3) Cài đặt / Giới thiệu dạng trang toàn màn hình.
 //   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi.
-//   5) Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa (lớp phủ đè ô date mặc định).
+//   5) Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa.
+//   6) Nút đóng ✕ rõ ràng cho các modal trượt.
 // ============================================================================
 
 (function () {
@@ -59,8 +60,24 @@
     tInput.style.display = 'block';
     tInput.classList.add('hero-date-native');
     wrap.appendChild(tInput);
-    // Chặn click lan lên hero-card (tránh bị reset về hôm nay)
     tInput.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+
+  // Thêm nút đóng ✕ vào góc trên bên phải của modal
+  function addModalCloseX(modalId, closeFnName) {
+    var modal = document.getElementById(modalId);
+    if (!modal || modal.querySelector('.modal-close-x')) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'modal-close-x';
+    btn.setAttribute('aria-label', 'Đóng');
+    btn.innerHTML = '<i class="fas fa-times"></i>';
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      triggerHaptic('light');
+      if (typeof window[closeFnName] === 'function') window[closeFnName]();
+    });
+    modal.appendChild(btn);
   }
 
   // ------------------------------------------------------------------
@@ -181,7 +198,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 6) POPUP LỊ CH TÙY CHỌN (giữ lại để tương thích, không dùng cho Tab 1 nữa)
+  // 6) POPUP LỊ CH TÙY CHỌN (dự phòng)
   // ------------------------------------------------------------------
   var dpDate = new Date();
   var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
@@ -240,7 +257,6 @@
     var fabBtn = document.getElementById('fabBtn');
     if (fabBtn) fabBtn.onclick = window.toggleFabMenu;
 
-    // Tab 1: bấm dòng ngày -> bảng chọn ngày gốc của OS
     setupHeroDateNative();
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
@@ -257,6 +273,15 @@
 
     setupDateDisplay('addDate', 'addDateDisplay');
     setupDateDisplay('editDate', 'editDateDisplay');
+
+    // Nút đóng ✕ cho các modal trượt
+    addModalCloseX('detailModal', 'closeDetailModal');
+    addModalCloseX('searchModal', 'closeSearchModal');
+    addModalCloseX('addModal', 'closeAddForm');
+    addModalCloseX('editModal', 'closeEditForm');
+    addModalCloseX('iconPickerModal', 'closeIconPickerModal');
+    addModalCloseX('pdfPreviewModal', 'closeAllModals');
+    addModalCloseX('datePickerModal', 'closeDatePicker');
 
     try { syncCalendarControlBar(); } catch (e) {}
   });

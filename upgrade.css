@@ -1,8 +1,8 @@
 /* ============================================================================
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
-   - Thanh nav 3 tab (~3/5 chiều rộng) + nút FAB (＋) tách riêng
-   - Menu FAB / Trang toàn màn hình / Thanh điều khiển lịch Tab 2
-   - Ô chọn ngày hiển thị dd/MM/yyyy; Tab 1 dùng bảng chọn ngày gốc
+   - Thanh nav 3 tab (~3/5) + FAB tách riêng / Menu FAB / Trang toàn màn hình
+   - Thanh điều khiển lịch Tab 2 / Ô ngày dd/MM/yyyy / Tab 1 dùng lịch gốc
+   - Nút đóng ✕ cho modal
    ============================================================================ */
 
 /* ---------- THANH NAV: 3 TAB (~3/5 MÀN HÌNH) + NÚT FAB TÁCH RIÊNG ---------- */
@@ -64,6 +64,11 @@ input[type="date"].date-native::-webkit-date-and-time-value { color: transparent
 /* ---------- TAB 1: ô date gốc trong suốt phủ lên dòng ngày ---------- */
 .hero-date-tap { position: relative; display: inline-flex; align-items: center; gap: 4px; }
 .hero-date-native { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: none; background: transparent; opacity: 0; -webkit-appearance: none; appearance: none; cursor: pointer; }
+
+/* ---------- NÚT ĐÓNG ✕ CHO MODAL TRƯỢT ---------- */
+.modal-close-x { position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%; background: var(--bg-card2); border: 1px solid var(--border-color); color: var(--text-1); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 6; font-size: 0.95rem; transition: all 0.2s ease; }
+.modal-close-x:hover { background: var(--expense-bg); color: var(--expense); border-color: rgba(244,63,94,0.3); }
+.modal-close-x:active { transform: scale(0.9); }
 
 /* ---------- POPUP LỊ CH TÙY CHỌN (dự phòng) ---------- */
 .dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
