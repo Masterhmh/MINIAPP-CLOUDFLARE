@@ -2,11 +2,11 @@
 // app-upgrade.js — NÂNG CẤP GIAO DIỆN (nạp CUỐI CÙNG, sau app-init.js)
 // ----------------------------------------------------------------------------
 // Vai trò: bổ sung tính năng/giao diện mới MÀ KHÔNG sửa các file cũ:
-//   1) Tab 1: bấm chữ ngày -> mở lịch chọn ngày (popup).
+//   1) Tab 1: bấm dòng ngày -> mở bảng chọn ngày GỐC của hệ điều hành.
 //   2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu.
 //   3) Cài đặt / Giới thiệu dạng trang toàn màn hình.
 //   4) Tab 2: nút ẩn/hiện lịch + mũi tên tiến/lùi.
-//   5) Hiển thị ngày dạng dd/MM/yyyy ở form Thêm/Sửa (lớp phủ đè ô date mặc định).
+//   5) Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa (lớp phủ đè ô date mặc định).
 // ============================================================================
 
 (function () {
@@ -43,9 +43,28 @@
     syncDateDisplay(inputId, displayId);
   }
 
+  // Tab 1: phủ ô date gốc trong suốt lên dòng ngày -> bấm mở bảng chọn ngày gốc của OS
+  function setupHeroDateNative() {
+    var heroDate = document.getElementById('displayCurrentDate');
+    var tInput = document.getElementById('transactionDate');
+    if (!heroDate || !tInput) return;
+    var parent = heroDate.parentNode;
+    if (parent && parent.classList && parent.classList.contains('hero-date-tap')) return;
+    var caret = heroDate.nextElementSibling;
+    var wrap = document.createElement('span');
+    wrap.className = 'hero-date-tap';
+    parent.insertBefore(wrap, heroDate);
+    wrap.appendChild(heroDate);
+    if (caret && caret.classList && caret.classList.contains('fa-caret-down')) wrap.appendChild(caret);
+    tInput.style.display = 'block';
+    tInput.classList.add('hero-date-native');
+    wrap.appendChild(tInput);
+    // Chặn click lan lên hero-card (tránh bị reset về hôm nay)
+    tInput.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+
   // ------------------------------------------------------------------
   // 1) WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
-  //    Ẩn ô chọn loại TRƯỚC khi form hiện để tránh nháy.
   // ------------------------------------------------------------------
   var _origOpenAddForm = window.openAddForm;
   window.openAddForm = async function (lockType) {
@@ -162,7 +181,7 @@
   };
 
   // ------------------------------------------------------------------
-  // 6) LỊ CH CHỌN NGÀY (TAB 1)
+  // 6) POPUP LỊ CH TÙY CHỌN (giữ lại để tương thích, không dùng cho Tab 1 nữa)
   // ------------------------------------------------------------------
   var dpDate = new Date();
   var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
@@ -221,11 +240,8 @@
     var fabBtn = document.getElementById('fabBtn');
     if (fabBtn) fabBtn.onclick = window.toggleFabMenu;
 
-    var dateText = document.getElementById('displayCurrentDate');
-    if (dateText) {
-      dateText.style.cursor = 'pointer';
-      dateText.addEventListener('click', function (e) { e.stopPropagation(); window.openDatePicker(); });
-    }
+    // Tab 1: bấm dòng ngày -> bảng chọn ngày gốc của OS
+    setupHeroDateNative();
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };
@@ -239,7 +255,6 @@
       localStorage.setItem('calCollapsed', c);
     };
 
-    // Hiển thị ngày dd/MM/yyyy cho form Thêm & Sửa
     setupDateDisplay('addDate', 'addDateDisplay');
     setupDateDisplay('editDate', 'editDateDisplay');
 

@@ -1,11 +1,8 @@
 /* ============================================================================
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
    - Thanh nav 3 tab (~3/5 chiều rộng) + nút FAB (＋) tách riêng
-   - Menu FAB: Thêm thu nhập / chi tiêu / Tìm kiếm / Cài đặt / Giới thiệu
-   - Trang toàn màn hình (Cài đặt / Giới thiệu)
-   - Thanh điều khiển ẩn/hiện lịch Tab 2
-   - Popup lịch chọn ngày Tab 1
-   - Hiển thị ngày dd/MM/yyyy ở form Thêm/Sửa
+   - Menu FAB / Trang toàn màn hình / Thanh điều khiển lịch Tab 2
+   - Ô chọn ngày hiển thị dd/MM/yyyy; Tab 1 dùng bảng chọn ngày gốc
    ============================================================================ */
 
 /* ---------- THANH NAV: 3 TAB (~3/5 MÀN HÌNH) + NÚT FAB TÁCH RIÊNG ---------- */
@@ -57,15 +54,18 @@ body.fullscreen-open { overflow: hidden; }
 #calendarWidget.cal-collapsed #calendarStatbox { display: none !important; }
 #calendarWidget.cal-collapsed .cal-ctrl-toggle i { transform: rotate(180deg); }
 
-/* ---------- Ô CHỌN NGÀY: hiển thị dd/MM/yyyy bằng lớp phủ ---------- */
-/* Ẩn chữ ngày mặc định của trình duyệt (iOS: "ngày 1 thg 7, 2026") */
+/* ---------- Ô CHỌN NGÀY FORM: hiển thị dd/MM/yyyy bằng lớp phủ ---------- */
 input[type="date"].date-native { color: transparent !important; text-align: left !important; }
 input[type="date"].date-native::-webkit-datetime-edit { color: transparent !important; }
 input[type="date"].date-native::-webkit-date-and-time-value { color: transparent !important; text-align: left !important; }
 .date-field-wrap { position: relative; }
 .date-display { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 0.95rem; font-weight: 500; color: var(--text-1); pointer-events: none; z-index: 1; }
 
-/* ---------- POPUP LỊ CH CHỌN NGÀY (TAB 1) ---------- */
+/* ---------- TAB 1: ô date gốc trong suốt phủ lên dòng ngày ---------- */
+.hero-date-tap { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.hero-date-native { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: none; background: transparent; opacity: 0; -webkit-appearance: none; appearance: none; cursor: pointer; }
+
+/* ---------- POPUP LỊ CH TÙY CHỌN (dự phòng) ---------- */
 .dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .dp-nav button { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
 .dp-nav button:hover { background: var(--bg-card2); color: var(--primary-light); }
