@@ -323,32 +323,17 @@ window.exportToPDF = function() {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
 
-        // Xac dinh nen tang NGAY (dong bo) - PHAI lam truoc moi 'await' de con nam
-        // trong pham vi user-gesture cua cu click (neu khong window.open se bi chan).
+        // Xac dinh nen tang de xu ly tai file phu hop tung moi truong.
         const platform = window.Telegram?.WebApp?.platform || 'unknown';
         const platformLower = platform.toLowerCase();
         const isMobile = ['android', 'android_x', 'ios'].includes(platformLower);
         const isWeb = ['weba', 'webk', 'web'].includes(platformLower);
 
-        // TREN TELEGRAM WEB: mini app chay trong <iframe> sandbox KHONG co
-        // 'allow-downloads' -> <a download> bi trinh duyet chan im lang (bao da tai
-        // nhung khong co file dau). Giai phap: mo san 1 TAB TRONG ngay bay gio (con
-        // user-gesture nen khong bi chan popup), tao xong PDF thi tro tab do sang
-        // blob de nguoi dung xem & tu luu. Ban Desktop/app khong bi van de nay.
-        let pendingWin = null;
-        if (isWeb) {
-            pendingWin = window.open('', '_blank');
-            if (pendingWin) {
-                try { pendingWin.document.write('<title>PDF</title><body style="font-family:sans-serif;padding:24px;color:#334155">Đang tạo file PDF, vui lòng đợi...</body>'); } catch (e) {}
-            }
-        }
-
         // Đợi một chút để Font Google và CSS tải hoàn thiện
         await new Promise(resolve => setTimeout(resolve, 400));
 
         // Gắn element vào DOM bằng position:fixed (neo theo viewport, KHÔNG
-        // phụ thuộc vào vị trí cuộn của trang hay overflow của body/html -
-        // khác với position:absolute từng dùng trước đây).
+        // phụ thuộc vào vị trí cuộn của trang hay overflow của body/html).
         element.style.position = 'fixed';
         element.style.top = '0';
         element.style.left = '0';
@@ -358,14 +343,6 @@ window.exportToPDF = function() {
 
         try {
             // [FIX] ĐO TRƯỚC VỊ TRÍ CÁC PHẦN TỪ "KHÔNG ĐƯỢC CẮT NGANG"
-            // html2canvas chỉ chụp ảnh toàn bộ nội dung thành 1 tấm ảnh dài duy
-            // nhất - nó KHÔNG hiểu CSS page-break-inside/page-break-after. Nếu
-            // chỉ cắt ảnh theo chiều cao cố định (chiều cao 1 trang A4) như cách
-            // làm cũ thì rất dễ cắt ngang giữa 1 dòng giao dịch, khiến STT/nội
-            // dung bị lặp/thiếu giữa 2 trang và phần nối trang sát mép giấy.
-            // => Đo trước offsetTop/offsetHeight của từng <tr> và từng khối
-            // [data-pdf-atomic] để lấy danh sách các điểm "ngắt trang an toàn"
-            // (luôn nằm GIỬA 2 dòng/2 khối, không bao giờ xuyên qua nội dung).
             const containerRect = element.getBoundingClientRect();
             const elementHeightPx = element.offsetHeight;
 
@@ -377,9 +354,6 @@ window.exportToPDF = function() {
                 breakCandidatesPx.push(el.getBoundingClientRect().bottom - containerRect.top);
             });
 
-            // Lấy toạ độ 1 thead mẫu để in lặp lại tiêu đề bảng (STT, Mã GD,...)
-            // ở đầu các trang là phần nối tiếp giữa chừng 1 bảng, giúp người đọc
-            // không bị mất ngữ cảnh cột khi bảng tràn sang trang mới.
             const sampleThead = element.querySelector('table.pdf-table thead');
             let theadTopPxCss = null, theadHeightPxCss = 0;
             if (sampleThead) {
@@ -388,8 +362,6 @@ window.exportToPDF = function() {
                 theadHeightPxCss = r.height;
             }
 
-            // Phạm vi (đầu - cuối) của từng bảng, dùng để biết 1 trang có đang
-            // nằm giữa chừng 1 bảng hay không (để quyết định có lặp lại header).
             const tableRangesPxCss = [];
             element.querySelectorAll('table.pdf-table').forEach(tbl => {
                 const r = tbl.getBoundingClientRect();
@@ -416,8 +388,8 @@ window.exportToPDF = function() {
 
             const imgWidthMM = contentWidthMM;
             const imgHeightMM = (canvas.height * imgWidthMM) / canvas.width;
-            const pxPerMm = canvas.height / imgHeightMM; // tỉ lệ quy đổi px-ảnh <-> mm
-            const pxScale = canvas.height / elementHeightPx; // tỉ lệ px-CSS -> px-ảnh canvas (scale:2)
+            const pxPerMm = canvas.height / imgHeightMM;
+            const pxScale = canvas.height / elementHeightPx;
 
             let breakPointsPx = breakCandidatesPx
                 .map(v => v * pxScale)
@@ -436,7 +408,6 @@ window.exportToPDF = function() {
 
             const contentHeightPx = contentHeightMM * pxPerMm;
 
-            // Cắt 1 dải ảnh [sy, sy+sh) từ canvas gốc ra 1 canvas riêng cho từng trang
             function cropSlice(sy, sh) {
                 sy = Math.max(0, Math.round(sy));
                 sh = Math.max(1, Math.round(sh));
@@ -457,8 +428,6 @@ window.exportToPDF = function() {
                 if (!firstPage) pdf.addPage();
                 firstPage = false;
 
-                // Trang này có đang nằm giữa chừng 1 bảng đã in header ở trang
-                // trước không? Nếu có -> cần in lặp lại dòng tiêu đề bảng.
                 const continuingTable = tableRangesPx.find(t => t.top < currentTopPx - 1 && t.bottom > currentTopPx + 1);
                 const needsHeaderRepeat = !!continuingTable && headerHeightPx > 0;
 
@@ -470,9 +439,6 @@ window.exportToPDF = function() {
                     sliceBottomPx = canvas.height;
                 } else {
                     const validBreaks = breakPointsPx.filter(p => p > currentTopPx + 1 && p <= idealBottomPx);
-                    // Nếu không tìm được điểm ngắt an toàn nào vừa với 1 trang
-                    // (trường hợp hiếm: 1 khối cao hơn cả 1 trang) thì đành cắt
-                    // cứng theo chiều cao trang để tránh vòng lặp vô hạn.
                     sliceBottomPx = validBreaks.length > 0 ? validBreaks[validBreaks.length - 1] : Math.round(idealBottomPx);
                 }
 
@@ -498,30 +464,36 @@ window.exportToPDF = function() {
             const pdfUrl = URL.createObjectURL(blob);
 
             if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-                if (pendingWin) { try { pendingWin.close(); } catch (e) {} }
                 try {
                     await navigator.share({ files: [file], title: fileName });
                     triggerHapticNotification('success');
                 } catch (error) {}
                 URL.revokeObjectURL(pdfUrl);
             } else if (isWeb) {
-                // Telegram Web: tro tab da mo san sang file PDF (blob) de nguoi dung
-                // xem va tu luu. Neu popup bi chan tu dau -> thu tai truc tiep.
-                if (pendingWin) {
-                    pendingWin.location.href = pdfUrl;
-                    showToast("Đã mở PDF ở tab mới. Bấm nút tải/lưu trên trình xem PDF để lưu về máy.", "success");
-                } else {
-                    const a = document.createElement('a');
-                    a.href = pdfUrl;
-                    a.download = fileName;
-                    a.rel = 'noopener';
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 10000);
-                    showToast("Trình duyệt đang chặn cửa sổ bật lên. Hãy cho phép pop-up cho Telegram rồi bấm tải lại.", "warning");
+                // TELEGRAM WEB: mini app nam trong <iframe> sandbox KHONG co
+                // 'allow-downloads' (chan <a download>), va mo tab moi thi hay bi
+                // tien ich chan quang cao chan (ERR_BLOCKED_BY_CLIENT). Giai phap
+                // an toan nhat: nhung file PDF vao KHUNG XEM TRUOC ngay trong app
+                // bang 1 <iframe> noi bo, roi de nguoi dung dung thanh cong cu cua
+                // trinh xem PDF (nut tai / in) de luu ve may. Khong mo tab, khong
+                // download tu dong nen khong bi chan.
+                try { window.removeEventListener('resize', adjustPreviewSize); } catch (e) {}
+                const pc = document.getElementById('pdfPreviewContainer');
+                if (pc) {
+                    pc.innerHTML = '';
+                    pc.style.overflow = 'auto';
+                    const note = document.createElement('div');
+                    note.style.cssText = 'padding:10px 12px;font-size:12px;line-height:1.5;color:#334155;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:10px';
+                    note.innerHTML = '<b>Đã tạo xong PDF.</b><br>Dùng nút tải (⬇) hoặc in trên thanh công cụ của trình xem bên dưới để lưu về máy. Nếu nút tải bị chặn, nhấn <b>Ctrl+P</b> rồi chọn “Lưu dưới dạng PDF”.';
+                    pc.appendChild(note);
+                    const frame = document.createElement('iframe');
+                    frame.src = pdfUrl;
+                    frame.title = fileName;
+                    frame.style.cssText = 'width:100%;height:72vh;min-height:420px;border:none;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.12)';
+                    pc.appendChild(frame);
                 }
-                setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
+                showToast("Đã tạo PDF! Xem ngay bên dưới và dùng nút tải của trình xem để lưu.", "success");
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 300000);
             } else {
                 // Máy tính (Telegram Desktop / trình duyệt thường): tải thẳng xuống Downloads.
                 const a = document.createElement('a');
@@ -536,7 +508,6 @@ window.exportToPDF = function() {
             }
         } catch (err) {
             if (document.body.contains(element)) document.body.removeChild(element);
-            if (pendingWin) { try { pendingWin.close(); } catch (e) {} }
             showToast("Lỗi tạo PDF: " + err.message, "error");
         }
     };
