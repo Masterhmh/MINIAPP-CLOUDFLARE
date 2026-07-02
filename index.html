@@ -351,28 +351,9 @@
         
         <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
             <div class="field-group">
-                <div class="field-label">Nội dung / ghi chú</div>
-                <input type="text" id="searchContent" class="field-input" placeholder="Nhiều từ cách nhau bằng dấu cách (VD: ăn sáng)">
-            </div>
-            <div class="field-group">
-                <div class="field-label">Loại giao dịch</div>
-                <select id="searchType" class="field-input">
-                    <option value="">Tất cả</option>
-                    <option value="Thu nhập">Thu nhập</option>
-                    <option value="Chi tiêu">Chi tiêu</option>
-                </select>
-            </div>
-            <div class="field-group">
-                <div class="field-label">Khoảng số tiền</div>
-                <div class="filter-controls" style="display:flex; align-items:center; gap:10px;">
-                    <input type="text" id="searchAmountMin" class="field-input flex-1" placeholder="Từ (VD: 50k)">
-                    <span class="filter-separator">đến</span>
-                    <input type="text" id="searchAmountMax" class="field-input flex-1" placeholder="Đến (VD: 1tr5)">
-                </div>
-            </div>
-            <div class="field-group">
-                <div class="field-label">Phân loại chi tiết</div>
-                <select id="searchCategory" class="field-input"><option value="">Tất cả danh mục</option></select>
+                <div class="field-label">Tìm theo nội dung hoặc số tiền</div>
+                <input type="text" id="searchQuery" class="field-input" placeholder="VD: ăn sáng, cà phê... hoặc 50k, 1tr5, 2000000">
+                <div style="font-size: 0.72rem; color: var(--text-3); margin-top: 6px; line-height: 1.4;">Gõ nội dung/ghi chú (nhiều từ cách nhau bằng dấu cách), hoặc gõ số tiền đầy đủ hay rút gọn (k, tr, m, ty...) rồi nhấn Tìm.</div>
             </div>
             
             <div id="loadingSearch" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
@@ -388,7 +369,7 @@
         
         <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
             <button class="btn-cancel w-full m-0 flex-1" onclick="closeSearchModal()"><i class="fas fa-times"></i> Đóng</button>
-            <button class="btn-save w-full m-0 flex-1" id="searchTransactionsBtn"><i class="fas fa-search"></i> Áp dụng tìm kiếm</button>
+            <button class="btn-save w-full m-0 flex-1" id="searchTransactionsBtn"><i class="fas fa-search"></i> Tìm kiếm</button>
         </div>
     </div>
 
