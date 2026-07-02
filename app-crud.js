@@ -199,7 +199,7 @@ window.deleteTransaction = function(id) {
           if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
           if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
 
-          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DẮNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
+          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
           if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
               triggerHapticNotification('error');
               showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
@@ -235,7 +235,7 @@ window.deleteTransaction = function(id) {
 };
 
 // ==========================================
-// TÍNH NĂNG CỮA SỔ "ICON PICKER"
+// TÍNH NĂNG CỬA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
