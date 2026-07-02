@@ -4,7 +4,7 @@
 // 1) Tab 1: bấm dòng ngày -> bảng chọn ngày GỐC của OS.
 // 2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Cài đặt / Giới thiệu.
 // 3) Cài đặt / Giới thiệu dạng trang toàn màn hình (Quay Lại bên phải + vuốt).
-// 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
+// 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi (chặn kỳ không có dữ liệu).
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
 // 7) Tab Tìm kiếm (thêm nút Tìm kiếm vào thanh điều hướng, mở modal tìm kiếm).
@@ -178,6 +178,17 @@
   }
 
   // ------------------------------------------------------------------
+  // WRAP fetchTransactions — lam moi moc du lieu dieu huong khi tai lai
+  // ------------------------------------------------------------------
+  var _origFetchTransactions = window.fetchTransactions;
+  if (typeof _origFetchTransactions === 'function') {
+    window.fetchTransactions = function (force) {
+      if (force === true) window.__navBoundsPromise = null;
+      return _origFetchTransactions.apply(this, arguments);
+    };
+  }
+
+  // ------------------------------------------------------------------
   // WRAP openAddForm — khóa loại giao dịch (Thu nhập / Chi tiêu)
   // ------------------------------------------------------------------
   var _origOpenAddForm = window.openAddForm;
@@ -271,6 +282,7 @@
   window.updateTimeNavUI = function () {
     var r = (typeof _origUpdateTimeNavUI === 'function') ? _origUpdateTimeNavUI.apply(this, arguments) : undefined;
     try { syncCalendarControlBar(); } catch (e) {}
+    try { refreshNavArrows(); } catch (e) {}
     return r;
   };
 
@@ -284,12 +296,105 @@
     if (label && src && src.textContent) label.textContent = src.textContent;
   }
 
+  // ------------------------------------------------------------------
+  // GIOI HAN DIEU HUONG: khong cho sang ky (tuan/thang) khong co du lieu.
+  // Vi du: dang thang 7 -> nut sang thang 8 mo di (tuong lai, khong co du lieu).
+  // Tuong tu voi lui ve qua khu truoc moc du lieu dau tien.
+  // ------------------------------------------------------------------
+  function keyOf(d) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+
+  function weekStartOf(date) {
+    var sow = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
+    var d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var day = d.getDay(); // 0 = CN ... 6 = T7
+    var diff = (sow === 1) ? (day === 0 ? 6 : day - 1) : day;
+    d.setDate(d.getDate() - diff);
+    return d;
+  }
+
+  function nextPeriodStartKey() {
+    if (currentFilterMode === 'monthly') {
+      return keyOf(new Date(activePeriodDate.getFullYear(), activePeriodDate.getMonth() + 1, 1));
+    }
+    var ws = weekStartOf(activePeriodDate); ws.setDate(ws.getDate() + 7); return keyOf(ws);
+  }
+  function prevPeriodEndKey() {
+    if (currentFilterMode === 'monthly') {
+      return keyOf(new Date(activePeriodDate.getFullYear(), activePeriodDate.getMonth(), 0));
+    }
+    var ws = weekStartOf(activePeriodDate); ws.setDate(ws.getDate() - 1); return keyOf(ws);
+  }
+
+  // Quet 1 lan 12 thang cua nam de biet moc du lieu (min/max), co cache.
+  function getNavDataBounds(force) {
+    if (force) window.__navBoundsPromise = null;
+    if (window.__navBoundsPromise) return window.__navBoundsPromise;
+    window.__navBoundsPromise = (async function () {
+      var minKey = null, maxKey = null;
+      try {
+        if (typeof fetchMonthData !== 'function') return { minKey: null, maxKey: null };
+        var jobs = [];
+        for (var i = 1; i <= 12; i++) jobs.push(fetchMonthData(i).catch(function () { return []; }));
+        var results = await Promise.all(jobs);
+        results.forEach(function (arr) {
+          (arr || []).forEach(function (t) {
+            if (!t || !t.date) return;
+            var p = String(t.date).split('/');
+            if (p.length !== 3) return;
+            var k = parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
+            if (minKey === null || k < minKey) minKey = k;
+            if (maxKey === null || k > maxKey) maxKey = k;
+          });
+        });
+      } catch (e) {}
+      return { minKey: minKey, maxKey: maxKey };
+    })();
+    return window.__navBoundsPromise;
+  }
+  window.__invalidateNavBounds = function () { window.__navBoundsPromise = null; };
+
+  function setArrowDisabled(ids, disabled) {
+    ids.forEach(function (id) {
+      var b = document.getElementById(id);
+      if (!b) return;
+      b.disabled = !!disabled;
+      b.classList.toggle('nav-disabled', !!disabled);
+    });
+  }
+
+  async function refreshNavArrows() {
+    var prevIds = ['calPrevBtn', 'prevPeriodBtn'];
+    var nextIds = ['calNextBtn', 'nextPeriodBtn'];
+    if (typeof currentFilterMode === 'undefined' || (currentFilterMode !== 'weekly' && currentFilterMode !== 'monthly')) {
+      setArrowDisabled(prevIds, false); setArrowDisabled(nextIds, false); return;
+    }
+    var todayKey = keyOf(new Date());
+    var nStart = nextPeriodStartKey();
+    var pEnd = prevPeriodEndKey();
+    // Chan tuong lai ngay lap tuc (khong can cho du lieu tai xong).
+    setArrowDisabled(nextIds, nStart > todayKey);
+    setArrowDisabled(prevIds, false);
+    // Tinh chinh them theo moc du lieu thuc te (min/max) - bat dong bo.
+    try {
+      var b = await getNavDataBounds(false);
+      if (b) {
+        var dn = (nStart > todayKey) || (b.maxKey === null) || (nStart > b.maxKey);
+        var dp = (b.minKey === null) || (pEnd < b.minKey);
+        setArrowDisabled(nextIds, dn);
+        setArrowDisabled(prevIds, dp);
+      }
+    } catch (e) {}
+  }
+  window.__refreshNavArrows = refreshNavArrows;
+
   window.calShift = function (dir) {
-    triggerHaptic('light');
     if (typeof currentFilterMode === 'undefined') return;
+    if (currentFilterMode !== 'weekly' && currentFilterMode !== 'monthly') return;
+    // Chan sang ky tuong lai (chac chan khong co du lieu).
+    if (dir > 0 && nextPeriodStartKey() > keyOf(new Date())) { triggerHaptic('light'); return; }
+    triggerHaptic('light');
     if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + dir * 7);
-    else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir);
-    else return;
+    else activePeriodDate.setMonth(activePeriodDate.getMonth() + dir);
     updateTimeNavUI();
   };
 
@@ -317,7 +422,7 @@
   window.fabAbout = function () { closeFabMenu(); openFullscreen('aboutPage'); };
 
   // ------------------------------------------------------------------
-  // TRANG TOÀN MÀN HÌNH (Cài đặt / Giới thiệu)
+  // TRANG TOAN MAN HINH (Cài đặt / Giới thiệu)
   // ------------------------------------------------------------------
   function openFullscreen(id) {
     triggerHaptic('light');
@@ -333,7 +438,7 @@
   };
 
   // ------------------------------------------------------------------
-  // POPUP LỊCH TÙY CHỌN (dự phòng)
+  // POPUP LICH TUY CHON (dự phòng)
   // ------------------------------------------------------------------
   var dpDate = new Date();
   var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
@@ -435,5 +540,6 @@
     enableSwipeBack('aboutPage');
 
     try { syncCalendarControlBar(); } catch (e) {}
+    try { refreshNavArrows(); } catch (e) {}
   });
 })();
