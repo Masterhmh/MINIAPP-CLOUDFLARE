@@ -142,8 +142,26 @@
     ind.className = 'nav-indicator';
     group.insertBefore(ind, group.firstChild);
     positionNavIndicator();
+    // Dinh vi lai sau khi bo cuc on dinh (font/icon tai xong; tren desktop khung
+    // mini app tu dan ve kich thuoc cuoi cung). Dung nhieu moc de chac chan.
+    requestAnimationFrame(function () { requestAnimationFrame(positionNavIndicator); });
     setTimeout(positionNavIndicator, 60);
     setTimeout(positionNavIndicator, 250);
+    setTimeout(positionNavIndicator, 600);
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { try { positionNavIndicator(); } catch (e) {} });
+    }
+    // Theo doi moi thay doi kich thuoc cua thanh nav (vd: khung mini app tren
+    // desktop tu dan kich thuoc khi moi mo) -> tu dinh vi lai pill, khong con
+    // "meo" ti le va khong can nguoi dung keo dan cua so nua.
+    if (typeof ResizeObserver !== 'undefined') {
+      try {
+        var __navRO = new ResizeObserver(function () { try { positionNavIndicator(); } catch (e) {} });
+        __navRO.observe(group);
+        var __activeInit = group.querySelector('.nav-btn.active');
+        if (__activeInit) __navRO.observe(__activeInit);
+      } catch (e) {}
+    }
   }
 
   function setupSearchCount() {
