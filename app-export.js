@@ -3,10 +3,10 @@
 // ----------------------------------------------------------------------------
 // Vai trò: Kết xuất báo cáo tài chính ra PDF (tự dựng bằng html2canvas + jsPDF,
 //   có ngắt trang an toàn + lặp header bảng) và xuất dữ liệu giao dịch ra CSV.
+//   Riêng Telegram Web: in trực tiếp từ HTML (iframe srcdoc + print) vì khung
+//   nhúng sandbox chặn <a download> và tiện ích chặn quảng cáo chặn blob:.
 //   Đơn vị tiền trong PDF dùng ký hiệu " ₫" (chuẩn quốc tế, có khoảng trắng).
-// Phụ thuộc: app-core.js (showToast, triggerHaptic, formatDate*, getColorByIndex,
-//   getCategoryIcon...) và app-reports.js (cachedChartData, mChart, pChart).
-//   Thư viện ngoài: html2canvas, jsPDF (window.jspdf).
+// Phụ thuộc: app-core.js, app-reports.js; thư viện html2canvas, jsPDF.
 // Thứ tự nạp: sau app-crud.js.
 // ============================================================================
 
@@ -130,7 +130,6 @@ window.exportToPDF = function() {
             `;
         } else {
             // [FIX] Khi chỉ có 1 loại (chỉ thu hoặc chỉ chi), ghi rõ tên loại đó
-            // thay vì ghi chung chung "Số tiền"
             const singleColLabel = hasIncome ? 'Thu nhập' : 'Chi tiêu';
             thAmountHTML = `<th style="padding: 12px 14px 12px 6px; width: 28%; text-align: right; border-top-right-radius: 6px; border-bottom-right-radius: 6px;">${singleColLabel}</th>`;
         }
@@ -314,26 +313,64 @@ window.exportToPDF = function() {
     setTimeout(() => modal.classList.add('show'), 10);
     
     // =====================================
-    // HÀM CLICK XUẤT PDF - TỰ DỰNG PDF BẰNG html2canvas + jsPDF TRỰC TIẾP
-    // (Không dùng html2pdf().from() nữa vì lớp "overlay" tự động của thư viện
-    // này dùng position:fixed + left:-100000px rất dễ bị lệch/cắt nội dung
-    // tuỳ trạng thái cuộn trang, đã gây lỗi qua nhiều lần test trước đó)
+    // HÀM CLICK XUẤT PDF
+    // - Telegram Web: IN trực tiếp từ HTML (iframe srcdoc + print) -> "Lưu dưới
+    //   dạng PDF". Không dùng blob/tab mới nên không bị ad-blocker chặn.
+    // - Điện thoại: tạo PDF (html2canvas+jsPDF) rồi chia sẻ qua navigator.share.
+    // - Máy tính (Desktop app): tạo PDF rồi tải thẳng xuống Downloads.
     // =====================================
     document.getElementById('sharePdfBtn').onclick = async () => {
         triggerHaptic('medium');
-        showToast("Đang kết xuất file PDF chuẩn...", "info");
 
-        // Xac dinh nen tang de xu ly tai file phu hop tung moi truong.
         const platform = window.Telegram?.WebApp?.platform || 'unknown';
         const platformLower = platform.toLowerCase();
         const isMobile = ['android', 'android_x', 'ios'].includes(platformLower);
         const isWeb = ['weba', 'webk', 'web'].includes(platformLower);
 
+        // ==================== TELEGRAM WEB ====================
+        // Tren nen web, mini app nam trong <iframe> sandbox KHONG co 'allow-downloads'
+        // (chan <a download>); mo tab moi / tai blob deu bi tien ich chan quang cao
+        // chan (ERR_BLOCKED_BY_CLIENT, ke ca blob nhung vao iframe). Giai phap ben
+        // vung: KHONG dung blob. Dung IN truc tiep tu HTML - tao 1 <iframe srcdoc>
+        // (noi dung HTML nhung thang, KHONG co URL nao de ad-blocker chan) roi goi
+        // print() de nguoi dung chon 'Luu duoi dang PDF'. Cho ra file PDF sach.
+        if (isWeb) {
+            showToast("Đang mở hộp thoại In… Ở mục ‘Máy in đích’ chọn ‘Lưu dưới dạng PDF’ rồi bấm Lưu.", "info");
+            await new Promise(resolve => setTimeout(resolve, 300));
+            try {
+                const reportHTML = element.innerHTML;
+                const docHtml = '<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>' + fileName.replace('.pdf', '') + '</title>'
+                    + '<style>@page{size:A4;margin:10mm;}html,body{margin:0;padding:0;background:#fff;}*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box;}#pw{width:100%;padding:0 2px;}</style>'
+                    + '</head><body><div id="pw">' + reportHTML + '</div></body></html>';
+                const pf = document.createElement('iframe');
+                pf.setAttribute('aria-hidden', 'true');
+                pf.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;height:1160px;border:0;background:#fff;';
+                pf.onload = () => {
+                    setTimeout(() => {
+                        try {
+                            pf.contentWindow.focus();
+                            pf.contentWindow.print();
+                            triggerHapticNotification('success');
+                        } catch (e) {
+                            showToast("Không mở được hộp thoại in: " + e.message, "error");
+                        }
+                        setTimeout(() => { if (pf.parentNode) pf.parentNode.removeChild(pf); }, 60000);
+                    }, 600);
+                };
+                document.body.appendChild(pf);
+                pf.srcdoc = docHtml;
+            } catch (err) {
+                showToast("Lỗi chuẩn bị bản in: " + err.message, "error");
+            }
+            return;
+        }
+
+        // ============ ĐIỆN THOẠI / MÁY TÍNH (Desktop app) ============
+        showToast("Đang kết xuất file PDF chuẩn...", "info");
+
         // Đợi một chút để Font Google và CSS tải hoàn thiện
         await new Promise(resolve => setTimeout(resolve, 400));
 
-        // Gắn element vào DOM bằng position:fixed (neo theo viewport, KHÔNG
-        // phụ thuộc vào vị trí cuộn của trang hay overflow của body/html).
         element.style.position = 'fixed';
         element.style.top = '0';
         element.style.left = '0';
@@ -342,7 +379,6 @@ window.exportToPDF = function() {
         document.body.appendChild(element);
 
         try {
-            // [FIX] ĐO TRƯỚC VỊ TRÍ CÁC PHẦN TỪ "KHÔNG ĐƯỢC CẮT NGANG"
             const containerRect = element.getBoundingClientRect();
             const elementHeightPx = element.offsetHeight;
 
@@ -469,31 +505,6 @@ window.exportToPDF = function() {
                     triggerHapticNotification('success');
                 } catch (error) {}
                 URL.revokeObjectURL(pdfUrl);
-            } else if (isWeb) {
-                // TELEGRAM WEB: mini app nam trong <iframe> sandbox KHONG co
-                // 'allow-downloads' (chan <a download>), va mo tab moi thi hay bi
-                // tien ich chan quang cao chan (ERR_BLOCKED_BY_CLIENT). Giai phap
-                // an toan nhat: nhung file PDF vao KHUNG XEM TRUOC ngay trong app
-                // bang 1 <iframe> noi bo, roi de nguoi dung dung thanh cong cu cua
-                // trinh xem PDF (nut tai / in) de luu ve may. Khong mo tab, khong
-                // download tu dong nen khong bi chan.
-                try { window.removeEventListener('resize', adjustPreviewSize); } catch (e) {}
-                const pc = document.getElementById('pdfPreviewContainer');
-                if (pc) {
-                    pc.innerHTML = '';
-                    pc.style.overflow = 'auto';
-                    const note = document.createElement('div');
-                    note.style.cssText = 'padding:10px 12px;font-size:12px;line-height:1.5;color:#334155;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:10px;margin-bottom:10px';
-                    note.innerHTML = '<b>Đã tạo xong PDF.</b><br>Dùng nút tải (⬇) hoặc in trên thanh công cụ của trình xem bên dưới để lưu về máy. Nếu nút tải bị chặn, nhấn <b>Ctrl+P</b> rồi chọn “Lưu dưới dạng PDF”.';
-                    pc.appendChild(note);
-                    const frame = document.createElement('iframe');
-                    frame.src = pdfUrl;
-                    frame.title = fileName;
-                    frame.style.cssText = 'width:100%;height:72vh;min-height:420px;border:none;border-radius:10px;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,0.12)';
-                    pc.appendChild(frame);
-                }
-                showToast("Đã tạo PDF! Xem ngay bên dưới và dùng nút tải của trình xem để lưu.", "success");
-                setTimeout(() => URL.revokeObjectURL(pdfUrl), 300000);
             } else {
                 // Máy tính (Telegram Desktop / trình duyệt thường): tải thẳng xuống Downloads.
                 const a = document.createElement('a');
