@@ -64,10 +64,10 @@ body.fullscreen-open { overflow: hidden; }
 .cal-ctrl-icon { color: var(--primary-light); font-size: 0.95rem; flex-shrink: 0; }
 #calCtrlLabel { font-weight: 700; color: var(--text-1); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-ctrl-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-/* Nut caret + mui ten tien/lui: nen hinh tron nho, do bong nhe cho giong nut bam */
-.cal-ctrl-arrow, .cal-ctrl-toggle { width: 28px; height: 28px; padding: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-card2); border: 1px solid var(--border-color); color: var(--text-2); cursor: pointer; border-radius: 50%; font-size: 0.78rem; line-height: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05); transition: all 0.2s ease; }
-.cal-ctrl-arrow:hover, .cal-ctrl-toggle:hover { color: var(--primary-light); background: var(--primary-alpha); border-color: rgba(6,182,212,0.35); box-shadow: 0 2px 6px rgba(6,182,212,0.28); }
-.cal-ctrl-arrow:active, .cal-ctrl-toggle:active { transform: scale(0.88); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+/* Nut caret + mui ten tien/lui: vong tron nho, mui ten chiem ty le lon; bong don gian, KHONG transition box-shadow de tranh lem nhem khi doi tuan/thang */
+.cal-ctrl-arrow, .cal-ctrl-toggle { width: 24px; height: 24px; padding: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-card2); border: 1px solid var(--border-color); color: var(--text-2); cursor: pointer; border-radius: 50%; font-size: 0.82rem; line-height: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.22); transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.15s ease; }
+.cal-ctrl-arrow:hover, .cal-ctrl-toggle:hover { color: var(--primary-light); background: var(--primary-alpha); border-color: rgba(6,182,212,0.35); }
+.cal-ctrl-arrow:active, .cal-ctrl-toggle:active { transform: scale(0.9); }
 .cal-ctrl-toggle { color: var(--primary-light); }
 .cal-ctrl-toggle i { transition: transform 0.3s ease; }
 /* Mui ten bi mo khi ky lien ke khong co du lieu (tuong lai hoac ngoai pham vi) */
