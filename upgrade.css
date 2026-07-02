@@ -63,12 +63,15 @@ body.fullscreen-open { overflow: hidden; }
 .cal-ctrl-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cal-ctrl-icon { color: var(--primary-light); font-size: 0.95rem; flex-shrink: 0; }
 #calCtrlLabel { font-weight: 700; color: var(--text-1); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-ctrl-right { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-.cal-ctrl-arrow, .cal-ctrl-toggle { background: transparent; border: none; color: var(--text-2); cursor: pointer; padding: 8px 10px; border-radius: 8px; transition: all 0.2s ease; }
-.cal-ctrl-arrow:hover, .cal-ctrl-toggle:hover { color: var(--primary-light); background: rgba(255,255,255,0.06); }
-.cal-ctrl-arrow:active, .cal-ctrl-toggle:active { transform: scale(0.9); }
+.cal-ctrl-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+/* Nut caret + mui ten tien/lui: nen hinh tron bao duoi */
+.cal-ctrl-arrow, .cal-ctrl-toggle { width: 34px; height: 34px; padding: 0; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; background: var(--bg-card2); border: 1px solid var(--border-color); color: var(--text-2); cursor: pointer; border-radius: 50%; font-size: 0.9rem; line-height: 1; transition: all 0.2s ease; }
+.cal-ctrl-arrow:hover, .cal-ctrl-toggle:hover { color: var(--primary-light); background: var(--primary-alpha); border-color: rgba(6,182,212,0.35); }
+.cal-ctrl-arrow:active, .cal-ctrl-toggle:active { transform: scale(0.88); }
 .cal-ctrl-toggle { color: var(--primary-light); }
 .cal-ctrl-toggle i { transition: transform 0.3s ease; }
+/* Mui ten bi mo khi ky lien ke khong co du lieu (tuong lai hoac ngoai pham vi) */
+.cal-ctrl-arrow:disabled, .cal-ctrl-arrow.nav-disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; background: transparent; border-color: transparent; color: var(--text-2); transform: none; }
 #calendarWidget.cal-collapsed #calendarStatbox { display: none !important; }
 #calendarWidget.cal-collapsed .cal-ctrl-toggle i { transform: rotate(180deg); }
 
