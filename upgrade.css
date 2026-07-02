@@ -13,7 +13,7 @@
 .nav-tabs-group .nav-btn:active { transform: scale(0.94); }
 
 /* Indicator trượt (nền xám trung tính, bo tròn như thanh nav) */
-.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 54px; border-radius: 27px; background: rgba(148,163,184,0.28); opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
+.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 54px; border-radius: 999px; background: rgba(148,163,184,0.28); opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
 
 /* Tab đang chọn: bỏ nền/tròn cũ (indicator lo phần nền), giữ màu chữ/icon nổi bật */
 .nav-tabs-group .nav-btn.active { background: transparent !important; }
