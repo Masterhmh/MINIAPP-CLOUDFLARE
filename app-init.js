@@ -17,7 +17,7 @@
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VỪ MỞ APP ---
+  // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VẮA MỚO APP ---
   applyPrivacyMode(); 
 
   // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỪA CÁC TAB ----------------
+  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
   // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
   // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
   if (!window.__tabSwipeWrapped) {
@@ -149,41 +149,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
   
+  // ---------------- TÌM KIẾM: 1 Ô NHẬP DUY NHẤT ----------------
+  // Người dùng gõ MỘT trong hai:
+  //   - Số tiền: đầy đủ (2000000) hoặc rút gọn (50k, 1tr5, 2m, 3ty...) -> tìm giao
+  //     dịch có số tiền đúng bằng giá trị đó (trị tuyệt đối).
+  //   - Nội dung/ghi chú: nhiều từ cách nhau bằng dấu cách (TẤT CẢ từ phải xuất hiện).
+  // Phân biệt: nếu chuỗi KHÔNG chứa khoảng trắng VÀ parse ra số > 0 => coi là số tiền.
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');
-    // Tìm kiếm TOÀN BỘ (mọi tháng): nội dung + ghi chú (nhiều từ, AND), danh mục, loại, khoảng tiền.
-    const c = document.getElementById('searchContent').value.toLowerCase().trim();
-    const cat = document.getElementById('searchCategory').value;
-    const typeEl = document.getElementById('searchType');
-    const type = typeEl ? typeEl.value : '';
-    const minEl = document.getElementById('searchAmountMin');
-    const maxEl = document.getElementById('searchAmountMax');
-    const minRaw = minEl ? minEl.value.trim() : '';
-    const maxRaw = maxEl ? maxEl.value.trim() : '';
-    // Hỗ trợ nhập rút gọn: 50k, 1tr5, 2m, 3ty, 1b... (dùng parseNumber của currency.js)
-    const minAmount = minRaw ? window.parseNumber(minRaw) : null;
-    const maxAmount = maxRaw ? window.parseNumber(maxRaw) : null;
-    if(!c && !cat && !type && minAmount === null && maxAmount === null) return showToast("Nhập ít nhất 1 điều kiện tìm kiếm", "warning");
+    const raw = document.getElementById('searchQuery').value.trim();
+    if(!raw) return showToast("Nhập nội dung hoặc số tiền để tìm", "warning");
+
+    let amount = null;
+    if (!/\s/.test(raw)) { const n = window.parseNumber(raw); if (n && n > 0) amount = n; }
 
     showLoading(true, 'tab3');
     try {
       let txs = []; let fetchPromises = [];
       for (let m = 1; m <= 12; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
       const monthsResults = await Promise.all(fetchPromises);
-      // Tách từ khóa theo khoảng trắng: TẤT CẢ từ phải xuất hiện (trong nội dung HOẶC ghi chú)
-      const terms = c ? c.split(/\s+/).filter(Boolean) : [];
-      monthsResults.forEach(monthData => { monthData.forEach(t => {
-        let matches = true;
-        const content = (t.content || '').toLowerCase();
-        const note = (t.note || '').toLowerCase();
-        if (terms.length && !terms.every(term => content.indexOf(term) !== -1 || note.indexOf(term) !== -1)) matches = false;
-        if (cat && t.category !== cat) matches = false;
-        if (type && t.type !== type) matches = false;
-        const amt = Math.abs(Number(t.amount) || 0);
-        if (minAmount !== null && amt < minAmount) matches = false;
-        if (maxAmount !== null && amt > maxAmount) matches = false;
-        if (matches) txs.push(t);
-      }); });
+      if (amount !== null) {
+        // Tìm theo SỐ TIỀN: khớp đúng giá trị tuyệt đối
+        monthsResults.forEach(monthData => { monthData.forEach(t => {
+          if (Math.abs(Number(t.amount) || 0) === amount) txs.push(t);
+        }); });
+      } else {
+        // Tìm theo NỘI DUNG / GHI CHÚ: tách theo khoảng trắng, TẤT CẢ từ phải xuất hiện
+        const terms = raw.toLowerCase().split(/\s+/).filter(Boolean);
+        monthsResults.forEach(monthData => { monthData.forEach(t => {
+          const content = (t.content || '').toLowerCase();
+          const note = (t.note || '').toLowerCase();
+          if (terms.every(term => content.indexOf(term) !== -1 || note.indexOf(term) !== -1)) txs.push(t);
+        }); });
+      }
       txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
@@ -202,7 +200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
-['addAmount','editAmount','searchAmountMin','searchAmountMax'].forEach(id => { 
+['addAmount','editAmount'].forEach(id => { 
     const el = document.getElementById(id); 
     if(el) el.oninput = function() { 
         if (/[a-zA-Z]/.test(this.value)) return; // có chữ (k/m/tr) -> để người dùng gõ tiếp
