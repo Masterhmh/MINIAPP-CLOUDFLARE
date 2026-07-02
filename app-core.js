@@ -41,7 +41,6 @@ if (!apiUrl || !sheetId) showToast("Thiếu thông tin API hoặc Sheet ID!", "e
 
 // Quản lý trạng thái
 let cachedTransactions = null, cachedChartData = null; 
-let filterModeCache = { monthly: {}, yearly: {}, custom: {} };
 let cachedSearchResults = [], cachedKeywords = []; 
 window.categoryIconMap = {}; 
 window.customCategoryIcons = {}; 
@@ -54,7 +53,6 @@ const itemsPerPage = 10;
 let currentPageTab1 = 1, currentPageCategory = 1, currentPageSearch = 1;
 window.apiTxCache = {}; 
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
-let savedScrollPositionTab2 = 0;
 
 let isPrivacyActive = localStorage.getItem('settingPrivacyMode') === 'true';
 
