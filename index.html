@@ -42,7 +42,7 @@
         <div class="hero-date-nav">
           <button id="prevDayBtn" class="date-nav-btn"><i class="fas fa-chevron-left"></i></button>
           <div class="hero-date" id="displayCurrentDate">Hôm nay, ...</div>
-          <i class="fas fa-caret-down" style="color: rgba(255,255,255,0.6); font-size: 0.75rem; cursor: pointer;" onclick="event.stopPropagation(); openDatePicker();"></i>
+          <i class="fas fa-caret-down" style="color: rgba(255,255,255,0.6); font-size: 0.75rem; cursor: pointer;"></i>
           <button id="nextDayBtn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
         </div>
         
@@ -327,22 +327,6 @@
 
     <div id="modalOverlay" class="overlay" style="display: none;" onclick="closeAllModals()"></div>
 
-    <div id="datePickerModal" class="modal-sheet" style="display: flex; flex-direction: column;">
-        <div class="modal-handle" onclick="closeDatePicker()"></div>
-        <div class="modal-title"><i class="fas fa-calendar-day" style="color: var(--primary); margin-right: 8px;"></i> Chọn ngày</div>
-        <div class="dp-nav">
-            <button type="button" onclick="dpPrev()"><i class="fas fa-chevron-left"></i></button>
-            <span class="dp-month-label" id="dpMonthLabel"></span>
-            <button type="button" onclick="dpNext()"><i class="fas fa-chevron-right"></i></button>
-        </div>
-        <div class="dp-weekhead" id="dpWeekHead"></div>
-        <div class="dp-grid" id="dpGrid"></div>
-        <div class="modal-actions">
-            <button type="button" class="btn-cancel m-0 flex-1" onclick="closeDatePicker()"><i class="fas fa-times"></i> Đóng</button>
-            <button type="button" class="btn-save m-0 flex-1" onclick="dpToday()"><i class="fas fa-calendar-check"></i> Hôm nay</button>
-        </div>
-    </div>
-
     <div id="searchModal" class="modal-sheet" style="display: flex; flex-direction: column;">
         <div class="modal-handle" onclick="closeSearchModal()"></div>
         <div class="modal-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -593,7 +577,7 @@
   </div>
 
   <!-- ============================================================
-       NẠP MODULE THEO THỨ TỰ (script.js cũ được giữ làm backup, không nạp)
+       NẠP MODULE THEO THỨ TỰ (script.js cũ đã xóa; lịch sử ở Git)
        1) app-core.js  : tiện ích nền + Tab 1
        2) currency.js  : ghi đè parseNumber & định dạng tiền (chuẩn QT)
        3) app-reports.js: báo cáo + biểu đồ + tìm kiếm
