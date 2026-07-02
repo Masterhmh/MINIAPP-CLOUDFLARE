@@ -323,6 +323,26 @@ window.exportToPDF = function() {
         triggerHaptic('medium');
         showToast("Đang kết xuất file PDF chuẩn...", "info");
 
+        // Xac dinh nen tang NGAY (dong bo) - PHAI lam truoc moi 'await' de con nam
+        // trong pham vi user-gesture cua cu click (neu khong window.open se bi chan).
+        const platform = window.Telegram?.WebApp?.platform || 'unknown';
+        const platformLower = platform.toLowerCase();
+        const isMobile = ['android', 'android_x', 'ios'].includes(platformLower);
+        const isWeb = ['weba', 'webk', 'web'].includes(platformLower);
+
+        // TREN TELEGRAM WEB: mini app chay trong <iframe> sandbox KHONG co
+        // 'allow-downloads' -> <a download> bi trinh duyet chan im lang (bao da tai
+        // nhung khong co file dau). Giai phap: mo san 1 TAB TRONG ngay bay gio (con
+        // user-gesture nen khong bi chan popup), tao xong PDF thi tro tab do sang
+        // blob de nguoi dung xem & tu luu. Ban Desktop/app khong bi van de nay.
+        let pendingWin = null;
+        if (isWeb) {
+            pendingWin = window.open('', '_blank');
+            if (pendingWin) {
+                try { pendingWin.document.write('<title>PDF</title><body style="font-family:sans-serif;padding:24px;color:#334155">Đang tạo file PDF, vui lòng đợi...</body>'); } catch (e) {}
+            }
+        }
+
         // Đợi một chút để Font Google và CSS tải hoàn thiện
         await new Promise(resolve => setTimeout(resolve, 400));
 
@@ -475,22 +495,35 @@ window.exportToPDF = function() {
 
             triggerHapticNotification('success');
             const file = new File([blob], fileName, { type: 'application/pdf' });
-            
-            const platform = window.Telegram?.WebApp?.platform || 'unknown';
-            const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
+            const pdfUrl = URL.createObjectURL(blob);
 
             if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+                if (pendingWin) { try { pendingWin.close(); } catch (e) {} }
                 try {
                     await navigator.share({ files: [file], title: fileName });
                     triggerHapticNotification('success');
                 } catch (error) {}
+                URL.revokeObjectURL(pdfUrl);
+            } else if (isWeb) {
+                // Telegram Web: tro tab da mo san sang file PDF (blob) de nguoi dung
+                // xem va tu luu. Neu popup bi chan tu dau -> thu tai truc tiep.
+                if (pendingWin) {
+                    pendingWin.location.href = pdfUrl;
+                    showToast("Đã mở PDF ở tab mới. Bấm nút tải/lưu trên trình xem PDF để lưu về máy.", "success");
+                } else {
+                    const a = document.createElement('a');
+                    a.href = pdfUrl;
+                    a.download = fileName;
+                    a.rel = 'noopener';
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); }, 10000);
+                    showToast("Trình duyệt đang chặn cửa sổ bật lên. Hãy cho phép pop-up cho Telegram rồi bấm tải lại.", "warning");
+                }
+                setTimeout(() => URL.revokeObjectURL(pdfUrl), 120000);
             } else {
-                // May tinh (Telegram Desktop / trinh duyet web): tao link tai xuong.
-                // BAT BUOC (1) gan <a> vao DOM va (2) revoke object URL CHAM (sau 10s).
-                // Neu goi URL.revokeObjectURL NGAY sau click nhu truoc day, nhieu
-                // trinh duyet/webview se HUY tai xuong truoc khi kip bat dau -> nguoi
-                // dung thay bao "da tai" nhung khong co file nao.
-                const pdfUrl = URL.createObjectURL(blob);
+                // Máy tính (Telegram Desktop / trình duyệt thường): tải thẳng xuống Downloads.
                 const a = document.createElement('a');
                 a.href = pdfUrl;
                 a.download = fileName;
@@ -503,6 +536,7 @@ window.exportToPDF = function() {
             }
         } catch (err) {
             if (document.body.contains(element)) document.body.removeChild(element);
+            if (pendingWin) { try { pendingWin.close(); } catch (e) {} }
             showToast("Lỗi tạo PDF: " + err.message, "error");
         }
     };
