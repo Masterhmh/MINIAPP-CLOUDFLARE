@@ -1,8 +1,10 @@
 /*
  * currency.js — Module xử lý & hiển thị tiền tệ (chuẩn quốc tế, locale vi-VN).
  *
- * Được nạp SAU script.js trong index.html, nên các hàm ở đây GHI ĐÈ (override)
- * bản cũ trong script.js mà KHÔNG cần sửa trực tiếp file script.js (vốn rất lớn).
+ * Nạp NGAY SAU app-core.js trong index.html và là module tiền tệ DUY NHẤT của
+ * app. Định nghĩa parseNumber & formatCurrencyWithUnit rồi gán vào window.* để
+ * mọi module khác (app-core, app-reports, app-crud...) dùng chung.
+ * (script.js cũ chỉ còn là bản backup, KHÔNG được nạp trong index.html.)
  *
  * Đảm nhận:
  *   - parseNumber(value): phân tích chuỗi nhập -> số nguyên VND, trả null nếu sai.
@@ -70,8 +72,7 @@
     return { val: sign + valStr, unit: ' ' + tier.suffix };
   }
 
-  // script.js khai báo 2 hàm này dạng function declaration (thuộc tính window),
-  // nên gán lại window.* sẽ thay thế cho mọi lời gọi trong script.js.
+  // Gán vào window.* để mọi module (app-core, app-reports, app-crud...) dùng chung.
   window.parseNumber = parseNumber;
   window.formatCurrencyWithUnit = formatCurrencyWithUnit;
 
