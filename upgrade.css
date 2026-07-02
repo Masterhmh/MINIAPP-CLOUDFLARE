@@ -125,21 +125,6 @@ input[type="date"].date-native::-webkit-date-and-time-value { color: transparent
 .modal-close-x:hover { background: var(--expense-bg); color: var(--expense); border-color: rgba(244,63,94,0.3); }
 .modal-close-x:active { transform: scale(0.9); }
 
-/* ---------- POPUP LICH TUY CHON (du phong) ---------- */
-.dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.dp-nav button { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
-.dp-nav button:hover { background: var(--bg-card2); color: var(--primary-light); }
-.dp-nav button:active { transform: scale(0.9); }
-.dp-month-label { font-weight: 800; font-size: 1.05rem; color: var(--text-1); }
-.dp-weekhead { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--text-2); margin-bottom: 8px; }
-.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 8px; }
-.dp-day { aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: 10px; font-weight: 700; font-size: 0.9rem; color: var(--text-1); background: var(--bg-card2); cursor: pointer; transition: all 0.15s ease; }
-.dp-day:hover:not(.empty) { background: var(--primary-alpha); color: var(--primary-light); transform: scale(1.05); }
-.dp-day:active:not(.empty) { transform: scale(0.92); }
-.dp-day.empty { background: transparent; pointer-events: none; }
-.dp-day.today { outline: 2px solid var(--primary); outline-offset: -2px; }
-.dp-day.selected { background: var(--grad-primary); color: #fff; box-shadow: 0 4px 12px var(--primary-alpha); }
-
 /* ---------- HIEU UNG CHUYEN VIEW (slide) ---------- */
 .slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
 .slide-out-right { animation: slideOutRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
