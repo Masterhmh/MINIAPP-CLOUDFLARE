@@ -50,9 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
     
   document.querySelectorAll('.modal-title').forEach(title => { title.style.textTransform = 'uppercase'; });
-  const currentMonthValue = new Date().getMonth() + 1;
-  if (document.getElementById('searchStartMonth')) document.getElementById('searchStartMonth').value = '1';
-  if (document.getElementById('searchEndMonth')) document.getElementById('searchEndMonth').value = currentMonthValue.toString();
 
   const heroCardTab1 = document.querySelector('#tab1 .hero-card');
   if(heroCardTab1) { heroCardTab1.style.cursor = 'pointer'; heroCardTab1.onclick = (e) => { if (e.target.closest('.date-nav-btn') || e.target.closest('.quick-actions') || e.target.closest('.tx-btn') || e.target.closest('.privacy-toggle-btn')) return; const dateInput = document.getElementById('transactionDate'); if (dateInput) { dateInput.value = formatDateToYYYYMMDD(new Date()); window.fetchTransactions(false); triggerHaptic('light'); showToast("Đã quay về dữ liệu ngày hôm nay", "info"); } }; }
@@ -152,31 +149,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
   
-  const sPills = document.querySelectorAll('#searchModal .period-pill');
-  sPills.forEach(p => p.onclick = function() { triggerHaptic('light'); sPills.forEach(x=>x.classList.remove('active')); this.classList.add('active'); document.getElementById('searchCustomFilterContainer').style.display = 'none'; if(this.id==='searchCustomBtn') document.getElementById('searchCustomFilterContainer').style.display = 'flex'; });
-  
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');
-    // Tìm kiếm mạnh hơn: nội dung + ghi chú, nhiều từ khóa (AND), danh mục, loại, khoảng tiền.
+    // Tìm kiếm TOÀN BỘ (mọi tháng): nội dung + ghi chú (nhiều từ, AND), danh mục, loại, khoảng tiền.
     const c = document.getElementById('searchContent').value.toLowerCase().trim();
     const cat = document.getElementById('searchCategory').value;
     const typeEl = document.getElementById('searchType');
     const type = typeEl ? typeEl.value : '';
     const minEl = document.getElementById('searchAmountMin');
     const maxEl = document.getElementById('searchAmountMax');
-    const minRaw = minEl ? minEl.value : '';
-    const maxRaw = maxEl ? maxEl.value : '';
-    const minAmount = minRaw.replace(/[^0-9]/g, '') ? parseFloat(minRaw.replace(/[^0-9]/g, '')) : null;
-    const maxAmount = maxRaw.replace(/[^0-9]/g, '') ? parseFloat(maxRaw.replace(/[^0-9]/g, '')) : null;
+    const minRaw = minEl ? minEl.value.trim() : '';
+    const maxRaw = maxEl ? maxEl.value.trim() : '';
+    // Hỗ trợ nhập rút gọn: 50k, 1tr5, 2m, 3ty, 1b... (dùng parseNumber của currency.js)
+    const minAmount = minRaw ? window.parseNumber(minRaw) : null;
+    const maxAmount = maxRaw ? window.parseNumber(maxRaw) : null;
     if(!c && !cat && !type && minAmount === null && maxAmount === null) return showToast("Nhập ít nhất 1 điều kiện tìm kiếm", "warning");
-    let sM = 1, eM = 12;
-    if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
-    else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
-    
+
     showLoading(true, 'tab3');
     try {
-      let txs = []; let fetchPromises = []; 
-      for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
+      let txs = []; let fetchPromises = [];
+      for (let m = 1; m <= 12; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
       const monthsResults = await Promise.all(fetchPromises);
       // Tách từ khóa theo khoảng trắng: TẤT CẢ từ phải xuất hiện (trong nội dung HOẶC ghi chú)
       const terms = c ? c.split(/\s+/).filter(Boolean) : [];
