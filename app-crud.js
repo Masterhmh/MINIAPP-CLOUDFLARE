@@ -1,5 +1,5 @@
 // ============================================================================
-// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỌH & ICON PICKER
+// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỊCH & ICON PICKER
 // ----------------------------------------------------------------------------
 // Vai trò: Tab 3 (quản lý từ khóa: tải, hiển thị, sửa/hủy), nạp danh mục,
 //   thêm/sửa/xóa giao dịch (modal Add/Edit), sinh mã giao dịch, ghi/đọc
@@ -66,10 +66,13 @@ function displayKeywords() {
    
    Object.keys(groupedKeywords).sort((a,b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); }).forEach(category => { 
        const group = groupedKeywords[category]; let tagsHTML = ''; 
-       group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { tagsHTML += `<span class="keyword-tag" onclick="startEditKeyword('${escapeHTML(kw)}', '${escapeHTML(category)}')">${escapeHTML(kw)}</span>`; }); 
+       // Chống XSS: KHÔNG nhúng tên từ khóa vào onclick nữa; lưu vào data-* rồi gắn sự kiện sau.
+       group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { tagsHTML += `<span class="keyword-tag" data-kw="${escapeHTML(kw)}" data-cat="${escapeHTML(category)}">${escapeHTML(kw)}</span>`; }); 
        const div = document.createElement('div'); div.className = 'tx-card keyword-group-card'; 
        div.innerHTML = `<div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';"><div class="flex-row-gap-10" style="align-items:center;"><div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title">${escapeHTML(category)}</div><div class="tx-id-row">${group.keywords.length} từ khóa</div></div></div><i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i></div><div class="accordion-body" style="display:none;">${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}</div>`; 
        container.appendChild(div); 
+       // Gắn sự kiện click cho từng thẻ từ khóa (đọc lại giá trị gốc từ dataset)
+       div.querySelectorAll('.keyword-tag').forEach(tag => { tag.addEventListener('click', () => startEditKeyword(tag.dataset.kw, tag.dataset.cat)); });
    });
 }
 
@@ -167,6 +170,7 @@ async function submitTx(tx) {
 
     triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
     window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
+    window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
@@ -195,7 +199,7 @@ window.deleteTransaction = function(id) {
           if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
           if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
 
-          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
+          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DẮNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
           if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
               triggerHapticNotification('error');
               showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
@@ -215,6 +219,7 @@ window.deleteTransaction = function(id) {
 
               triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
               window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
+              window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
@@ -230,7 +235,7 @@ window.deleteTransaction = function(id) {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER"
+// TÍNH NĂNG CỮA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
