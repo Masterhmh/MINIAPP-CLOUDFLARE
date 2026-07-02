@@ -8,13 +8,15 @@
 
 /* ---------- THANH NAV: 4 TAB (GIÃN RỘNG) + NÚT FAB TÁCH RIÊNG ---------- */
 .bottom-nav { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border: none !important; height: auto !important; padding: 0 !important; justify-content: space-between !important; gap: 12px; }
-.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0 8px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
-/* nav-btn cao 52px => indicator (theo JS) cao 52px, chua trong thanh nav 64px => ho deu 6px moi phia */
-.nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 52px; border-radius: 26px; background: transparent !important; }
+.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+/* nav-btn cao bang thanh nav (62px); pill = indicator thut vao 6px moi phia bang vien trong suot => offset deu 4 phia */
+.nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 62px; gap: 0; border-radius: 26px; background: transparent !important; }
 .nav-tabs-group .nav-btn:active { transform: scale(0.94); }
+/* Keo chu (nav-label) gan icon hon */
+.nav-tabs-group .nav-label { margin-top: -4px; }
 
-/* Indicator trượt: bo góc 26px = 32 (nền thanh nav) - 6 (offset vào trong) => đồng tâm, đường cong đúng tỉ lệ */
-.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 52px; border-radius: 26px; background: rgba(148,163,184,0.28); opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
+/* Indicator trượt: JS gan width/height = nav-btn (62px). Vien trong suốt 6px + background-clip: padding-box => nền xám thut vào 6px đều 4 phía, đồng tâm với thanh nav */
+.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 62px; border: 6px solid transparent; border-radius: 999px; background: rgba(148,163,184,0.28); background-clip: padding-box; -webkit-background-clip: padding-box; opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
 
 /* Tab đang chọn: bỏ nền/tròn cũ (indicator lo phần nền), giữ màu chữ/icon nổi bật */
 .nav-tabs-group .nav-btn.active { background: transparent !important; }
