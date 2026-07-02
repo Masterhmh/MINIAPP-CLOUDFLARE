@@ -17,7 +17,7 @@
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // --- THÊM DÒNG NÀY ĐỂ ÁP DỤNG TRẠNG THÁI LƯU CỨNG KHI VỪĂ MỞ APP ---
+  // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VỪ MỞ APP ---
   applyPrivacyMode(); 
 
   // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẻ TAB 2 KHI ĐANG TẢI ---
+  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẰ TAB 2 KHI ĐANG TẢI ---
   if (!window.__tab2LoadingWrapped) {
     const setTab2Dim = function() {
       const dim = '<span style="opacity:0.35;">—</span>';
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
+  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỪA CÁC TAB ----------------
   // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
   // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
   if (!window.__tabSwipeWrapped) {
@@ -157,8 +157,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');
-    const c = document.getElementById('searchContent').value.toLowerCase(), a = document.getElementById('searchAmount').value, cat = document.getElementById('searchCategory').value;
-    if(!c && !a && !cat) return showToast("Nhập điều kiện tìm kiếm", "warning");
+    // Tìm kiếm mạnh hơn: nội dung + ghi chú, nhiều từ khóa (AND), danh mục, loại, khoảng tiền.
+    const c = document.getElementById('searchContent').value.toLowerCase().trim();
+    const cat = document.getElementById('searchCategory').value;
+    const typeEl = document.getElementById('searchType');
+    const type = typeEl ? typeEl.value : '';
+    const minEl = document.getElementById('searchAmountMin');
+    const maxEl = document.getElementById('searchAmountMax');
+    const minRaw = minEl ? minEl.value : '';
+    const maxRaw = maxEl ? maxEl.value : '';
+    const minAmount = minRaw.replace(/[^0-9]/g, '') ? parseFloat(minRaw.replace(/[^0-9]/g, '')) : null;
+    const maxAmount = maxRaw.replace(/[^0-9]/g, '') ? parseFloat(maxRaw.replace(/[^0-9]/g, '')) : null;
+    if(!c && !cat && !type && minAmount === null && maxAmount === null) return showToast("Nhập ít nhất 1 điều kiện tìm kiếm", "warning");
     let sM = 1, eM = 12;
     if(document.getElementById('searchMonthlyBtn').classList.contains('active')) { sM = eM = new Date().getMonth() + 1; }
     else if(document.getElementById('searchCustomBtn').classList.contains('active')) { sM = parseInt(document.getElementById('searchStartMonth').value); eM = parseInt(document.getElementById('searchEndMonth').value); }
@@ -168,8 +178,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       let txs = []; let fetchPromises = []; 
       for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
       const monthsResults = await Promise.all(fetchPromises);
-      const aNum = parseFloat(a.replace(/[^0-9]/g, ''));
-      monthsResults.forEach(monthData => { monthData.forEach(t => { let matches = true; if (c && (!t.content || t.content.toLowerCase().indexOf(c) === -1)) matches = false; if (a && Math.abs(t.amount - aNum) > 0.01) matches = false; if (cat && t.category !== cat) matches = false; if (matches) txs.push(t); }); });
+      // Tách từ khóa theo khoảng trắng: TẤT CẢ từ phải xuất hiện (trong nội dung HOẶC ghi chú)
+      const terms = c ? c.split(/\s+/).filter(Boolean) : [];
+      monthsResults.forEach(monthData => { monthData.forEach(t => {
+        let matches = true;
+        const content = (t.content || '').toLowerCase();
+        const note = (t.note || '').toLowerCase();
+        if (terms.length && !terms.every(term => content.indexOf(term) !== -1 || note.indexOf(term) !== -1)) matches = false;
+        if (cat && t.category !== cat) matches = false;
+        if (type && t.type !== type) matches = false;
+        const amt = Math.abs(Number(t.amount) || 0);
+        if (minAmount !== null && amt < minAmount) matches = false;
+        if (maxAmount !== null && amt > maxAmount) matches = false;
+        if (matches) txs.push(t);
+      }); });
       txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
@@ -188,7 +210,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
-['addAmount','editAmount','searchAmount'].forEach(id => { 
+['addAmount','editAmount','searchAmountMin','searchAmountMax'].forEach(id => { 
     const el = document.getElementById(id); 
     if(el) el.oninput = function() { 
         if (/[a-zA-Z]/.test(this.value)) return; // có chữ (k/m/tr) -> để người dùng gõ tiếp
@@ -249,7 +271,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
       updatePrivacyUI(true); 
   };
 
-  document.getElementById('settingTheme').onchange = (e) => { triggerHaptic('light'); const v = e.target.value; localStorage.setItem('settingTheme', v); document.body.className = `theme-${v}`; };
+  document.getElementById('settingTheme').onchange = (e) => { triggerHaptic('light'); const v = e.target.value; localStorage.setItem('settingTheme', v); setBodyTheme(v); };
   document.getElementById('settingDefaultTab').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingDefaultTab', e.target.value); };
   document.getElementById('settingStartOfWeek').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingStartOfWeek', e.target.value); if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); };
   
@@ -308,7 +330,7 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
       };
   }
 
-  // --- TRƯỜNG HỢP NẾU BẠN ĐÃ CÓ HÀM NÀY MÀ THIẾU THÌ NÓ VẪN HOẠT ĐỘNG, NẾU KHÔNG CÓ THÌ Bỏ QUA ---
+  // --- Nếu đã có hàm initSettings thì gọi, không có thì bỏ qua ---
   if(typeof initSettings === 'function') initSettings(); 
   
   window.initCategories();
@@ -316,4 +338,12 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
   window.openTab(defTab); 
   if(defTab === 'tab1') { showLoading(true, 'tab1'); window.fetchTransactions(false); } else { updateTimeNavUI(); }
   window.loadKeywords(true);
+
+  // ---------------- ĐĂNG KÝ SERVICE WORKER (PWA / OFFLINE) ----------------
+  // Cho phép cài đặt như app và mở lại khi mất mạng (khung giao diện được cache).
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.log('Đăng ký Service Worker thất bại:', err));
+    });
+  }
 });
