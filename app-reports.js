@@ -1,15 +1,8 @@
 // ============================================================================
-// app-reports.js — HIỂN THỊ GIAO DỊCH, BÁO CÁO & TÌM KIẾM
-// ----------------------------------------------------------------------------
-// Vai trò: Tab 1 (tải & hiển thị giao dịch trong ngày, phân trang, so sánh) và
-//   Tab 2 (báo cáo tuần/tháng/năm/tùy chọn: lịch, biểu đồ cột/đường, biểu đồ
-//   tròn theo danh mục, chi tiết danh mục & chi tiết theo ngày), cùng modal
-//   Tìm kiếm giao dịch.
-// Phụ thuộc: app-core.js (tiện ích chung, fetchMonthData) và currency.js
-//   (formatCurrencyWithUnit). Gọi tới các hàm CRUD (openEditForm,
-//   deleteTransaction) định nghĩa ở app-crud.js — đều chạy lúc có sự kiện nên
-//   thứ tự nạp không ảnh hưởng.
-// Thứ tự nạp: sau app-core.js và currency.js.
+// app-reports.js — Tab 1 (giao dịch trong ngày), Tab 2 (báo cáo tuần/tháng/
+//   năm/tùy chọn: lịch, biểu đồ, chi tiết danh mục & theo ngày) và modal Tìm kiếm.
+// Phụ thuộc: app-core.js (tiện ích chung, fetchMonthData, renderTxCard) &
+//   currency.js (formatCurrencyWithUnit). Nạp sau app-core.js và currency.js.
 // ============================================================================
 
 // ---------------- TAB 1: GIAO DỊCH ----------------
@@ -68,7 +61,6 @@ function displayTransactions() {
   let tInc = 0, tExp = 0; if (Array.isArray(data)) data.forEach(i => { if (i.type === 'Thu nhập') tInc += i.amount; else tExp += i.amount; });
   const tBal = tInc - tExp;
   let pInc = 0, pExp = 0; if (Array.isArray(prevData)) prevData.forEach(i => { if (i.type === 'Thu nhập') pInc += i.amount; else pExp += i.amount; });
-  const pBal = pInc - pExp;
 
   const tExpObj = formatCurrencyWithUnit(tExp);
   const heroExpMain = document.getElementById('heroExpenseMain');
@@ -102,32 +94,10 @@ function displayTransactions() {
   const pData = data.slice((currentPageTab1 - 1) * itemsPerPage, currentPageTab1 * itemsPerPage);
 
   pData.forEach((item, index) => {
-    const isInc = item.type === 'Thu nhập'; const tCls = isInc ? 'income' : 'expense';
-    const icon = getCategoryIcon(item.category);
+    const tCls = item.type === 'Thu nhập' ? 'income' : 'expense';
     const stt = (currentPageTab1 - 1) * itemsPerPage + index + 1;
-    const amtObj = formatCurrencyWithUnit(item.amount);
-    
     const card = document.createElement('div'); card.className = `tx-card ${tCls}`;
-    card.innerHTML = `
-      <div class="tx-icon-wrap ${tCls}">${icon}</div>
-      <div class="tx-body">
-        <div class="tx-title">${escapeHTML(item.content)}</div>
-        <div class="tx-meta-row">
-           <span class="tx-date">${escapeHTML(formatDate(item.date))}</span>
-           <span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span>
-           <span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>
-        </div>
-        ${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}
-        <div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>
-      </div>
-      <div class="tx-right-col">
-        <div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div>
-        <div class="tx-actions">
-           <button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}" title="Sửa"><i class="fas fa-pen"></i></button>
-           <button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}" title="Xóa"><i class="fas fa-trash"></i></button>
-        </div>
-      </div>
-    `;
+    card.innerHTML = renderTxCard(item, stt);
     container.appendChild(card);
   });
   
@@ -219,7 +189,7 @@ function renderCalendar(txs, dateObj, mode) {
     const startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
     const todayKey = formatDateToYYYYMMDD(new Date());
 
-    // ============ LỌH TUẦN ============
+    // ============ LỊCH TUẦN ============
     if (mode === 'weekly') {
         if (header) {
             header.style.display = 'grid';
@@ -233,7 +203,6 @@ function renderCalendar(txs, dateObj, mode) {
             const d = new Date(dateObj); d.setDate(d.getDate() + i);
             const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
-            const bal = data.inc - data.exp;
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
                 const incObj = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
@@ -251,7 +220,7 @@ function renderCalendar(txs, dateObj, mode) {
             grid.appendChild(dayDiv);
         }
     } else {
-    // ============ LỌH THÁNG ============
+    // ============ LỊCH THÁNG ============
         if (header) {
             header.style.display = 'grid';
             if (startOfWeek === 1) { header.innerHTML = `<span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>CN</span>`; }
@@ -272,7 +241,7 @@ function renderCalendar(txs, dateObj, mode) {
 
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
-            const data = dailyData[dayKey] || { inc: 0, exp: 0 }; const bal = data.inc - data.exp;
+            const data = dailyData[dayKey] || { inc: 0, exp: 0 };
             let balHTML = `<span class="calendar-balance neutral">0</span>`;
             if (data.inc > 0 || data.exp > 0) {
                 const incObj2 = data.inc > 0 ? formatCurrencyWithUnit(data.inc) : null;
@@ -492,10 +461,9 @@ function displayDetailTransactionsList(txs) {
   document.getElementById('paginationDetail').style.display = 'flex';
   const tPages = Math.ceil(txs.length / itemsPerPage); const pData = txs.slice((currentPageCategory - 1) * itemsPerPage, currentPageCategory * itemsPerPage);
   pData.forEach((item, index) => { 
-    const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; 
-    const amtObj = formatCurrencyWithUnit(item.amount);
+    const tCls = item.type === 'Thu nhập' ? 'income' : 'expense'; const stt = (currentPageCategory - 1) * itemsPerPage + index + 1; 
     const card = document.createElement('div'); card.className = `tx-card ${tCls}`; 
-    card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); 
+    card.innerHTML = renderTxCard(item, stt); list.appendChild(card); 
   });
   document.getElementById('pageInfoDetail').textContent = `${currentPageCategory} / ${tPages}`; document.getElementById('prevPageDetail').disabled = currentPageCategory === 1; document.getElementById('nextPageDetail').disabled = currentPageCategory === tPages; document.getElementById('prevPageDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory > 1) { currentPageCategory--; displayDetailTransactionsList(txs); } }; document.getElementById('nextPageDetail').onclick = () => { triggerHaptic('light'); if(currentPageCategory < tPages) { currentPageCategory++; displayDetailTransactionsList(txs); } };
   document.querySelectorAll('#detailTransactionsContainer .edit-btn').forEach(btn => btn.onclick = () => { closeDetailModal(); setTimeout(() => openEditForm(txs.find(i => String(i.id) === btn.getAttribute('data-id'))), 350); }); 
@@ -506,7 +474,7 @@ window.closeDetailModal = function() {
     triggerHaptic('light'); document.querySelectorAll('.calendar-day.selected-day').forEach(el => el.classList.remove('selected-day')); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
 
-// ----- LỌH TUẦN -----
+// ----- BÁO CÁO TUẦN -----
 async function loadWeeklyReport(weekStr) {
   showLoading(true, 'tab2');
   document.querySelector('#tab2 .chart-container').style.display='none';
@@ -539,7 +507,7 @@ async function loadWeeklyReport(weekStr) {
   finally { showLoading(false, 'tab2'); }
 }
 
-// ----- LỌH THÁNG -----
+// ----- BÁO CÁO THÁNG -----
 async function loadMonthlyReport(monthStr) {
   showLoading(true, 'tab2');
   document.querySelector('#tab2 .chart-container').style.display='none';
@@ -585,10 +553,9 @@ function displaySearchResults() {
     document.getElementById('placeholderSearch').style.display = 'none'; document.getElementById('paginationSearch').style.display = 'flex';
     const tPages = Math.ceil(data.length / itemsPerPage); const pData = data.slice((currentPageSearch - 1) * itemsPerPage, currentPageSearch * itemsPerPage);
     pData.forEach((item, index) => { 
-        const tCls = item.type==='Thu nhập'?'income':'expense'; const icon = getCategoryIcon(item.category); const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; 
-        const amtObj = formatCurrencyWithUnit(item.amount);
+        const tCls = item.type==='Thu nhập'?'income':'expense'; const stt = (currentPageSearch - 1) * itemsPerPage + index + 1; 
         const card = document.createElement('div'); card.className = `tx-card ${tCls}`; 
-        card.innerHTML = `<div class="tx-icon-wrap ${tCls}">${icon}</div><div class="tx-body"><div class="tx-title">${escapeHTML(item.content)}</div><div class="tx-meta-row"><span class="tx-date">${escapeHTML(formatDate(item.date))}</span><span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span><span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span></div>${item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : ''}<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div></div><div class="tx-right-col"><div class="tx-amount ${tCls}"><span>${item.type==='Thu nhập'?'+':'−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div><div class="tx-actions"><button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-pen"></i></button><button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}"><i class="fas fa-trash"></i></button></div></div>`; list.appendChild(card); 
+        card.innerHTML = renderTxCard(item, stt); list.appendChild(card); 
     });
     document.getElementById('pageInfoSearch').textContent = `${currentPageSearch} / ${tPages}`; document.getElementById('prevPageSearch').disabled = currentPageSearch === 1; document.getElementById('nextPageSearch').disabled = currentPageSearch === tPages; document.getElementById('prevPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch > 1) { currentPageSearch--; displaySearchResults(); } }; document.getElementById('nextPageSearch').onclick = () => { triggerHaptic('light'); if(currentPageSearch < tPages) { currentPageSearch++; displaySearchResults(); } };
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => { closeSearchModal(); setTimeout(() => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id'))), 350); }); 
