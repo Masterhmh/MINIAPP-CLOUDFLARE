@@ -7,14 +7,16 @@
 .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 400px; height: auto; background: transparent; box-shadow: none; border: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0; z-index: 1000; }
 .bottom-nav::before, .bottom-nav::after { display: none !important; }
 
-/* Cum 4 tab: nen kinh mo, bo tron 32px */
-.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+/* Cum 4 tab: nen kinh mo, bo tron 32px. container-type=inline-size => cac tab con
+   co the tu thu nho theo be rong THUC TE cua cum nay (xem @container ben duoi). */
+.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0 4px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); container-type: inline-size; }
 
-/* Nut tab: cao bang thanh nav (62px); icon tren, chu duoi sat nhau */
-.nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: transparent; border: none; border-radius: 26px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+/* Nut tab: cao bang thanh nav (62px); icon tren, chu duoi sat nhau.
+   overflow:hidden + label ellipsis => noi dung KHONG BAO GIO tran ra ngoai pill. */
+.nav-btn { flex: 1 1 0; min-width: 0; max-width: 100%; overflow: hidden; position: relative; z-index: 1; height: 62px; padding: 0 2px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: transparent; border: none; border-radius: 26px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .nav-btn:active { transform: scale(0.94); }
 .nav-icon-wrap { width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--text-2); background: transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.nav-label { font-size: 0.65rem; font-weight: 700; color: var(--text-2); margin-top: -4px; transition: all 0.3s ease; }
+.nav-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.65rem; font-weight: 700; color: var(--text-2); margin-top: -4px; transition: color 0.3s ease, font-size 0.2s ease; }
 .nav-btn:hover .nav-icon-wrap { color: var(--primary-light); background: rgba(255,255,255,0.05); transform: translateY(-2px) scale(1.1); }
 .nav-btn:hover .nav-label { color: var(--primary-light); }
 
@@ -25,6 +27,22 @@
 .nav-btn.active { background: transparent !important; }
 .nav-btn.active .nav-icon-wrap { background: transparent !important; color: var(--primary-light) !important; box-shadow: none !important; transform: none !important; }
 .nav-btn.active .nav-label { color: var(--primary-light) !important; font-weight: 800; }
+
+/* ---------- THU NHO NOI DUNG TAB KHI CUM NAV HEP (desktop mo khung nho) ----------
+   Do theo be rong THUC TE cua .nav-tabs-group (container query), khong phai vw,
+   nen icon + chu tu co lai vua khung o moi kich thuoc, khong tran ra ngoai pill. */
+@container (max-width: 340px) {
+  .nav-icon-wrap { width: 29px; height: 29px; min-width: 29px; min-height: 29px; font-size: 1.02rem; }
+  .nav-label { font-size: 0.6rem; }
+}
+@container (max-width: 300px) {
+  .nav-icon-wrap { width: 26px; height: 26px; min-width: 26px; min-height: 26px; font-size: 0.94rem; }
+  .nav-label { font-size: 0.55rem; letter-spacing: -0.02em; }
+}
+@container (max-width: 268px) {
+  .nav-icon-wrap { width: 24px; height: 24px; min-width: 24px; min-height: 24px; font-size: 0.86rem; }
+  .nav-label { font-size: 0.5rem; }
+}
 
 /* Nut FAB (+) tach rieng ben phai */
 .fab-btn { flex-shrink: 0; width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--grad-primary); color: #fff; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 30px rgba(6,182,212,0.45), inset 0 1px 1px rgba(255,255,255,0.2); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease; }
