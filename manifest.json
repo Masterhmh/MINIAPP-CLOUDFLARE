@@ -1,0 +1,26 @@
+{
+  "name": "Quản lý chi tiêu HMH",
+  "short_name": "Chi tiêu HMH",
+  "description": "Mini App quản lý thu chi cá nhân",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#6C5CE7",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "https://i.pinimg.com/736x/7c/13/53/7c135389e26cbc6460626deb9e2aa5c6.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.pinimg.com/736x/7c/13/53/7c135389e26cbc6460626deb9e2aa5c6.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
