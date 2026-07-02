@@ -4,7 +4,7 @@
    ============================================================================ */
 
 /* ---------- THANH NAV: 4 TAB + NUT FAB TACH RIENG + PILL INDICATOR ---------- */
-.bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: auto; background: transparent; box-shadow: none; border: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0; z-index: 1000; }
+.bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 400px; height: auto; background: transparent; box-shadow: none; border: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0; z-index: 1000; }
 .bottom-nav::before, .bottom-nav::after { display: none !important; }
 
 /* Cum 4 tab: nen kinh mo, bo tron 32px */
@@ -45,16 +45,17 @@
 .fab-item-icon.income { color: var(--income); }
 .fab-item-icon.expense { color: var(--expense); }
 
-/* ---------- KHUNG DIEN THOAI TREN MAN HINH RONG (Telegram desktop) ----------
+/* ---------- KHUNG DIEN THOAI (Telegram desktop / man hinh rong) ----------
    Telegram desktop KHONG cho web app tu dat/keo kich thuoc cua so (khong co API).
-   Nen thay vi chinh cua so, ta khoa toan bo app vao mot khung ~430px can giua,
-   de mo tren may tinh trong dung ty le nhu tren dien thoai (nav khong bi dan thua). */
-@media (min-width: 500px) {
-  .content-wrapper { max-width: 430px; }
-  .fs-inner { max-width: 430px; }
-  .modal-sheet { max-width: 430px; }
-  .bottom-nav { max-width: 400px; }
-  /* Neo menu FAB thang hang voi nut "+" (canh phai cua thanh nav 400px, can giua) */
+   Vi vay ta khoa noi dung app vao khung ~430px CAN GIUA o MOI kich thuoc cua so:
+   - Dien thoai (hep hon 430px): van co gian binh thuong, khong doi.
+   - May tinh (rong hon 430px): noi dung luon can giua dung ty le nhu tren dien
+     thoai => mo len la CAN NGAY, khong con phai tu keo dan chieu ngang. */
+.content-wrapper { max-width: 430px; }
+.modal-sheet { max-width: 430px; }
+/* Khi cua so rong hon khung (nav bi khoa 400px, nut + nam giua man hinh) => neo
+   menu FAB thang hang voi nut + thay vi dinh sat mep phai cua so. */
+@media (min-width: 432px) {
   .fab-menu { right: calc(50% - 200px); }
 }
 
@@ -62,7 +63,7 @@
 body.fullscreen-open { overflow: hidden; }
 .fullscreen-page { position: fixed; inset: 0; z-index: 3000; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 48px; background-color: var(--bg-base); background-image: radial-gradient(circle at 15% 20%, rgba(6,182,212,0.15) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(59,130,246,0.15) 0%, transparent 40%); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
 .fullscreen-page.show { transform: translateX(0); }
-.fs-inner { max-width: 600px; margin: 0 auto; }
+.fs-inner { max-width: 430px; margin: 0 auto; }
 .fs-header { position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px 0 12px; margin-bottom: 6px; background: transparent; z-index: 2; }
 .fs-title { order: 1; font-size: 1.2rem; font-weight: 800; color: var(--text-1); text-transform: uppercase; letter-spacing: -0.01em; }
 .fs-back { order: 2; width: auto; min-height: 42px; padding: 8px 16px; border-radius: 22px; gap: 8px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.95rem; transition: all 0.2s ease; }
