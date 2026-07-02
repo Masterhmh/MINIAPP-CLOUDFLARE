@@ -4,6 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>MINI APP QUẢN LÝ TÀI CHÍNH</title>
+
+  <!-- ==== PWA / OFFLINE ==== -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#6C5CE7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Quản lý chi tiêu">
   
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   
@@ -359,12 +367,24 @@
             </div>
             
             <div class="field-group">
-                <div class="field-label">Nội dung</div>
-                <input type="text" id="searchContent" class="field-input" placeholder="Nhập nội dung cần tìm">
+                <div class="field-label">Nội dung / ghi chú</div>
+                <input type="text" id="searchContent" class="field-input" placeholder="Nhiều từ cách nhau bằng dấu cách (VD: ăn sáng)">
             </div>
             <div class="field-group">
-                <div class="field-label">Số tiền</div>
-                <input type="text" id="searchAmount" class="field-input" placeholder="Ví dụ: 50.000">
+                <div class="field-label">Loại giao dịch</div>
+                <select id="searchType" class="field-input">
+                    <option value="">Tất cả</option>
+                    <option value="Thu nhập">Thu nhập</option>
+                    <option value="Chi tiêu">Chi tiêu</option>
+                </select>
+            </div>
+            <div class="field-group">
+                <div class="field-label">Khoảng số tiền</div>
+                <div class="filter-controls" style="display:flex; align-items:center; gap:10px;">
+                    <input type="text" id="searchAmountMin" class="field-input flex-1" placeholder="Từ (VD: 50.000)">
+                    <span class="filter-separator">đến</span>
+                    <input type="text" id="searchAmountMax" class="field-input flex-1" placeholder="Đến (VD: 500.000)">
+                </div>
             </div>
             <div class="field-group">
                 <div class="field-label">Phân loại chi tiết</div>
