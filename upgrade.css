@@ -1,27 +1,32 @@
 /* ============================================================================
-   upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
-   - Thanh nav 4 tab + FAB tách riêng / Menu FAB / Trang toàn màn hình
-   - Indicator trượt giữa các tab (nền xám trung tính, bo tròn)
-   - Thanh điều khiển lịch Tab 2 / Ô ngày dd/MM/yyyy / Tab 1 dùng lịch gốc
-   - Nút đóng ✕ cho modal / Nút Quay Lại bên phải
+   upgrade.css - Nav bar + Overlays + Privacy + Tinh nang moi (nap SAU styles.css)
+   Tu chua toan bo style cua nav/fab (styles.css khong con rule nav).
    ============================================================================ */
 
-/* ---------- THANH NAV: 4 TAB (GIÃN RỘNG) + NÚT FAB TÁCH RIÊNG ---------- */
-.bottom-nav { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border: none !important; height: auto !important; padding: 0 !important; justify-content: space-between !important; gap: 12px; }
-.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
-/* nav-btn cao bang thanh nav (62px); pill = indicator thut vao 6px moi phia bang vien trong suot => offset deu 4 phia */
-.nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 62px; gap: 0; border-radius: 26px; background: transparent !important; }
-.nav-tabs-group .nav-btn:active { transform: scale(0.94); }
-/* Keo chu (nav-label) gan icon hon */
-.nav-tabs-group .nav-label { margin-top: -4px; }
+/* ---------- THANH NAV: 4 TAB + NUT FAB TACH RIENG + PILL INDICATOR ---------- */
+.bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: auto; background: transparent; box-shadow: none; border: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0; z-index: 1000; }
+.bottom-nav::before, .bottom-nav::after { display: none !important; }
 
-/* Indicator trượt: JS gan width/height = nav-btn (62px). Vien trong suốt 6px + background-clip: padding-box => nền xám thut vào 6px đều 4 phía, đồng tâm với thanh nav */
+/* Cum 4 tab: nen kinh mo, bo tron 32px */
+.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+
+/* Nut tab: cao bang thanh nav (62px); icon tren, chu duoi sat nhau */
+.nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: transparent; border: none; border-radius: 26px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-btn:active { transform: scale(0.94); }
+.nav-icon-wrap { width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--text-2); background: transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-label { font-size: 0.65rem; font-weight: 700; color: var(--text-2); margin-top: -4px; transition: all 0.3s ease; }
+.nav-btn:hover .nav-icon-wrap { color: var(--primary-light); background: rgba(255,255,255,0.05); transform: translateY(-2px) scale(1.1); }
+.nav-btn:hover .nav-label { color: var(--primary-light); }
+
+/* Pill indicator truot: vien trong suot 6px + background-clip padding-box => offset deu 4 phia, dong tam voi thanh nav */
 .nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 62px; border: 6px solid transparent; border-radius: 999px; background: rgba(148,163,184,0.28); background-clip: padding-box; -webkit-background-clip: padding-box; opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
 
-/* Tab đang chọn: bỏ nền/tròn cũ (indicator lo phần nền), giữ màu chữ/icon nổi bật */
-.nav-tabs-group .nav-btn.active { background: transparent !important; }
-.nav-tabs-group .nav-btn.active .nav-icon-wrap { background: transparent !important; box-shadow: none !important; transform: none !important; }
+/* Tab dang chon: chi doi mau icon/chu, pill dam nhan phan nen */
+.nav-btn.active { background: transparent !important; }
+.nav-btn.active .nav-icon-wrap { background: transparent !important; color: var(--primary-light) !important; box-shadow: none !important; transform: none !important; }
+.nav-btn.active .nav-label { color: var(--primary-light) !important; font-weight: 800; }
 
+/* Nut FAB (+) tach rieng ben phai */
 .fab-btn { flex-shrink: 0; width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--grad-primary); color: #fff; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 30px rgba(6,182,212,0.45), inset 0 1px 1px rgba(255,255,255,0.2); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease; }
 .fab-btn:hover { box-shadow: 0 12px 34px rgba(6,182,212,0.6); filter: brightness(1.05); }
 .fab-btn:active { transform: scale(0.92); }
@@ -40,7 +45,7 @@
 .fab-item-icon.income { color: var(--income); }
 .fab-item-icon.expense { color: var(--expense); }
 
-/* ---------- TRANG TOÀN MÀN HÌNH (Cài đặt / Giới thiệu) ---------- */
+/* ---------- TRANG TOAN MAN HINH (Cai dat / Gioi thieu) ---------- */
 body.fullscreen-open { overflow: hidden; }
 .fullscreen-page { position: fixed; inset: 0; z-index: 3000; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 48px; background-color: var(--bg-base); background-image: radial-gradient(circle at 15% 20%, rgba(6,182,212,0.15) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(59,130,246,0.15) 0%, transparent 40%); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
 .fullscreen-page.show { transform: translateX(0); }
@@ -52,7 +57,7 @@ body.fullscreen-open { overflow: hidden; }
 .fs-back:active { transform: scale(0.94); }
 .fs-back-label { font-size: 0.9rem; font-weight: 700; }
 
-/* ---------- THANH ĐIỀU KHIỂN ẨN/HIỆN LỊ CH TAB 2 ---------- */
+/* ---------- THANH DIEU KHIEN AN/HIEN LICH TAB 2 ---------- */
 #timeNavContainer { display: none !important; }
 .cal-ctrl-bar { display: none; align-items: center; justify-content: space-between; gap: 8px; background: var(--bg-card); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-md); padding: 6px 10px; margin-bottom: 10px; }
 .cal-ctrl-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -67,23 +72,23 @@ body.fullscreen-open { overflow: hidden; }
 #calendarWidget.cal-collapsed #calendarStatbox { display: none !important; }
 #calendarWidget.cal-collapsed .cal-ctrl-toggle i { transform: rotate(180deg); }
 
-/* ---------- Ô CHỌN NGÀY FORM: hiển thị dd/MM/yyyy bằng lớp phủ ---------- */
+/* ---------- O CHON NGAY FORM: hien thi dd/MM/yyyy bang lop phu ---------- */
 input[type="date"].date-native { color: transparent !important; text-align: left !important; }
 input[type="date"].date-native::-webkit-datetime-edit { color: transparent !important; }
 input[type="date"].date-native::-webkit-date-and-time-value { color: transparent !important; text-align: left !important; }
 .date-field-wrap { position: relative; }
 .date-display { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 0.95rem; font-weight: 500; color: var(--text-1); pointer-events: none; z-index: 1; }
 
-/* ---------- TAB 1: ô date gốc trong suốt phủ lên dòng ngày ---------- */
+/* ---------- TAB 1: o date goc trong suot phu len dong ngay ---------- */
 .hero-date-tap { position: relative; display: inline-flex; align-items: center; gap: 4px; }
 .hero-date-native { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: none; background: transparent; opacity: 0; -webkit-appearance: none; appearance: none; cursor: pointer; }
 
-/* ---------- NÚT ĐÓNG ✕ CHO MODAL TRƯỢT ---------- */
+/* ---------- NUT DONG X CHO MODAL TRUOT ---------- */
 .modal-close-x { position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%; background: var(--bg-card2); border: 1px solid var(--border-color); color: var(--text-1); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 6; font-size: 0.95rem; transition: all 0.2s ease; }
 .modal-close-x:hover { background: var(--expense-bg); color: var(--expense); border-color: rgba(244,63,94,0.3); }
 .modal-close-x:active { transform: scale(0.9); }
 
-/* ---------- POPUP LỊ CH TÙY CHỌN (dự phòng) ---------- */
+/* ---------- POPUP LICH TUY CHON (du phong) ---------- */
 .dp-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .dp-nav button { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
 .dp-nav button:hover { background: var(--bg-card2); color: var(--primary-light); }
@@ -97,3 +102,65 @@ input[type="date"].date-native::-webkit-date-and-time-value { color: transparent
 .dp-day.empty { background: transparent; pointer-events: none; }
 .dp-day.today { outline: 2px solid var(--primary); outline-offset: -2px; }
 .dp-day.selected { background: var(--grad-primary); color: #fff; box-shadow: 0 4px 12px var(--primary-alpha); }
+
+/* ---------- HIEU UNG CHUYEN VIEW (slide) ---------- */
+.slide-in-right { animation: slideInRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.slide-out-right { animation: slideOutRight 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+.fade-in-view { animation: fadeInView 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+@keyframes fadeInView { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+/* ---------- CHE DO AN SO DU (PRIVACY MODE ***) ---------- */
+body.privacy-on .hero-balance,
+body.privacy-on .hero-stat-val,
+body.privacy-on .tx-amount,
+body.privacy-on .stat-num,
+body.privacy-on .cat-progress-amt,
+body.privacy-on #detailTotalIncome,
+body.privacy-on #detailTotalExpense,
+body.privacy-on #detailTotalBalance,
+body.privacy-on .cal-row-amt,
+body.privacy-on .calendar-balance,
+body.privacy-on .legend-pct {
+    font-size: 0 !important;
+    letter-spacing: 0 !important;
+    color: transparent !important;
+}
+body.privacy-on .hero-balance span,
+body.privacy-on .tx-amount span {
+    display: none !important;
+}
+body.privacy-on .hero-balance::after,
+body.privacy-on .hero-stat-val::after,
+body.privacy-on .tx-amount::after,
+body.privacy-on .stat-num::after,
+body.privacy-on .cat-progress-amt::after,
+body.privacy-on #detailTotalIncome::after,
+body.privacy-on #detailTotalExpense::after,
+body.privacy-on #detailTotalBalance::after,
+body.privacy-on .calendar-balance::after,
+body.privacy-on .legend-pct::after {
+    content: '***';
+    visibility: visible;
+    display: inline-block;
+    color: inherit;
+}
+body.privacy-on .hero-balance::after,
+body.privacy-on .hero-stat-val::after {
+    color: white !important;
+}
+body.privacy-on .hero-balance::after { font-size: 2.2rem; transform: translateY(4px); }
+body.privacy-on .hero-stat-val::after { font-size: 1.05rem; }
+body.privacy-on .tx-amount::after { font-size: 1.1rem; }
+body.privacy-on .stat-num::after { font-size: 1.05rem; }
+body.privacy-on .cat-progress-amt::after { font-size: 0.95rem; }
+body.privacy-on #detailTotalIncome::after,
+body.privacy-on #detailTotalExpense::after,
+body.privacy-on #detailTotalBalance::after { font-size: 1.1rem; }
+body.privacy-on .calendar-balance::after { font-size: 0.55rem; }
+body.privacy-on .legend-pct::after { font-size: 0.75rem; }
+body.privacy-on #heroExpenseCompare,
+body.privacy-on .stat-compare {
+    display: none !important;
+}
