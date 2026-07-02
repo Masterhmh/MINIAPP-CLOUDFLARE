@@ -59,6 +59,7 @@
     tInput.classList.add('hero-date-native');
     wrap.appendChild(tInput);
     tInput.addEventListener('click', function (e) { e.stopPropagation(); });
+    tInput.addEventListener('change', function () { if (typeof window.fetchTransactions === 'function') window.fetchTransactions(false); });
   }
 
   function addModalCloseX(modalId, closeFnName) {
@@ -201,7 +202,7 @@
   var _origFetchTransactions = window.fetchTransactions;
   if (typeof _origFetchTransactions === 'function') {
     window.fetchTransactions = function (force) {
-      if (force === true) window.__navBoundsPromise = null;
+      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; }
       return _origFetchTransactions.apply(this, arguments);
     };
   }
@@ -282,16 +283,6 @@
       return r;
     };
   }
-
-  // ------------------------------------------------------------------
-  // WRAP closeAllModals — đóng luôn popup lịch chọn ngày
-  // ------------------------------------------------------------------
-  var _origCloseAll = window.closeAllModals;
-  window.closeAllModals = function () {
-    if (typeof _origCloseAll === 'function') _origCloseAll();
-    var dp = document.getElementById('datePickerModal');
-    if (dp) dp.classList.remove('show');
-  };
 
   // ------------------------------------------------------------------
   // WRAP updateTimeNavUI — đồng bộ thanh điều khiển lịch (Tab 2)
@@ -456,60 +447,7 @@
   };
 
   // ------------------------------------------------------------------
-  // POPUP LICH TUY CHON (dự phòng)
-  // ------------------------------------------------------------------
-  var dpDate = new Date();
-  var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
-
-  window.openDatePicker = function () {
-    triggerHaptic('light');
-    var t = document.getElementById('transactionDate');
-    var cur = t ? t.value : '';
-    if (cur) { var p = cur.split('-'); dpDate = new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)); }
-    else { dpDate = new Date(); }
-    renderDatePicker();
-    var ov = document.getElementById('modalOverlay'); if (ov) ov.classList.add('show');
-    setTimeout(function () { var m = document.getElementById('datePickerModal'); if (m) m.classList.add('show'); }, 10);
-  };
-  window.closeDatePicker = function () {
-    var m = document.getElementById('datePickerModal'); if (m) m.classList.remove('show');
-    setTimeout(function () { var ov = document.getElementById('modalOverlay'); if (ov) ov.classList.remove('show'); }, 300);
-  };
-  window.dpPrev = function () { triggerHaptic('light'); dpDate.setMonth(dpDate.getMonth() - 1); renderDatePicker(); };
-  window.dpNext = function () { triggerHaptic('light'); dpDate.setMonth(dpDate.getMonth() + 1); renderDatePicker(); };
-  window.dpToday = function () { triggerHaptic('light'); var k = formatDateToYYYYMMDD(new Date()); var t = document.getElementById('transactionDate'); if (t) t.value = k; closeDatePicker(); window.fetchTransactions(false); };
-
-  function renderDatePicker() {
-    var startOfWeek = parseInt(localStorage.getItem('settingStartOfWeek') || '1', 10);
-    var y = dpDate.getFullYear(), mo = dpDate.getMonth();
-    var label = document.getElementById('dpMonthLabel'); if (label) label.textContent = DP_MONTHS[mo] + ' ' + y;
-    var wh = document.getElementById('dpWeekHead');
-    var wk = startOfWeek === 1 ? ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'] : ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-    if (wh) wh.innerHTML = wk.map(function (d) { return '<span>' + d + '</span>'; }).join('');
-    var grid = document.getElementById('dpGrid'); if (!grid) return; grid.innerHTML = '';
-    var firstDay = new Date(y, mo, 1).getDay();
-    if (startOfWeek === 1) firstDay = firstDay === 0 ? 6 : firstDay - 1;
-    var daysInMonth = new Date(y, mo + 1, 0).getDate();
-    var t = document.getElementById('transactionDate');
-    var selVal = t ? t.value : '';
-    var todayKey = formatDateToYYYYMMDD(new Date());
-    var i, cell;
-    for (i = 0; i < firstDay; i++) { cell = document.createElement('div'); cell.className = 'dp-day empty'; grid.appendChild(cell); }
-    for (var d = 1; d <= daysInMonth; d++) {
-      (function (day) {
-        var key = formatDateToYYYYMMDD(new Date(y, mo, day));
-        var c = document.createElement('div'); c.className = 'dp-day';
-        if (key === todayKey) c.classList.add('today');
-        if (selVal === key) c.classList.add('selected');
-        c.textContent = day;
-        c.onclick = function () { triggerHaptic('light'); var tt = document.getElementById('transactionDate'); if (tt) tt.value = key; closeDatePicker(); window.fetchTransactions(false); };
-        grid.appendChild(c);
-      })(d);
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // KHỞI TẠO SAU KHI DOM SẴN SÀNG
+  // KHỎI TẠO SAU KHI DOM SẮN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     var fabBtn = document.getElementById('fabBtn');
@@ -544,7 +482,6 @@
     addModalCloseX('editModal', 'closeEditForm');
     addModalCloseX('iconPickerModal', 'closeIconPickerModal');
     addModalCloseX('pdfPreviewModal', 'closeAllModals');
-    addModalCloseX('datePickerModal', 'closeDatePicker');
 
     document.querySelectorAll('.fs-back').forEach(function (b) {
       if (!b.querySelector('.fs-back-label')) {
