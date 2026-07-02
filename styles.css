@@ -410,32 +410,3 @@ input:checked + .slider:before { transform: translateX(20px); }
 
 select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important; background-repeat: no-repeat !important; background-position: right 14px center !important; background-size: 16px !important; padding-right: 36px !important; cursor: pointer; }
 .app-branding { text-align: center; font-size: 0.85rem; font-weight: 800; color: var(--text-2); padding-top: 8px; margin-bottom: -12px; letter-spacing: 0.02em; }
-
-/* ============================================================================
-   THANH NAV (bottom-nav) + CUM 4 TAB + PILL INDICATOR + NUT FAB
-   (Da gop tu upgrade.css, hop nhat khoi nav trung lap)
-   ============================================================================ */
-.bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: auto; background: transparent; box-shadow: none; border: none; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 0; z-index: 1000; }
-.bottom-nav::before, .bottom-nav::after { display: none !important; }
-
-/* Cum 4 tab: nen kinh mo, bo tron 32px */
-.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
-
-/* Nut tab: cao bang thanh nav (62px); icon tren, chu duoi (sat nhau) */
-.nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: transparent; border: none; border-radius: 26px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.nav-btn:active { transform: scale(0.94); }
-.nav-icon-wrap { width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--text-2); background: transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.nav-label { font-size: 0.65rem; font-weight: 700; color: var(--text-2); margin-top: -4px; transition: all 0.3s ease; }
-.nav-btn:hover .nav-icon-wrap { color: var(--primary-light); background: rgba(255,255,255,0.05); transform: translateY(-2px) scale(1.1); }
-.nav-btn:hover .nav-label { color: var(--primary-light); }
-
-/* Pill indicator truot: vien trong suot 6px + background-clip padding-box => offset deu 4 phia, dong tam voi thanh nav */
-.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 62px; border: 6px solid transparent; border-radius: 999px; background: rgba(148,163,184,0.28); background-clip: padding-box; -webkit-background-clip: padding-box; opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
-
-/* Tab dang chon: chi doi mau icon/chu, pill dam nhan phan nen */
-.nav-btn.active { background: transparent !important; }
-.nav-btn.active .nav-icon-wrap { background: transparent !important; color: var(--primary-light) !important; box-shadow: none !important; transform: none !important; }
-.nav-btn.active .nav-label { color: var(--primary-light) !important; font-weight: 800; }
-
-/* Nut FAB (+) tach rieng ben phai */
-.fab-btn { flex-shrink: 0; width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--gr
