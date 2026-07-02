@@ -413,7 +413,7 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
 
 .bottom-nav { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 450px; height: 64px; background: var(--nav-bg) !important; backdrop-filter: var(--glass-effect) !important; -webkit-backdrop-filter: var(--glass-effect) !important; border-radius: 32px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255,255,255,0.1) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; display: flex; justify-content: space-around; align-items: center; padding: 0 12px; z-index: 1000; }
 .bottom-nav::before, .bottom-nav::after { display: none !important; }
-.nav-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: transparent; border: none; cursor: pointer; min-width: 60px; height: 54px; border-radius: 27px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.nav-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: transparent; border: none; cursor: pointer; min-width: 60px; height: 58px; border-radius: 29px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .nav-icon-wrap { width: 32px; height: 32px; min-width: 32px; min-height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; color: var(--text-2); background: transparent; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .nav-label { font-size: 0.65rem; font-weight: 700; color: var(--text-2); transition: all 0.3s ease; }
 .nav-btn:hover .nav-icon-wrap { color: var(--primary-light); background: rgba(255,255,255,0.05); transform: translateY(-2px) scale(1.1); }
@@ -430,7 +430,7 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
 @keyframes slideOutRight { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
 @keyframes fadeInView { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 
-/* --------- CHẾ ĐỘ ẨN SỐ DƯ (PRIVACY MODE ***) --------- */
+/* --------- CHE DO AN SO DU (PRIVACY MODE ***) --------- */
 body.privacy-on .hero-balance,
 body.privacy-on .hero-stat-val,
 body.privacy-on .tx-amount,
@@ -447,13 +447,13 @@ body.privacy-on .legend-pct {
     color: transparent !important;
 }
 
-/* Ẩn triệt để thẽ con chứa ký hiệu đ hoặc +/- */
+/* An triet de the con chua ky hieu d hoac +/- */
 body.privacy-on .hero-balance span,
 body.privacy-on .tx-amount span {
     display: none !important;
 }
 
-/* Hiển thị dấu *** đè lên */
+/* Hien thi dau *** de len */
 body.privacy-on .hero-balance::after,
 body.privacy-on .hero-stat-val::after,
 body.privacy-on .tx-amount::after,
@@ -470,13 +470,13 @@ body.privacy-on .legend-pct::after {
     color: inherit;
 }
 
-/* Giữ màu trắng cho dấu *** ở Tab 1 */
+/* Giu mau trang cho dau *** o Tab 1 */
 body.privacy-on .hero-balance::after,
 body.privacy-on .hero-stat-val::after {
     color: white !important;
 }
 
-/* Định dạng kích thước dấu *** khớp với từng vị trí */
+/* Dinh dang kich thuoc dau *** khop voi tung vi tri */
 body.privacy-on .hero-balance::after { font-size: 2.2rem; transform: translateY(4px); }
 body.privacy-on .hero-stat-val::after { font-size: 1.05rem; }
 body.privacy-on .tx-amount::after { font-size: 1.1rem; }
@@ -488,7 +488,7 @@ body.privacy-on #detailTotalBalance::after { font-size: 1.1rem; }
 body.privacy-on .calendar-balance::after { font-size: 0.55rem; }
 body.privacy-on .legend-pct::after { font-size: 0.75rem; }
 
-/* Ẩn hoàn toàn các dòng so sánh Tăng/Giảm */
+/* An hoan toan cac dong so sanh Tang/Giam */
 body.privacy-on #heroExpenseCompare,
 body.privacy-on .stat-compare {
     display: none !important;
