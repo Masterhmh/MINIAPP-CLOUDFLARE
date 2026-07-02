@@ -171,6 +171,7 @@ async function submitTx(tx) {
     triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
     window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
     window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
+    window.monthDataCache = {}; // Xoá cache dữ liệu theo tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
@@ -220,6 +221,7 @@ window.deleteTransaction = function(id) {
               triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
               window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
               window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
+              window.monthDataCache = {}; // Xoá cache dữ liệu theo tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
