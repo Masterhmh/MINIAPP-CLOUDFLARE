@@ -7,7 +7,7 @@
 // 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
-// 7) Tab Tìm kiếm + tối giản modal tìm kiếm (tìm toàn bộ, hỗ trợ 50k/50m/50tr).
+// 7) Tab Tìm kiếm (thêm nút Tìm kiếm vào thanh điều hướng, mở modal tìm kiếm).
 // 8) Đếm tổng giao dịch + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
 // ============================================================================
@@ -163,56 +163,6 @@
     var p = String(t.date).split('/');
     if (p.length !== 3) return 0;
     return parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
-  }
-
-  function setupSearchSimplify() {
-    var amt = document.getElementById('searchAmount');
-    if (amt) { var g1 = amt.closest('.field-group'); if (g1) g1.style.display = 'none'; }
-    var cat = document.getElementById('searchCategory');
-    if (cat) { var g2 = cat.closest('.field-group'); if (g2) g2.style.display = 'none'; }
-
-    var pills = document.querySelector('#searchModal .period-pills');
-    if (pills) pills.style.display = 'none';
-    var customC = document.getElementById('searchCustomFilterContainer');
-    if (customC) customC.style.display = 'none';
-
-    var content = document.getElementById('searchContent');
-    if (content) {
-      content.placeholder = 'Nhập nội dung hoặc số tiền (vd: 50k, 1tr5)';
-      var grp = content.closest('.field-group');
-      var lab = grp ? grp.querySelector('.field-label') : null;
-      if (lab) lab.textContent = 'Nội dung hoặc số tiền';
-    }
-
-    var searchBtn = document.getElementById('searchTransactionsBtn');
-    if (searchBtn) {
-      searchBtn.onclick = async function () {
-        triggerHaptic('light');
-        var term = ((document.getElementById('searchContent') || {}).value || '').trim();
-        if (!term) return showToast('Nhập nội dung hoặc số tiền cần tìm', 'warning');
-        var termLower = term.toLowerCase();
-        var amountNum = (typeof window.parseNumber === 'function') ? window.parseNumber(term) : null;
-
-        showLoading(true, 'search');
-        try {
-          var fetchPromises = [];
-          for (var m = 1; m <= 12; m++) { (function (mm) { fetchPromises.push(fetchMonthData(mm)); })(m); }
-          var monthsResults = await Promise.all(fetchPromises);
-          var txs = [];
-          monthsResults.forEach(function (monthData) {
-            monthData.forEach(function (t) {
-              if (!t) return;
-              var contentMatch = t.content && t.content.toLowerCase().indexOf(termLower) !== -1;
-              var amountMatch = (amountNum !== null && amountNum !== undefined) && Math.abs(t.amount - amountNum) < 0.01;
-              if (contentMatch || amountMatch) txs.push(t);
-            });
-          });
-          cachedSearchResults = txs;
-          currentPageSearch = 1;
-          displaySearchResults();
-        } catch (e) { showToast(e.message, 'error'); } finally { showLoading(false, 'search'); }
-      };
-    }
   }
 
   // ------------------------------------------------------------------
@@ -383,7 +333,7 @@
   };
 
   // ------------------------------------------------------------------
-  // POPUP LỊ CH TÙY CHỌN (dự phòng)
+  // POPUP LỊCH TÙY CHỌN (dự phòng)
   // ------------------------------------------------------------------
   var dpDate = new Date();
   var DP_MONTHS = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
@@ -436,7 +386,7 @@
   }
 
   // ------------------------------------------------------------------
-  // KHỎI TẠO SAU KHI DOM SẮN SÀNG
+  // KHỞI TẠO SAU KHI DOM SẴN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     var fabBtn = document.getElementById('fabBtn');
@@ -445,7 +395,6 @@
     setupHeroDateNative();
     setupSearchTab();
     setupSearchCount();
-    setupSearchSimplify();
     setupNavIndicator();
 
     window.addEventListener('resize', function () { try { positionNavIndicator(); } catch (e) {} });
