@@ -45,6 +45,19 @@
 .fab-item-icon.income { color: var(--income); }
 .fab-item-icon.expense { color: var(--expense); }
 
+/* ---------- KHUNG DIEN THOAI TREN MAN HINH RONG (Telegram desktop) ----------
+   Telegram desktop KHONG cho web app tu dat/keo kich thuoc cua so (khong co API).
+   Nen thay vi chinh cua so, ta khoa toan bo app vao mot khung ~430px can giua,
+   de mo tren may tinh trong dung ty le nhu tren dien thoai (nav khong bi dan thua). */
+@media (min-width: 500px) {
+  .content-wrapper { max-width: 430px; }
+  .fs-inner { max-width: 430px; }
+  .modal-sheet { max-width: 430px; }
+  .bottom-nav { max-width: 400px; }
+  /* Neo menu FAB thang hang voi nut "+" (canh phai cua thanh nav 400px, can giua) */
+  .fab-menu { right: calc(50% - 200px); }
+}
+
 /* ---------- TRANG TOAN MAN HINH (Cai dat / Gioi thieu) ---------- */
 body.fullscreen-open { overflow: hidden; }
 .fullscreen-page { position: fixed; inset: 0; z-index: 3000; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 16px 48px; background-color: var(--bg-base); background-image: radial-gradient(circle at 15% 20%, rgba(6,182,212,0.15) 0%, transparent 40%), radial-gradient(circle at 85% 80%, rgba(59,130,246,0.15) 0%, transparent 40%); transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1); }
