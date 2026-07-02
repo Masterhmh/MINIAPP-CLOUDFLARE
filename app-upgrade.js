@@ -7,8 +7,9 @@
 // 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi.
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
-// 7) Tab Tìm kiếm + tối giản modal tìm kiếm (1 ô, tìm toàn bộ, hỗ trợ 50k/50m/50tr).
-// 8) Đếm tổng giao dịch (modal chi tiết + tìm kiếm) + sắp xếp kết quả theo ngày mới nhất.
+// 7) Tab Tìm kiếm + tối giản modal tìm kiếm (tìm toàn bộ, hỗ trợ 50k/50m/50tr).
+// 8) Đếm tổng giao dịch + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
+// 9) Indicator trượt giữa các tab trên thanh điều hướng.
 // ============================================================================
 
 (function () {
@@ -119,6 +120,32 @@
     }
   }
 
+  // ---- Indicator trượt giữa các tab ----
+  function positionNavIndicator() {
+    var group = document.querySelector('.nav-tabs-group');
+    var ind = document.getElementById('navIndicator');
+    if (!group || !ind) return;
+    var active = group.querySelector('.nav-btn.active');
+    if (!active) { ind.style.opacity = '0'; return; }
+    ind.style.opacity = '1';
+    ind.style.width = active.offsetWidth + 'px';
+    ind.style.height = active.offsetHeight + 'px';
+    ind.style.top = active.offsetTop + 'px';
+    ind.style.transform = 'translateX(' + active.offsetLeft + 'px)';
+  }
+  window.__positionNavIndicator = positionNavIndicator;
+  function setupNavIndicator() {
+    var group = document.querySelector('.nav-tabs-group');
+    if (!group || document.getElementById('navIndicator')) return;
+    var ind = document.createElement('div');
+    ind.id = 'navIndicator';
+    ind.className = 'nav-indicator';
+    group.insertBefore(ind, group.firstChild);
+    positionNavIndicator();
+    setTimeout(positionNavIndicator, 60);
+    setTimeout(positionNavIndicator, 250);
+  }
+
   function setupSearchCount() {
     var container = document.getElementById('searchResultsContainer');
     if (!container || document.getElementById('searchCountLabel')) return;
@@ -138,15 +165,12 @@
     return parseInt(p[2], 10) * 10000 + parseInt(p[1], 10) * 100 + parseInt(p[0], 10);
   }
 
-  // Tối giản modal tìm kiếm: 1 ô (nội dung hoặc số tiền), tìm TOÀN BỘ dữ liệu,
-  // hỗ trợ nhập số tiền dạng 50k / 50m / 50tr (dùng parseNumber).
   function setupSearchSimplify() {
     var amt = document.getElementById('searchAmount');
     if (amt) { var g1 = amt.closest('.field-group'); if (g1) g1.style.display = 'none'; }
     var cat = document.getElementById('searchCategory');
     if (cat) { var g2 = cat.closest('.field-group'); if (g2) g2.style.display = 'none'; }
 
-    // Bỏ chọn thời gian -> mặc định tìm toàn bộ
     var pills = document.querySelector('#searchModal .period-pills');
     if (pills) pills.style.display = 'none';
     var customC = document.getElementById('searchCustomFilterContainer');
@@ -189,6 +213,18 @@
         } catch (e) { showToast(e.message, 'error'); } finally { showLoading(false, 'search'); }
       };
     }
+  }
+
+  // ------------------------------------------------------------------
+  // WRAP openTab — cập nhật vị trí indicator khi đổi tab
+  // ------------------------------------------------------------------
+  var _origOpenTab = window.openTab;
+  if (typeof _origOpenTab === 'function') {
+    window.openTab = function () {
+      var r = _origOpenTab.apply(this, arguments);
+      try { positionNavIndicator(); } catch (e) {}
+      return r;
+    };
   }
 
   // ------------------------------------------------------------------
@@ -410,6 +446,10 @@
     setupSearchTab();
     setupSearchCount();
     setupSearchSimplify();
+    setupNavIndicator();
+
+    window.addEventListener('resize', function () { try { positionNavIndicator(); } catch (e) {} });
+    window.addEventListener('load', function () { try { positionNavIndicator(); } catch (e) {} });
 
     var calPrev = document.getElementById('calPrevBtn'); if (calPrev) calPrev.onclick = function () { window.calShift(-1); };
     var calNext = document.getElementById('calNextBtn'); if (calNext) calNext.onclick = function () { window.calShift(1); };

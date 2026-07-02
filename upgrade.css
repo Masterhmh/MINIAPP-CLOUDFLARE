@@ -1,21 +1,23 @@
 /* ============================================================================
    upgrade.css — Giao diện nâng cấp (nạp SAU styles.css để ghi đè)
    - Thanh nav 4 tab + FAB tách riêng / Menu FAB / Trang toàn màn hình
-   - Hiệu ứng tab đang chọn (pill bo tròn phủ cả tab)
+   - Indicator trượt giữa các tab (nền xám trung tính, bo tròn)
    - Thanh điều khiển lịch Tab 2 / Ô ngày dd/MM/yyyy / Tab 1 dùng lịch gốc
    - Nút đóng ✕ cho modal / Nút Quay Lại bên phải
    ============================================================================ */
 
 /* ---------- THANH NAV: 4 TAB (GIÃN RỘNG) + NÚT FAB TÁCH RIÊNG ---------- */
 .bottom-nav { background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; box-shadow: none !important; border: none !important; height: auto !important; padding: 0 !important; justify-content: space-between !important; gap: 12px; }
-.nav-tabs-group { display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0 8px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
-.nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; }
-
-/* ---------- HIỆU ỨNG TAB ĐANG CHỌN: PILL BO TRÒN PHỦ CẢ TAB (giống Zalo) ---------- */
-.nav-tabs-group .nav-btn { border-radius: 18px; margin: 0 1px; transition: background 0.3s cubic-bezier(0.4,0,0.2,1), transform 0.2s ease; }
-.nav-tabs-group .nav-btn.active { background: var(--primary-alpha) !important; }
-.nav-tabs-group .nav-btn.active .nav-icon-wrap { background: transparent !important; box-shadow: none !important; transform: none !important; }
+.nav-tabs-group { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px; flex: 1 1 auto; min-width: 0; height: 64px; padding: 0 8px; background: var(--nav-bg); backdrop-filter: var(--glass-effect); -webkit-backdrop-filter: var(--glass-effect); border-radius: 32px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.1); }
+.nav-tabs-group .nav-btn { flex: 1 1 0; min-width: 0; position: relative; z-index: 1; border-radius: 27px; background: transparent !important; }
 .nav-tabs-group .nav-btn:active { transform: scale(0.94); }
+
+/* Indicator trượt (nền xám trung tính, bo tròn như thanh nav) */
+.nav-indicator { position: absolute; left: 0; top: 0; z-index: 0; height: 54px; border-radius: 27px; background: rgba(148,163,184,0.28); opacity: 0; pointer-events: none; transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), width 0.34s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease; }
+
+/* Tab đang chọn: bỏ nền/tròn cũ (indicator lo phần nền), giữ màu chữ/icon nổi bật */
+.nav-tabs-group .nav-btn.active { background: transparent !important; }
+.nav-tabs-group .nav-btn.active .nav-icon-wrap { background: transparent !important; box-shadow: none !important; transform: none !important; }
 
 .fab-btn { flex-shrink: 0; width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35); background: var(--grad-primary); color: #fff; font-size: 1.3rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 10px 30px rgba(6,182,212,0.45), inset 0 1px 1px rgba(255,255,255,0.2); transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), box-shadow 0.3s ease; }
 .fab-btn:hover { box-shadow: 0 12px 34px rgba(6,182,212,0.6); filter: brightness(1.05); }
