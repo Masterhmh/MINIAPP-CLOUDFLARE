@@ -4,8 +4,8 @@
 // Vai trò: khởi tạo Telegram WebApp, đọc tham số URL (api/sheetId/botUrl),
 //   kết nối Firebase, khai báo biến trạng thái toàn cục, bản đồ icon
 //   (emoji <-> Font Awesome), các tiện ích dùng chung (haptic, privacy/ẩn số
-//   dư, toast, loading, định dạng ngày & số, màu, icon danh mục, chuyển tab)
-//   và fetchMonthData() tải giao dịch theo tháng từ Firebase.
+//   dư, toast, loading, định dạng ngày & số, màu, icon danh mục, chuyển tab,
+//   renderTxCard dựng thẻ giao dịch dùng chung) và fetchMonthData().
 // Thứ tự nạp: ĐẦU TIÊN (trước currency.js và các module khác).
 // Lưu ý: định dạng & bóc tách số tiền (formatCurrencyWithUnit, parseNumber)
 //   đã tách riêng sang currency.js — xem chú thích bên dưới.
@@ -119,10 +119,22 @@ function updatePrivacyUI(syncSettings = false) {
     if (window.pChart) window.pChart.update();
     if (window.dChart) window.dChart.update();
 }
+
+// Đổi theme mà KHÔNG ghi đè các class trạng thái khác trên <body> (đặc biệt là
+// 'privacy-on'). Trước đây gán thẳng body.className = `theme-...` khiến chế độ
+// ẩn số dư bị mất mỗi khi tải app hoặc đổi theme -> nay dùng classList.
+function setBodyTheme(theme) {
+    const body = document.body;
+    body.classList.remove('theme-auto', 'theme-light', 'theme-dark');
+    body.classList.add(`theme-${theme}`);
+    if (isPrivacyActive) body.classList.add('privacy-on');
+}
+window.setBodyTheme = setBodyTheme;
+
 function initSettings() {
-    // Áp dụng lại theme đã lưu
+    // Áp dụng lại theme đã lưu (giữ nguyên trạng thái ẩn số dư)
     const theme = localStorage.getItem('settingTheme') || 'dark';
-    document.body.className = `theme-${theme}`;
+    setBodyTheme(theme);
 
     // Đổ giá trị đã lưu vào các ô cài đặt
     const setVal = (id, val) => { const el = document.getElementById(id); if (el && val != null) el.value = val; };
@@ -258,6 +270,36 @@ function getCategoryIcon(cat) {
     const firstLetter = Array.from(cat.trim())[0].toUpperCase();
     return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
+
+// ---------------- THẺ GIAO DỊCH DÙNG CHUNG ----------------
+// Trước đây HTML thẻ giao dịch bị lặp ở 3 nơi (Tab 1, chi tiết, tìm kiếm).
+// Gộp về 1 hàm để dễ đọc & bảo trì; các nút .edit-btn/.delete-btn giữ data-id
+// nên mọi chỗ vẫn gắn sự kiện như cũ.
+function renderTxCard(item, stt) {
+    const isInc = item.type === 'Thu nhập';
+    const tCls = isInc ? 'income' : 'expense';
+    const icon = getCategoryIcon(item.category);
+    const amtObj = formatCurrencyWithUnit(item.amount);
+    return `<div class="tx-icon-wrap ${tCls}">${icon}</div>`
+        + `<div class="tx-body">`
+        +   `<div class="tx-title">${escapeHTML(item.content)}</div>`
+        +   `<div class="tx-meta-row">`
+        +     `<span class="tx-date">${escapeHTML(formatDate(item.date))}</span>`
+        +     `<span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span>`
+        +     `<span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>`
+        +   `</div>`
+        +   (item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : '')
+        +   `<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>`
+        + `</div>`
+        + `<div class="tx-right-col">`
+        +   `<div class="tx-amount ${tCls}"><span>${isInc ? '+' : '−'}</span>${amtObj.val}<span>${amtObj.unit}</span></div>`
+        +   `<div class="tx-actions">`
+        +     `<button class="tx-btn edit-btn" data-id="${escapeHTML(item.id)}" title="Sửa"><i class="fas fa-pen"></i></button>`
+        +     `<button class="tx-btn delete-btn" data-id="${escapeHTML(item.id)}" title="Xóa"><i class="fas fa-trash"></i></button>`
+        +   `</div>`
+        + `</div>`;
+}
+window.renderTxCard = renderTxCard;
 
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
     let zeroObj = formatCurrencyWithUnit(0);
