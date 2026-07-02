@@ -17,7 +17,7 @@
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
-  // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VẮA MỚO APP ---
+  // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VỪA MỞ APP ---
   applyPrivacyMode(); 
 
   // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẰ TAB 2 KHI ĐANG TẢI ---
+  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẺ TAB 2 KHI ĐANG TẢI ---
   if (!window.__tab2LoadingWrapped) {
     const setTab2Dim = function() {
       const dim = '<span style="opacity:0.35;">—</span>';
@@ -62,7 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
   if (!window.__tabSwipeWrapped) {
     window.__tabSwipeWrapped = true;
-    const TAB_ORDER = ['tab1', 'tab2', 'tab3', 'tab4', 'tab5'];
+    const TAB_ORDER = ['tab1', 'tab2', 'tab3'];
     let swipeStartX = 0, swipeStartY = 0, swipeTracking = false;
 
     const isAnyModalOpen = () => {
@@ -225,10 +225,9 @@ document.getElementById('editForm').onsubmit = async function(e) {
   window.initCategories = async function(preserveValues = false) {
     try {
       const cats = await fetchCategories();
-      const sCat = document.getElementById('searchCategory'), kCat = document.getElementById('keywordCategory'), addCat = document.getElementById('addCategory'), editCat = document.getElementById('editCategory');
-      const sVal = sCat?.value, kVal = kCat?.value, addVal = addCat?.value, editVal = editCat?.value;
+      const kCat = document.getElementById('keywordCategory'), addCat = document.getElementById('addCategory'), editCat = document.getElementById('editCategory');
+      const kVal = kCat?.value, addVal = addCat?.value, editVal = editCat?.value;
 
-      if(sCat) { sCat.innerHTML = '<option value="">Tất cả danh mục</option>'; cats.forEach(c => sCat.appendChild(new Option(c, c))); if(preserveValues && sVal) sCat.value = sVal; }
       if(kCat) { kCat.innerHTML = '<option value="">Chọn phân loại</option>'; cats.forEach(c => kCat.appendChild(new Option(c, c))); if(preserveValues && kVal) { kCat.value = kVal; } else if (preserveValues && document.getElementById('iconPickerCategory').value) { const newVal = document.getElementById('iconPickerCategory').value.trim(); if (cats.includes(newVal)) kCat.value = newVal; } }
       if(addCat) { addCat.innerHTML = ''; cats.forEach(c => addCat.appendChild(new Option(c, c))); if(preserveValues && addVal) addCat.value = addVal; }
       if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
@@ -286,7 +285,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
   document.getElementById('hardResetBtn').onclick = () => {
       triggerHaptic('medium');
       showCustomConfirm('Khôi Phục Cài Đặt Gốc', 'Toàn bộ dữ liệu giao dịch, từ khoá và cài đặt của bạn trên Firebase sẽ bị <strong>XÓA VĨNH VIỄN</strong>. Bạn có chắc chắn không?', 'XÓA TẤT CẢ', async () => {
-          showLoading(true, 'tab4');
+          showLoading(true, 'tab3');
           try {
               await Promise.all([
     fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }),
@@ -294,7 +293,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
     fetch(`${FIREBASE_URL}/meta.json`, { method: 'DELETE' }) // xóa cả bộ đếm mã GD
 ]);
 localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
-          } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab4'); }
+          } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
       });
   };
 
