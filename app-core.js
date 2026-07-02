@@ -52,6 +52,7 @@ let currentToastEl = null, currentToastMsg = null, currentToastTimer = null;
 const itemsPerPage = 10;
 let currentPageTab1 = 1, currentPageCategory = 1, currentPageSearch = 1;
 window.apiTxCache = {}; 
+window.monthDataCache = {}; // Cache dữ liệu theo tháng (month_1..12) — gộp/tránh gọi Firebase lặp khi chuyển tab; xóa khi thêm/sửa/xóa hoặc refresh cưỡng bức
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
 let isPrivacyActive = localStorage.getItem('settingPrivacyMode') === 'true';
@@ -321,12 +322,22 @@ window.openTab = function(tabId) {
   if(btn) btn.classList.add('active');
 };
 
-async function fetchMonthData(month) {
-    const res = await fetch(`${FIREBASE_URL}/transactions/month_${parseInt(month, 10)}.json`);
+// fetchMonthData(month, forceRefresh)
+// Tải toàn bộ giao dịch của 1 tháng (month_1..12) TRỰC TIẾP từ Firebase.
+// Có cache theo tháng (window.monthDataCache) để gộp/tránh gọi lặp khi chuyển
+// tab, tìm kiếm 12 tháng, hay dựng lại phạm vi điều hướng. Truyền forceRefresh
+// = true để bỏ qua cache (khi vừa thêm/sửa/xóa hoặc người dùng kéo làm mới).
+async function fetchMonthData(month, forceRefresh = false) {
+    const mKey = parseInt(month, 10);
+    if (!forceRefresh && window.monthDataCache && window.monthDataCache[mKey]) {
+        return window.monthDataCache[mKey];
+    }
+    const res = await fetch(`${FIREBASE_URL}/transactions/month_${mKey}.json`);
     if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status} khi tải tháng ${month}`);
     const data = await res.json();
+    let result = [];
     if (data) {
-        return Object.values(data).filter(item => item !== null).map(item => {
+        result = Object.values(data).filter(item => item !== null).map(item => {
             if (item && item.date) {
                 const p = item.date.split('/');
                 if (p.length === 3) item.date = `${String(parseInt(p[0], 10)).padStart(2, '0')}/${String(parseInt(p[1], 10)).padStart(2, '0')}/${p[2]}`;
@@ -334,5 +345,6 @@ async function fetchMonthData(month) {
             return item;
         });
     }
-    return [];
+    if (window.monthDataCache) window.monthDataCache[mKey] = result;
+    return result;
 }
