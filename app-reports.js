@@ -368,7 +368,6 @@ function drawMonthlyPieChart(data) {
 }
 
 function showCategoryDetail(cat) {
-  savedScrollPositionTab2 = window.scrollY || document.documentElement.scrollTop;
   const detailModal = document.getElementById('detailModal');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => detailModal.classList.add('show'), 10);
@@ -386,7 +385,7 @@ function showCategoryDetail(cat) {
   const incObj = formatCurrencyWithUnit(totalInc);
   document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
   const expObj = formatCurrencyWithUnit(totalExp);
-  document.getElementById('detailTotalExpense').innerHTML = `<span>-</span>${expObj.val}<span>${expObj.unit}</span>`;
+  document.getElementById('detailTotalExpense').innerHTML = `<span>−</span>${expObj.val}<span>${expObj.unit}</span>`;
 
   const chartContainer = document.getElementById('detailChartContainer');
   if(chartContainer) chartContainer.style.display = 'none';
@@ -420,7 +419,7 @@ function openDailyDetailView(d, m, y, allTxs) {
     const incObj = formatCurrencyWithUnit(totalInc);
     document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
     const expObj = formatCurrencyWithUnit(totalExp);
-    document.getElementById('detailTotalExpense').innerHTML = `<span>-</span>${expObj.val}<span>${expObj.unit}</span>`;
+    document.getElementById('detailTotalExpense').innerHTML = `<span>−</span>${expObj.val}<span>${expObj.unit}</span>`;
 
     const chartContainer = document.getElementById('detailChartContainer');
     if(chartContainer) chartContainer.style.display = 'none';
