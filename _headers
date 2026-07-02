@@ -1,0 +1,33 @@
+# ============================================================================
+# _headers - Cloudflare Pages HTTP headers
+# ----------------------------------------------------------------------------
+# Muc dich: chong tinh trang Telegram Desktop (va trinh duyet) giu lai ban CU
+# cua mini app. Ep cac tai nguyen tinh phai revalidate voi server truoc khi
+# dung, nen moi lan mo app luon nhan ban moi nhat sau khi Cloudflare deploy.
+# Offline van hoat dong vi Service Worker (sw.js) tu luu cache rieng.
+# ============================================================================
+
+# Mac dinh cho moi tai nguyen: cho phep cache nhung PHAI revalidate voi server
+/*
+  Cache-Control: no-cache, must-revalidate
+
+# HTML goc: tuyet doi khong giu ban cu (luon tai moi)
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Service Worker: khong duoc cache, neu khong ban SW cu se chan cap nhat
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# CSS / JS: cho revalidate (nhanh nho 304 nhung luon dung ban moi)
+/*.css
+  Cache-Control: no-cache, must-revalidate
+
+/*.js
+  Cache-Control: no-cache, must-revalidate
+
+/manifest.json
+  Cache-Control: no-cache, must-revalidate
