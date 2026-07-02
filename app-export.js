@@ -154,7 +154,7 @@ window.exportToPDF = function() {
                     <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; page-break-inside: avoid; width: 100%; box-sizing: border-box;">
                         <span style="font-weight: 800; color: #0F172A; font-size: 12px; text-transform: uppercase;">Tháng ${key}</span>
                         <span style="font-size: 11px; color: #64748B; font-weight: 600;">
-                            THU NHẬkP: <span style="color: #00D26A; font-weight: 800;">+${monthInc.toLocaleString('vi-VN')} ₫</span> 
+                            THU NHẬP: <span style="color: #00D26A; font-weight: 800;">+${monthInc.toLocaleString('vi-VN')} ₫</span> 
                             <span style="margin: 0 6px; color: #CBD5E1;">|</span> 
                             CHI TIÊU: <span style="color: #FF4444; font-weight: 800;">-${monthExp.toLocaleString('vi-VN')} ₫</span>
                         </span>
@@ -485,13 +485,21 @@ window.exportToPDF = function() {
                     triggerHapticNotification('success');
                 } catch (error) {}
             } else {
+                // May tinh (Telegram Desktop / trinh duyet web): tao link tai xuong.
+                // BAT BUOC (1) gan <a> vao DOM va (2) revoke object URL CHAM (sau 10s).
+                // Neu goi URL.revokeObjectURL NGAY sau click nhu truoc day, nhieu
+                // trinh duyet/webview se HUY tai xuong truoc khi kip bat dau -> nguoi
+                // dung thay bao "da tai" nhung khong co file nao.
                 const pdfUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = pdfUrl;
                 a.download = fileName;
+                a.rel = 'noopener';
+                a.style.display = 'none';
+                document.body.appendChild(a);
                 a.click();
-                URL.revokeObjectURL(pdfUrl);
-                showToast("Đã tải file PDF xuống máy!", "success");
+                setTimeout(() => { if (a.parentNode) a.parentNode.removeChild(a); URL.revokeObjectURL(pdfUrl); }, 10000);
+                showToast("Đã xuất PDF! File được lưu trong thư mục Tải xuống (Downloads) của thiết bị.", "success");
             }
         } catch (err) {
             if (document.body.contains(element)) document.body.removeChild(element);
@@ -511,5 +519,5 @@ window.exportToCSV = async function() {
     const reportName = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date()); const fileName = `Giao_Dich_${reportName}.csv`; const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
     const platform = window.Telegram?.WebApp?.platform || 'unknown'; const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
     if (isMobile && navigator.canShare) { try { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: fileName }); triggerHapticNotification('success'); return; } } catch (error) {} } 
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
+    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
 };
