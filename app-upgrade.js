@@ -10,10 +10,13 @@
 // 7) Tab Tìm kiếm (thêm nút Tìm kiếm vào thanh điều hướng, mở modal tìm kiếm).
 // 8) Đếm tổng giao dịch + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
+// 10) Chế độ Năm: so sánh năm nay với năm trước + biểu đồ xu hướng nhiều năm.
 // ============================================================================
 
 (function () {
   'use strict';
+
+  window.__yearlyView = window.__yearlyView || 'compare';
 
   function fmtDMY(yyyymmdd) {
     if (!yyyymmdd) return '';
@@ -289,6 +292,8 @@
   // CHE DO NAM: tu xu ly de dieu huong theo activePeriodDate (nam dang chon),
   // dat nhan "Nam xxxx" va tai bao cao 12 thang cua nam do. KHONG goi ban goc
   // vi ban goc luon tai nam hien tai (hardcode) va khong dat nhan nam.
+  // Sau khi tai xong: neu che do xem la 'trend' -> ve bieu do xu huong nhieu nam;
+  // nguoc lai -> chong them duong chi tieu nam truoc de so sanh.
   // ------------------------------------------------------------------
   var _origUpdateTimeNavUI = window.updateTimeNavUI;
   window.updateTimeNavUI = function () {
@@ -298,13 +303,23 @@
       if (timeNav) timeNav.style.display = 'none';
       if (customNav) customNav.style.display = 'none';
       var lbl = document.getElementById('currentPeriodLabel');
-      if (lbl) lbl.textContent = 'Năm ' + activePeriodDate.getFullYear();
-      if (typeof loadCustomReport === 'function') loadCustomReport(1, 12, activePeriodDate.getFullYear());
+      var yy = activePeriodDate.getFullYear();
+      if (lbl) lbl.textContent = 'Năm ' + yy;
+      (async function () {
+        try { if (typeof loadCustomReport === 'function') await loadCustomReport(1, 12, yy); } catch (e) {}
+        if (window.__yearlyView === 'trend') {
+          try { await drawMultiYearTrend(yy); } catch (e) {}
+        } else {
+          try { await addPrevYearOverlay(yy); } catch (e) {}
+        }
+        try { injectYearlyToggle(); } catch (e) {}
+      })();
       try { syncCalendarControlBar(); } catch (e) {}
       try { refreshNavArrows(); } catch (e) {}
       return;
     }
     var r = (typeof _origUpdateTimeNavUI === 'function') ? _origUpdateTimeNavUI.apply(this, arguments) : undefined;
+    try { removeYearlyToggle(); } catch (e) {}
     try { syncCalendarControlBar(); } catch (e) {}
     try { refreshNavArrows(); } catch (e) {}
     return r;
@@ -324,6 +339,170 @@
     var label = document.getElementById('calCtrlLabel');
     var src = document.getElementById('currentPeriodLabel');
     if (label && src && src.textContent) label.textContent = src.textContent;
+  }
+
+  // ------------------------------------------------------------------
+  // CHE DO NAM — BO SUNG BIEU DO
+  // (1) So sanh nam nay voi nam truoc: chong them 1 duong "Chi tieu <nam truoc>"
+  //     (net dut) len bieu do 12 thang cua nam dang chon.
+  // (2) Xu huong nhieu nam: ve tong Thu/Chi theo tung nam.
+  // Tan dung ham co san: loadCustomReport / processReportData /
+  // getTransactionsInRange / formatCurrencyWithUnit / Chart.
+  // ------------------------------------------------------------------
+  async function addPrevYearOverlay(year) {
+    if (!window.mChart) return;
+    var prevExps = new Array(12).fill(0);
+    try {
+      var prevTx = await getTransactionsInRange(new Date(year - 1, 0, 1), new Date(year - 1, 11, 31));
+      prevTx.forEach(function (t) {
+        if (!t || !t.date || t.type === 'Thu nhập') return;
+        var p = String(t.date).split('/');
+        if (p.length !== 3) return;
+        var m = parseInt(p[1], 10);
+        if (m >= 1 && m <= 12) prevExps[m - 1] += t.amount;
+      });
+    } catch (err) { return; }
+    if (!window.mChart) return;
+    // Ghi ro nam vao nhan 2 nhom du lieu goc (hien trong tooltip + chu thich).
+    window.mChart.data.datasets.forEach(function (d) {
+      if (d.__prevYear) return;
+      if (d.label === 'Thu nhập') d.label = 'Thu nhập ' + year;
+      else if (d.label === 'Chi tiêu') d.label = 'Chi tiêu ' + year;
+    });
+    // Bo overlay cu (neu co) roi them duong chi tieu nam truoc.
+    window.mChart.data.datasets = window.mChart.data.datasets.filter(function (d) { return d.__prevYear !== true; });
+    window.mChart.data.datasets.push({
+      label: 'Chi tiêu ' + (year - 1),
+      data: prevExps,
+      __prevYear: true,
+      type: 'line',
+      borderColor: '#F59E0B',
+      backgroundColor: 'rgba(245,158,11,0.15)',
+      borderWidth: 2,
+      borderDash: [5, 4],
+      tension: 0.4,
+      pointRadius: 3,
+      fill: false,
+      maxBarThickness: 20
+    });
+    enableChartLegend();
+    window.mChart.update();
+  }
+
+  function enableChartLegend() {
+    if (!window.mChart) return;
+    window.mChart.options.plugins = window.mChart.options.plugins || {};
+    window.mChart.options.plugins.legend = window.mChart.options.plugins.legend || {};
+    window.mChart.options.plugins.legend.display = true;
+    window.mChart.options.plugins.legend.labels = {
+      color: '#94A3B8',
+      boxWidth: 12,
+      font: { size: 10, family: 'Plus Jakarta Sans' }
+    };
+  }
+
+  // Gom tong Thu/Chi theo tung nam, lui dan tu uptoYear; dung khi gap nam cu
+  // khong co du lieu va cat bo cac nam dau tro rong -> chi hien nam co du lieu.
+  async function collectYearlyTotals(uptoYear) {
+    var results = [];
+    var maxBack = 6;
+    for (var i = 0; i < maxBack; i++) {
+      var y = uptoYear - i;
+      var inc = 0, exp = 0, count = 0;
+      try {
+        var txs = await getTransactionsInRange(new Date(y, 0, 1), new Date(y, 11, 31));
+        count = txs.length;
+        txs.forEach(function (t) { if (!t) return; if (t.type === 'Thu nhập') inc += t.amount; else exp += t.amount; });
+      } catch (err) { count = 0; }
+      results.push({ year: y, inc: inc, exp: exp, count: count });
+      if (count === 0 && i > 0) break;
+    }
+    results.reverse();
+    while (results.length > 1 && results[0].count === 0) results.shift();
+    return results;
+  }
+
+  async function drawMultiYearTrend(selYear) {
+    var canvas = document.getElementById('monthlyChart');
+    if (!canvas) return;
+    if (typeof showLoading === 'function') { try { showLoading(true, 'tab2'); } catch (e) {} }
+    var rows;
+    try { rows = await collectYearlyTotals(new Date().getFullYear()); }
+    catch (err) { if (typeof showLoading === 'function') { try { showLoading(false, 'tab2'); } catch (e) {} } return; }
+    if (typeof showLoading === 'function') { try { showLoading(false, 'tab2'); } catch (e) {} }
+    if (!rows || rows.length === 0) return;
+    var labels = rows.map(function (r) { return 'Năm ' + r.year; });
+    var incs = rows.map(function (r) { return r.inc; });
+    var exps = rows.map(function (r) { return r.exp; });
+    var ctx = canvas.getContext('2d');
+    if (window.mChart) window.mChart.destroy();
+    var h = 250;
+    var incG = ctx.createLinearGradient(0, 0, 0, h); incG.addColorStop(0, 'rgba(16, 185, 129, 0.8)'); incG.addColorStop(1, 'rgba(16, 185, 129, 0.1)');
+    var expG = ctx.createLinearGradient(0, 0, 0, h); expG.addColorStop(0, 'rgba(244, 63, 94, 0.8)'); expG.addColorStop(1, 'rgba(244, 63, 94, 0.1)');
+    window.mChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Thu nhập', data: incs, backgroundColor: incG, borderColor: '#10B981', borderWidth: 0, borderRadius: 4, maxBarThickness: 36 },
+          { label: 'Chi tiêu', data: exps, backgroundColor: expG, borderColor: '#F43F5E', borderWidth: 0, borderRadius: 4, maxBarThickness: 36 }
+        ]
+      },
+      options: {
+        devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' } } },
+          y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: 'Plus Jakarta Sans' }, callback: function (v) {
+            if (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) return '***';
+            var o = formatCurrencyWithUnit(v); return o.val + o.unit;
+          } } }
+        },
+        plugins: {
+          legend: { display: true, labels: { color: '#94A3B8', boxWidth: 12, font: { size: 10, family: 'Plus Jakarta Sans' } } },
+          tooltip: { callbacks: { label: function (c) {
+            if (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) return c.dataset.label + ': ***';
+            var o = formatCurrencyWithUnit(c.raw); return c.dataset.label + ': ' + o.val + o.unit;
+          } } }
+        }
+      }
+    });
+    var title = document.getElementById('chartTitleTab2');
+    if (title) title.textContent = 'Xu hướng thu chi theo năm';
+    var cc = document.querySelector('#tab2 .chart-container');
+    if (cc) cc.style.display = 'block';
+  }
+
+  function styleToggleBtn(btn, active) {
+    btn.style.cssText = 'padding:5px 14px; border-radius:999px; font-size:0.72rem; font-weight:700; cursor:pointer; border:1px solid var(--border-color); transition:all .15s; ' + (active ? 'background:var(--primary); color:#fff; border-color:var(--primary);' : 'background:transparent; color:var(--text-2);');
+  }
+
+  function injectYearlyToggle() {
+    var title = document.getElementById('chartTitleTab2');
+    if (!title || !title.parentNode) return;
+    var tg = document.getElementById('yearlyViewToggle');
+    if (!tg) {
+      tg = document.createElement('div');
+      tg.id = 'yearlyViewToggle';
+      tg.style.cssText = 'display:flex; gap:8px; justify-content:center; margin:6px 0 12px;';
+      var b1 = document.createElement('button');
+      b1.type = 'button'; b1.id = 'yvtMonths'; b1.textContent = '12 tháng';
+      b1.onclick = function () { triggerHaptic('light'); window.__yearlyView = 'compare'; if (typeof window.updateTimeNavUI === 'function') window.updateTimeNavUI(); };
+      var b2 = document.createElement('button');
+      b2.type = 'button'; b2.id = 'yvtTrend'; b2.textContent = 'Nhiều năm';
+      b2.onclick = function () { triggerHaptic('light'); window.__yearlyView = 'trend'; if (typeof window.updateTimeNavUI === 'function') window.updateTimeNavUI(); };
+      tg.appendChild(b1); tg.appendChild(b2);
+      title.parentNode.insertBefore(tg, title);
+    }
+    tg.style.display = 'flex';
+    var isTrend = window.__yearlyView === 'trend';
+    var mB = document.getElementById('yvtMonths'), tB = document.getElementById('yvtTrend');
+    if (mB) styleToggleBtn(mB, !isTrend);
+    if (tB) styleToggleBtn(tB, isTrend);
+  }
+
+  function removeYearlyToggle() {
+    var tg = document.getElementById('yearlyViewToggle');
+    if (tg) tg.style.display = 'none';
   }
 
   // ------------------------------------------------------------------
