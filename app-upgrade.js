@@ -10,6 +10,7 @@
 // 7) Tab Tìm kiếm (thêm nút Tìm kiếm vào thanh điều hướng, mở modal tìm kiếm).
 // 8) Đếm tổng giao dịch + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
+// 10) Nhãn so sánh ghi rõ kỳ trước (so với tuần 26 / tháng 6 / năm 2025).
 // ============================================================================
 
 (function () {
@@ -285,6 +286,69 @@
   }
 
   // ------------------------------------------------------------------
+  // WRAP so sánh kỳ trước — HIỂN THỊ RÕ kỳ được so sánh:
+  //   Tuần 27 -> "so với tuần 26"; Tháng 7 -> "so với tháng 6";
+  //   Năm 2026 -> "so với năm 2025". (Bản gốc chỉ ghi chung "kỳ trước".)
+  // Cách làm: mỗi hàm tải báo cáo tự tính nhãn kỳ trước và lưu vào
+  // window.__cmpText; processReportData (bản bọc) vẽ lại 3 ô so sánh với nhãn đó.
+  // Baseline so sánh KHÔNG đổi (vẫn là tuần -1 / tháng -1 / năm -1), chỉ đổi CHỮ.
+  // ------------------------------------------------------------------
+  var _origProcessReportData = window.processReportData;
+  if (typeof _origProcessReportData === 'function') {
+    window.processReportData = function (currentTx, prevTx, labels, incs, exps) {
+      var r = _origProcessReportData.apply(this, arguments);
+      try {
+        var txt = window.__cmpText;
+        if (txt && typeof getCompareHTML === 'function') {
+          var tInc = 0, tExp = 0; (currentTx || []).forEach(function (i) { if (i.type === 'Thu nhập') tInc += i.amount; else tExp += i.amount; });
+          var pInc = 0, pExp = 0; (prevTx || []).forEach(function (i) { if (i.type === 'Thu nhập') pInc += i.amount; else pExp += i.amount; });
+          var tBal = tInc - tExp, pBal = pInc - pExp;
+          var ei = document.getElementById('tab2IncomeCompare'); if (ei) ei.innerHTML = getCompareHTML(tInc, pInc, 'income', txt);
+          var ee = document.getElementById('tab2ExpenseCompare'); if (ee) ee.innerHTML = getCompareHTML(tExp, pExp, 'expense', txt);
+          var eb = document.getElementById('tab2BalanceCompare'); if (eb) eb.innerHTML = getCompareHTML(tBal, pBal, 'balance', txt);
+        }
+      } catch (e) {}
+      return r;
+    };
+  }
+
+  var _origLoadWeeklyReport = window.loadWeeklyReport;
+  if (typeof _origLoadWeeklyReport === 'function') {
+    window.loadWeeklyReport = function (weekStr) {
+      try {
+        var sd = (typeof getDateFromWeekString === 'function') ? getDateFromWeekString(weekStr) : null;
+        if (sd && typeof getWeekNumber === 'function') {
+          var psd = new Date(sd); psd.setDate(psd.getDate() - 7);
+          window.__cmpText = 'so với tuần ' + getWeekNumber(psd);
+        } else window.__cmpText = null;
+      } catch (e) { window.__cmpText = null; }
+      return _origLoadWeeklyReport.apply(this, arguments);
+    };
+  }
+
+  var _origLoadMonthlyReport = window.loadMonthlyReport;
+  if (typeof _origLoadMonthlyReport === 'function') {
+    window.loadMonthlyReport = function (monthStr) {
+      try {
+        var parts = String(monthStr).split('-').map(Number);
+        var year = parts[0], month = parts[1];
+        var prevM = month - 1, prevY = year;
+        if (prevM === 0) { prevM = 12; prevY = year - 1; }
+        window.__cmpText = 'so với tháng ' + prevM + (prevY !== year ? '/' + prevY : '');
+      } catch (e) { window.__cmpText = null; }
+      return _origLoadMonthlyReport.apply(this, arguments);
+    };
+  }
+
+  var _origLoadCustomReport = window.loadCustomReport;
+  if (typeof _origLoadCustomReport === 'function') {
+    window.loadCustomReport = function (startMonth, endMonth, year) {
+      try { window.__cmpText = 'so với năm ' + (year - 1); } catch (e) { window.__cmpText = null; }
+      return _origLoadCustomReport.apply(this, arguments);
+    };
+  }
+
+  // ------------------------------------------------------------------
   // WRAP updateTimeNavUI — đồng bộ thanh điều khiển lịch (Tab 2)
   // CHE DO NAM: tu xu ly de dieu huong theo activePeriodDate (nam dang chon),
   // dat nhan "Nam xxxx" va tai bao cao 12 thang cua nam do. KHONG goi ban goc
@@ -483,7 +547,7 @@
   };
 
   // ------------------------------------------------------------------
-  // KHỎI TẠO SAU KHI DOM SẮN SÀNG
+  // KHỞI TẠO SAU KHI DOM SẴN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     var fabBtn = document.getElementById('fabBtn');
