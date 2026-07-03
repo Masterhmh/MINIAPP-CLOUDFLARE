@@ -99,9 +99,10 @@ window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
-// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: lấy mã GD lớn nhất ĐANG CÓ
-// trong tháng đó CỦA CÙNG NĂM rồi +1. Nhờ lọc theo năm nên sang năm mới, mã tự khởi động lại từ GD001.
-// Đọc trực tiếp dữ liệu tháng trên Firebase (gồm cả mã do Bot tạo) nên không cấp trùng trong tháng -> không ghi đè.
+// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
+// /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
+// Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
+// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
 async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
     const consider = (id, dateStr) => {
@@ -113,9 +114,9 @@ async function getNextTransactionId(month, year) {
         const n = parseInt(String(id).replace('GD', ''), 10);
         if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
     };
-    // Đọc đúng node tháng đó trên Firebase
+    // Đọc đúng nhánh năm/tháng đó trên Firebase
     try {
-        const res = await fetch(`${FIREBASE_URL}/transactions/month_${month}.json`);
+        const res = await fetch(`${FIREBASE_URL}/transactions/${year}/month_${month}.json`);
         const data = await res.json();
         if (data && typeof data === 'object') Object.keys(data).forEach(id => { const t = data[id]; consider(id, t && t.date); });
     } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
@@ -159,7 +160,7 @@ async function submitTx(tx) {
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
     // GHI LÊN FIREBASE TRƯỚC — xác nhận OK rồi mới cập nhật giao diện
-    const res = await fetch(`${FIREBASE_URL}/transactions/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) });
+    const res = await fetch(`${FIREBASE_URL}/transactions/${year}/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) });
     if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
 
     // Ghi thành công -> mới đụng vào cache + render
@@ -170,7 +171,7 @@ async function submitTx(tx) {
     triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
     window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
     window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-    window.monthDataCache = {}; // Xoá cache dữ liệu theo tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+    window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
@@ -206,11 +207,12 @@ window.deleteTransaction = function(id) {
               return;
           }
           const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
+          const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
 
           showToast("Đang xóa giao dịch...", "info");
           try {
               // XÓA TRÊN FIREBASE TRƯỚC — xác nhận OK rồi mới đụng vào giao diện
-              const res = await fetch(`${FIREBASE_URL}/transactions/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' });
+              const res = await fetch(`${FIREBASE_URL}/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' });
               if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
 
               // Xóa thành công -> giờ mới gỡ khỏi cache + render lại
@@ -220,7 +222,7 @@ window.deleteTransaction = function(id) {
               triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
               window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
               window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-              window.monthDataCache = {}; // Xoá cache dữ liệu theo tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+              window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
 
               // Bắn tín hiệu về Bot
               if (tx) notifyTelegram('delete', tx);
@@ -236,7 +238,7 @@ window.deleteTransaction = function(id) {
 };
 
 // ==========================================
-// TÍNH NĂNG CỬA SỔ "ICON PICKER"
+// TÍNH NĂNG CỪA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 window.openIconPickerModal = function() {
