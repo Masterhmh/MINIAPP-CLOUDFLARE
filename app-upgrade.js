@@ -11,6 +11,7 @@
 // 8) Đếm tổng giao dịch + sắp xếp kết quả tìm kiếm theo ngày mới nhất.
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
 // 10) Nhãn so sánh ghi rõ kỳ trước (so với tuần 26 / tháng 6 / năm 2025).
+// 11) Che do Nam: lam mo mui ten lui khi nam lien truoc khong co du lieu.
 // ============================================================================
 
 (function () {
@@ -203,7 +204,7 @@
   var _origFetchTransactions = window.fetchTransactions;
   if (typeof _origFetchTransactions === 'function') {
     window.fetchTransactions = function (force) {
-      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; }
+      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; window.__yearHasDataCache = {}; }
       return _origFetchTransactions.apply(this, arguments);
     };
   }
@@ -447,6 +448,25 @@
   }
   window.__invalidateNavBounds = function () { window.__navBoundsPromise = null; };
 
+  // CHE DO NAM: kiem tra 1 nam co du lieu hay khong (co cache) de lam mo mui ten
+  // lui khi nam lien truoc khong co giao dich. Dung lai getTransactionsInRange
+  // (da co cache theo khoang ngay) -> thuong trung cache voi prevYear ma
+  // loadCustomReport da tai san khi xem 1 nam.
+  async function yearHasData(year) {
+    if (!window.__yearHasDataCache) window.__yearHasDataCache = {};
+    if (year in window.__yearHasDataCache) return window.__yearHasDataCache[year];
+    var has = false;
+    try {
+      if (typeof getTransactionsInRange === 'function') {
+        var txs = await getTransactionsInRange(new Date(year, 0, 1), new Date(year, 11, 31));
+        has = !!(txs && txs.length);
+      }
+    } catch (e) { has = false; }
+    window.__yearHasDataCache[year] = has;
+    return has;
+  }
+  window.__yearHasData = yearHasData;
+
   function setArrowDisabled(ids, disabled) {
     ids.forEach(function (id) {
       var b = document.getElementById(id);
@@ -459,11 +479,21 @@
   async function refreshNavArrows() {
     var prevIds = ['calPrevBtn', 'prevPeriodBtn'];
     var nextIds = ['calNextBtn', 'nextPeriodBtn'];
-    // CHE DO NAM: luon cho lui ve nam truoc (de xem 2025...); chan tien toi nam
-    // tuong lai -> chua sang nam moi thi nut sang phai mo di.
+    // CHE DO NAM: chan tien toi nam tuong lai; nut lui chi bat khi nam LIEN TRUOC
+    // (selY - 1) co du lieu -> nam trong thi lam mo, khong cho quay ve.
     if (currentFilterMode === 'yearly') {
-      setArrowDisabled(prevIds, false);
-      setArrowDisabled(nextIds, activePeriodDate.getFullYear() >= new Date().getFullYear());
+      var selY = activePeriodDate.getFullYear();
+      setArrowDisabled(nextIds, selY >= new Date().getFullYear());
+      var cache = window.__yearHasDataCache || {};
+      if ((selY - 1) in cache) {
+        setArrowDisabled(prevIds, !cache[selY - 1]);
+      } else {
+        // Chua biet chac -> tam lam mo de tranh loi vao nam trong, roi cap nhat lai.
+        setArrowDisabled(prevIds, true);
+        yearHasData(selY - 1).then(function (has) {
+          if (activePeriodDate.getFullYear() === selY) setArrowDisabled(prevIds, !has);
+        });
+      }
       return;
     }
     if (typeof currentFilterMode === 'undefined' || (currentFilterMode !== 'weekly' && currentFilterMode !== 'monthly')) {
@@ -490,9 +520,14 @@
 
   window.calShift = function (dir) {
     if (typeof currentFilterMode === 'undefined') return;
-    // CHE DO NAM: tien/lui theo tung nam; chan sang nam tuong lai.
+    // CHE DO NAM: tien/lui theo tung nam; chan sang nam tuong lai va nam trong.
     if (currentFilterMode === 'yearly') {
       if (dir > 0 && activePeriodDate.getFullYear() >= new Date().getFullYear()) { triggerHaptic('light'); return; }
+      if (dir < 0) {
+        var cache = window.__yearHasDataCache || {};
+        var py = activePeriodDate.getFullYear() - 1;
+        if ((py in cache) && !cache[py]) { triggerHaptic('light'); return; }
+      }
       triggerHaptic('light');
       activePeriodDate.setFullYear(activePeriodDate.getFullYear() + dir);
       updateTimeNavUI();
