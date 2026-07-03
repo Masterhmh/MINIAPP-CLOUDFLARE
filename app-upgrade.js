@@ -286,9 +286,24 @@
 
   // ------------------------------------------------------------------
   // WRAP updateTimeNavUI — đồng bộ thanh điều khiển lịch (Tab 2)
+  // CHE DO NAM: tu xu ly de dieu huong theo activePeriodDate (nam dang chon),
+  // dat nhan "Nam xxxx" va tai bao cao 12 thang cua nam do. KHONG goi ban goc
+  // vi ban goc luon tai nam hien tai (hardcode) va khong dat nhan nam.
   // ------------------------------------------------------------------
   var _origUpdateTimeNavUI = window.updateTimeNavUI;
   window.updateTimeNavUI = function () {
+    if (typeof currentFilterMode !== 'undefined' && currentFilterMode === 'yearly') {
+      var timeNav = document.getElementById('timeNavContainer');
+      var customNav = document.getElementById('customFilterContainer');
+      if (timeNav) timeNav.style.display = 'none';
+      if (customNav) customNav.style.display = 'none';
+      var lbl = document.getElementById('currentPeriodLabel');
+      if (lbl) lbl.textContent = 'Năm ' + activePeriodDate.getFullYear();
+      if (typeof loadCustomReport === 'function') loadCustomReport(1, 12, activePeriodDate.getFullYear());
+      try { syncCalendarControlBar(); } catch (e) {}
+      try { refreshNavArrows(); } catch (e) {}
+      return;
+    }
     var r = (typeof _origUpdateTimeNavUI === 'function') ? _origUpdateTimeNavUI.apply(this, arguments) : undefined;
     try { syncCalendarControlBar(); } catch (e) {}
     try { refreshNavArrows(); } catch (e) {}
