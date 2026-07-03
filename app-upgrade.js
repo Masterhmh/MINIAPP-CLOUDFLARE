@@ -14,6 +14,10 @@
 // 11) Che do Nam: lam mo mui ten lui khi nam lien truoc khong co du lieu.
 // 12) Tang toc: tai CA NAM trong 1 request (bao cao Nam tu 24 -> 2 request);
 //     nap ngam nam nay + nam truoc khi vao tab Bao cao de che do Nam mo tuc thi.
+// 13) Tinh chinh toc do: CHI gom-tai ca nam cho bao cao Nam/Tuy chon (>=4 thang);
+//     Tuan/Thang giu ban goc (1-2 request/thang, nhe hon) de khong giai bang thong
+//     lam cham Tab 1. Khi xem 1 nam -> nap ngam nam so sanh ke tiep (selY-2) de
+//     bam "lui" hien ra tuc thi (nam hien tai da co san, nam so sanh cung da san).
 // ============================================================================
 
 (function () {
@@ -260,26 +264,41 @@
   }
   window.fetchYearData = fetchYearData;
 
-  // Nap ngam (background) du lieu ca nam de che do Nam mo ra tuc thi. Chi tai
-  // nam nay + nam truoc; fetchYearData tu bo qua neu da co san trong cache.
+  // Nap ngam (background, luc may ranh) du lieu ca 1 nam. Dung khi muon chuan bi
+  // truoc du lieu nam se can den ma khong lam giat UI hien tai.
+  function prefetchYearIdle(year) {
+    var y = parseInt(year, 10);
+    if (!y || y < 2000) return;
+    var runIdle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 200); };
+    runIdle(function () { try { fetchYearData(y); } catch (e) {} });
+  }
+  window.__prefetchYearIdle = prefetchYearIdle;
+
+  // Nap ngam du lieu ca nam de che do Nam mo ra tuc thi. Chi tai nam nay +
+  // nam truoc (nam so sanh mac dinh); fetchYearData tu bo qua neu da co san.
   function prefetchYearsForReports() {
     var cy = new Date().getFullYear();
-    var runIdle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 200); };
-    runIdle(function () { try { fetchYearData(cy); fetchYearData(cy - 1); } catch (e) {} });
+    prefetchYearIdle(cy);
+    prefetchYearIdle(cy - 1);
   }
   window.__prefetchYearsForReports = prefetchYearsForReports;
 
-  // WRAP getTransactionsInRange — gom-tai ca nam (1 request/nam) truoc khi ban
-  // goc lap qua tung thang (luc nay chi doc tu cache, khong goi mang nua).
+  // WRAP getTransactionsInRange — CHI gom-tai ca nam (1 request/nam) khi khoang
+  // du lieu ROng (>=4 thang: bao cao Nam / Tuy chon nhieu thang). Voi Tuan/Thang
+  // (<=3 thang) giu ban goc: chi tai 1-2 thang can thiet, KHONG tai thua ca nam.
+  // Ly do: tai ca nam cho 1 tuan la lang phi va gianh bang thong lam cham Tab 1.
   var _origGetTransactionsInRange = window.getTransactionsInRange;
   if (typeof _origGetTransactionsInRange === 'function') {
     window.getTransactionsInRange = async function (startDate, endDate) {
       try {
         if (startDate && endDate) {
           var sY = startDate.getFullYear(), eY = endDate.getFullYear();
-          var jobs = [];
-          for (var y = sY; y <= eY; y++) jobs.push(fetchYearData(y));
-          await Promise.all(jobs);
+          var monthsSpan = (eY - sY) * 12 + (endDate.getMonth() - startDate.getMonth()) + 1;
+          if (monthsSpan >= 4) {
+            var jobs = [];
+            for (var y = sY; y <= eY; y++) jobs.push(fetchYearData(y));
+            await Promise.all(jobs);
+          }
         }
       } catch (e) {}
       return _origGetTransactionsInRange.apply(this, arguments);
@@ -441,7 +460,12 @@
       if (customNav) customNav.style.display = 'none';
       var lbl = document.getElementById('currentPeriodLabel');
       if (lbl) lbl.textContent = 'Năm ' + activePeriodDate.getFullYear();
-      if (typeof loadCustomReport === 'function') loadCustomReport(1, 12, activePeriodDate.getFullYear());
+      var selY = activePeriodDate.getFullYear();
+      if (typeof loadCustomReport === 'function') loadCustomReport(1, 12, selY);
+      // Nap ngam nam so sanh cho lan LUI ke tiep: xem nam Y can Y (hien tai, da co)
+      // + Y-1 (so sanh, loadCustomReport da tai). Khi lui ve Y-1 se can Y-2 lam
+      // nam so sanh -> nap ngam truoc de bam "lui" hien ra tuc thi.
+      try { prefetchYearIdle(selY - 2); } catch (e) {}
       try { syncCalendarControlBar(); } catch (e) {}
       try { refreshNavArrows(); } catch (e) {}
       return;
