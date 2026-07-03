@@ -12,7 +12,8 @@
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
 // 10) Nhãn so sánh ghi rõ kỳ trước (so với tuần 26 / tháng 6 / năm 2025).
 // 11) Che do Nam: lam mo mui ten lui khi nam lien truoc khong co du lieu.
-// 12) Tang toc: tai CA NAM trong 1 request (bao cao Nam tu 24 -> 2 request).
+// 12) Tang toc: tai CA NAM trong 1 request (bao cao Nam tu 24 -> 2 request);
+//     nap ngam nam nay + nam truoc khi vao tab Bao cao de che do Nam mo tuc thi.
 // ============================================================================
 
 (function () {
@@ -188,13 +189,16 @@
   }
 
   // ------------------------------------------------------------------
-  // WRAP openTab — cập nhật vị trí indicator khi đổi tab
+  // WRAP openTab — cập nhật vị trí indicator + nap ngam du lieu bao cao
   // ------------------------------------------------------------------
   var _origOpenTab = window.openTab;
   if (typeof _origOpenTab === 'function') {
-    window.openTab = function () {
+    window.openTab = function (tabId) {
       var r = _origOpenTab.apply(this, arguments);
       try { positionNavIndicator(); } catch (e) {}
+      // Vao tab Bao cao -> nap ngam nam nay + nam truoc o nen de khi chon
+      // "Theo nam" hien ra ngay, khong phai cho tai.
+      try { if (tabId === 'tab2') prefetchYearsForReports(); } catch (e) {}
       return r;
     };
   }
@@ -205,7 +209,7 @@
   var _origFetchTransactions = window.fetchTransactions;
   if (typeof _origFetchTransactions === 'function') {
     window.fetchTransactions = function (force) {
-      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; window.__yearHasDataCache = {}; window.apiTxCache = {}; }
+      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; window.__yearHasDataCache = {}; window.apiTxCache = {}; window.__yearFetchInFlight = {}; }
       return _origFetchTransactions.apply(this, arguments);
     };
   }
@@ -216,37 +220,54 @@
   // Sau do do vao window.monthDataCache theo tung thang (ke ca thang rong = [])
   // de fetchMonthData khong goi mang lai. Bao cao Nam giam tu 24 -> 2 request,
   // va moi thao tac chuyen tuan/thang trong cung nam sau do gan nhu tuc thi.
+  // Chong trung: neu 1 nam dang duoc tai, cac loi goi khac dung chung 1 promise.
   // ------------------------------------------------------------------
   function __fbBase() { return (typeof FIREBASE_URL !== 'undefined' && FIREBASE_URL) ? FIREBASE_URL : ''; }
-  async function fetchYearData(year, force) {
+  function fetchYearData(year, force) {
     if (!window.monthDataCache) window.monthDataCache = {};
+    if (!window.__yearFetchInFlight) window.__yearFetchInFlight = {};
     var y = parseInt(year, 10) || new Date().getFullYear();
     if (!force) {
       var allCached = true;
       for (var m = 1; m <= 12; m++) { if (!((y + '_' + m) in window.monthDataCache)) { allCached = false; break; } }
-      if (allCached) return true;
+      if (allCached) return Promise.resolve(true);
+      if (window.__yearFetchInFlight[y]) return window.__yearFetchInFlight[y];
     }
     var base = __fbBase();
-    if (!base) return false;
-    try {
-      var res = await fetch(base + '/transactions/' + y + '.json');
-      if (!res.ok) return false;
-      var data = await res.json();
-      for (var mm = 1; mm <= 12; mm++) {
-        var node = data ? data['month_' + mm] : null;
-        var result = [];
-        if (node) {
-          result = Object.values(node).filter(function (item) { return item !== null; }).map(function (item) {
-            if (item && item.date) { var p = String(item.date).split('/'); if (p.length === 3) item.date = String(parseInt(p[0], 10)).padStart(2, '0') + '/' + String(parseInt(p[1], 10)).padStart(2, '0') + '/' + p[2]; }
-            return item;
-          });
+    if (!base) return Promise.resolve(false);
+    var p = (async function () {
+      try {
+        var res = await fetch(base + '/transactions/' + y + '.json');
+        if (!res.ok) return false;
+        var data = await res.json();
+        for (var mm = 1; mm <= 12; mm++) {
+          var node = data ? data['month_' + mm] : null;
+          var result = [];
+          if (node) {
+            result = Object.values(node).filter(function (item) { return item !== null; }).map(function (item) {
+              if (item && item.date) { var pp = String(item.date).split('/'); if (pp.length === 3) item.date = String(parseInt(pp[0], 10)).padStart(2, '0') + '/' + String(parseInt(pp[1], 10)).padStart(2, '0') + '/' + pp[2]; }
+              return item;
+            });
+          }
+          window.monthDataCache[y + '_' + mm] = result;
         }
-        window.monthDataCache[y + '_' + mm] = result;
-      }
-      return true;
-    } catch (e) { return false; }
+        return true;
+      } catch (e) { return false; }
+      finally { try { delete window.__yearFetchInFlight[y]; } catch (e) {} }
+    })();
+    window.__yearFetchInFlight[y] = p;
+    return p;
   }
   window.fetchYearData = fetchYearData;
+
+  // Nap ngam (background) du lieu ca nam de che do Nam mo ra tuc thi. Chi tai
+  // nam nay + nam truoc; fetchYearData tu bo qua neu da co san trong cache.
+  function prefetchYearsForReports() {
+    var cy = new Date().getFullYear();
+    var runIdle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 200); };
+    runIdle(function () { try { fetchYearData(cy); fetchYearData(cy - 1); } catch (e) {} });
+  }
+  window.__prefetchYearsForReports = prefetchYearsForReports;
 
   // WRAP getTransactionsInRange — gom-tai ca nam (1 request/nam) truoc khi ban
   // goc lap qua tung thang (luc nay chi doc tu cache, khong goi mang nua).
