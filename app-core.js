@@ -52,7 +52,7 @@ let currentToastEl = null, currentToastMsg = null, currentToastTimer = null;
 const itemsPerPage = 10;
 let currentPageTab1 = 1, currentPageCategory = 1, currentPageSearch = 1;
 window.apiTxCache = {}; 
-window.monthDataCache = {}; // Cache dữ liệu theo tháng (month_1..12) — gộp/tránh gọi Firebase lặp khi chuyển tab; xóa khi thêm/sửa/xóa hoặc refresh cưỡng bức
+window.monthDataCache = {}; // Cache dữ liệu theo năm_tháng (vd "2026_1") — gộp/tránh gọi Firebase lặp khi chuyển tab; xóa khi thêm/sửa/xóa hoặc refresh cưỡng bức
 let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
 let isPrivacyActive = localStorage.getItem('settingPrivacyMode') === 'true';
@@ -322,18 +322,22 @@ window.openTab = function(tabId) {
   if(btn) btn.classList.add('active');
 };
 
-// fetchMonthData(month, forceRefresh)
-// Tải toàn bộ giao dịch của 1 tháng (month_1..12) TRỰC TIẾP từ Firebase.
-// Có cache theo tháng (window.monthDataCache) để gộp/tránh gọi lặp khi chuyển
-// tab, tìm kiếm 12 tháng, hay dựng lại phạm vi điều hướng. Truyền forceRefresh
-// = true để bỏ qua cache (khi vừa thêm/sửa/xóa hoặc người dùng kéo làm mới).
-async function fetchMonthData(month, forceRefresh = false) {
+// fetchMonthData(month, year, forceRefresh)
+// Tải toàn bộ giao dịch của 1 tháng thuộc 1 NĂM cụ thể TRỰC TIẾP từ Firebase,
+// theo cấu trúc mới: /transactions/{năm}/month_{tháng}. Nhờ tách theo năm nên
+// dữ liệu các năm được giữ lại vĩnh viễn để so sánh, không bị ghi đè lẫn nhau.
+// Có cache theo "năm_tháng" (window.monthDataCache) để gộp/tránh gọi lặp khi
+// chuyển tab, tìm kiếm, hay dựng lại phạm vi điều hướng. Truyền forceRefresh =
+// true để bỏ qua cache (khi vừa thêm/sửa/xóa hoặc người dùng kéo làm mới).
+async function fetchMonthData(month, year, forceRefresh = false) {
     const mKey = parseInt(month, 10);
-    if (!forceRefresh && window.monthDataCache && window.monthDataCache[mKey]) {
-        return window.monthDataCache[mKey];
+    const yKey = parseInt(year, 10) || new Date().getFullYear();
+    const cacheKey = `${yKey}_${mKey}`;
+    if (!forceRefresh && window.monthDataCache && window.monthDataCache[cacheKey]) {
+        return window.monthDataCache[cacheKey];
     }
-    const res = await fetch(`${FIREBASE_URL}/transactions/month_${mKey}.json`);
-    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status} khi tải tháng ${month}`);
+    const res = await fetch(`${FIREBASE_URL}/transactions/${yKey}/month_${mKey}.json`);
+    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status} khi tải tháng ${mKey}/${yKey}`);
     const data = await res.json();
     let result = [];
     if (data) {
@@ -345,6 +349,6 @@ async function fetchMonthData(month, forceRefresh = false) {
             return item;
         });
     }
-    if (window.monthDataCache) window.monthDataCache[mKey] = result;
+    if (window.monthDataCache) window.monthDataCache[cacheKey] = result;
     return result;
 }
