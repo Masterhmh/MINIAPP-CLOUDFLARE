@@ -298,8 +298,14 @@
   function syncCalendarControlBar() {
     var bar = document.getElementById('calCtrlBar');
     if (!bar) return;
-    var isCal = (typeof currentFilterMode !== 'undefined') && (currentFilterMode === 'weekly' || currentFilterMode === 'monthly');
-    bar.style.display = isCal ? 'flex' : 'none';
+    var mode = (typeof currentFilterMode !== 'undefined') ? currentFilterMode : '';
+    var isCal = (mode === 'weekly' || mode === 'monthly');
+    var isYear = (mode === 'yearly');
+    // Hien thanh dieu khien cho ca che do Nam (chi de dieu huong nam, khong co lich).
+    bar.style.display = (isCal || isYear) ? 'flex' : 'none';
+    // Nut an/hien lich chi co y nghia o Tuan/Thang; che do Nam khong co lich -> an nut nay.
+    var toggle = document.getElementById('calToggleBtn');
+    if (toggle) toggle.style.display = isYear ? 'none' : '';
     var label = document.getElementById('calCtrlLabel');
     var src = document.getElementById('currentPeriodLabel');
     if (label && src && src.textContent) label.textContent = src.textContent;
@@ -374,6 +380,13 @@
   async function refreshNavArrows() {
     var prevIds = ['calPrevBtn', 'prevPeriodBtn'];
     var nextIds = ['calNextBtn', 'nextPeriodBtn'];
+    // CHE DO NAM: luon cho lui ve nam truoc (de xem 2025...); chan tien toi nam
+    // tuong lai -> chua sang nam moi thi nut sang phai mo di.
+    if (currentFilterMode === 'yearly') {
+      setArrowDisabled(prevIds, false);
+      setArrowDisabled(nextIds, activePeriodDate.getFullYear() >= new Date().getFullYear());
+      return;
+    }
     if (typeof currentFilterMode === 'undefined' || (currentFilterMode !== 'weekly' && currentFilterMode !== 'monthly')) {
       setArrowDisabled(prevIds, false); setArrowDisabled(nextIds, false); return;
     }
@@ -398,6 +411,14 @@
 
   window.calShift = function (dir) {
     if (typeof currentFilterMode === 'undefined') return;
+    // CHE DO NAM: tien/lui theo tung nam; chan sang nam tuong lai.
+    if (currentFilterMode === 'yearly') {
+      if (dir > 0 && activePeriodDate.getFullYear() >= new Date().getFullYear()) { triggerHaptic('light'); return; }
+      triggerHaptic('light');
+      activePeriodDate.setFullYear(activePeriodDate.getFullYear() + dir);
+      updateTimeNavUI();
+      return;
+    }
     if (currentFilterMode !== 'weekly' && currentFilterMode !== 'monthly') return;
     // Chan sang ky tuong lai (chac chan khong co du lieu).
     if (dir > 0 && nextPeriodStartKey() > keyOf(new Date())) { triggerHaptic('light'); return; }
