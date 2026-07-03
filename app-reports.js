@@ -38,8 +38,8 @@ window.fetchTransactions = async function(forceRefresh = false) {
     const pdNum = currDateObj.getDate(); const pmNum = currDateObj.getMonth() + 1; const pyNum = currDateObj.getFullYear();
     
     let dataCurrMonth, dataPrevMonth;
-    if (mNum === pmNum) { dataCurrMonth = await fetchMonthData(mNum); dataPrevMonth = dataCurrMonth; } 
-    else { [dataCurrMonth, dataPrevMonth] = await Promise.all([ fetchMonthData(mNum), fetchMonthData(pmNum) ]); }
+    if (mNum === pmNum && yNum === pyNum) { dataCurrMonth = await fetchMonthData(mNum, yNum); dataPrevMonth = dataCurrMonth; } 
+    else { [dataCurrMonth, dataPrevMonth] = await Promise.all([ fetchMonthData(mNum, yNum), fetchMonthData(pmNum, pyNum) ]); }
 
     let dataCurr = dataCurrMonth.filter(t => { if(!t || !t.date) return false; const pts = t.date.split('/'); return parseInt(pts[0], 10) === dNum && parseInt(pts[1], 10) === mNum && parseInt(pts[2], 10) === yNum; });
     let dataPrev = dataPrevMonth.filter(t => { if(!t || !t.date) return false; const pts = t.date.split('/'); return parseInt(pts[0], 10) === pdNum && parseInt(pts[1], 10) === pmNum && parseInt(pts[2], 10) === pyNum; });
@@ -151,7 +151,7 @@ async function getTransactionsInRange(startDate, endDate) {
     try {
         const sY = startDate.getFullYear(), eY = endDate.getFullYear(); let txs = []; let fetchPromises = [];
         for (let y = sY; y <= eY; y++) { let sM = (y === sY) ? startDate.getMonth() + 1 : 1; let eM = (y === eY) ? endDate.getMonth() + 1 : 12;
-            for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { let monthData = await fetchMonthData(m); return { y, m, data: monthData }; })()); }
+            for (let m = sM; m <= eM; m++) { fetchPromises.push((async () => { let monthData = await fetchMonthData(m, y); return { y, m, data: monthData }; })()); }
         }
         const monthsResults = await Promise.all(fetchPromises);
         monthsResults.forEach(res => { 
