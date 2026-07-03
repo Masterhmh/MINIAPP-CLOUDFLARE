@@ -12,6 +12,7 @@
 // 9) Indicator trượt giữa các tab trên thanh điều hướng.
 // 10) Nhãn so sánh ghi rõ kỳ trước (so với tuần 26 / tháng 6 / năm 2025).
 // 11) Che do Nam: lam mo mui ten lui khi nam lien truoc khong co du lieu.
+// 12) Tang toc: tai CA NAM trong 1 request (bao cao Nam tu 24 -> 2 request).
 // ============================================================================
 
 (function () {
@@ -204,8 +205,63 @@
   var _origFetchTransactions = window.fetchTransactions;
   if (typeof _origFetchTransactions === 'function') {
     window.fetchTransactions = function (force) {
-      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; window.__yearHasDataCache = {}; }
+      if (force === true) { window.__navBoundsPromise = null; window.monthDataCache = {}; window.__yearHasDataCache = {}; window.apiTxCache = {}; }
       return _origFetchTransactions.apply(this, arguments);
+    };
+  }
+
+  // ------------------------------------------------------------------
+  // TANG TOC TAI DU LIEU: tai CA NAM trong 1 request thay vi 12 request/thang.
+  // Firebase RTDB cho phep lay /transactions/{nam}.json (ca 12 thang) 1 lan.
+  // Sau do do vao window.monthDataCache theo tung thang (ke ca thang rong = [])
+  // de fetchMonthData khong goi mang lai. Bao cao Nam giam tu 24 -> 2 request,
+  // va moi thao tac chuyen tuan/thang trong cung nam sau do gan nhu tuc thi.
+  // ------------------------------------------------------------------
+  function __fbBase() { return (typeof FIREBASE_URL !== 'undefined' && FIREBASE_URL) ? FIREBASE_URL : ''; }
+  async function fetchYearData(year, force) {
+    if (!window.monthDataCache) window.monthDataCache = {};
+    var y = parseInt(year, 10) || new Date().getFullYear();
+    if (!force) {
+      var allCached = true;
+      for (var m = 1; m <= 12; m++) { if (!((y + '_' + m) in window.monthDataCache)) { allCached = false; break; } }
+      if (allCached) return true;
+    }
+    var base = __fbBase();
+    if (!base) return false;
+    try {
+      var res = await fetch(base + '/transactions/' + y + '.json');
+      if (!res.ok) return false;
+      var data = await res.json();
+      for (var mm = 1; mm <= 12; mm++) {
+        var node = data ? data['month_' + mm] : null;
+        var result = [];
+        if (node) {
+          result = Object.values(node).filter(function (item) { return item !== null; }).map(function (item) {
+            if (item && item.date) { var p = String(item.date).split('/'); if (p.length === 3) item.date = String(parseInt(p[0], 10)).padStart(2, '0') + '/' + String(parseInt(p[1], 10)).padStart(2, '0') + '/' + p[2]; }
+            return item;
+          });
+        }
+        window.monthDataCache[y + '_' + mm] = result;
+      }
+      return true;
+    } catch (e) { return false; }
+  }
+  window.fetchYearData = fetchYearData;
+
+  // WRAP getTransactionsInRange — gom-tai ca nam (1 request/nam) truoc khi ban
+  // goc lap qua tung thang (luc nay chi doc tu cache, khong goi mang nua).
+  var _origGetTransactionsInRange = window.getTransactionsInRange;
+  if (typeof _origGetTransactionsInRange === 'function') {
+    window.getTransactionsInRange = async function (startDate, endDate) {
+      try {
+        if (startDate && endDate) {
+          var sY = startDate.getFullYear(), eY = endDate.getFullYear();
+          var jobs = [];
+          for (var y = sY; y <= eY; y++) jobs.push(fetchYearData(y));
+          await Promise.all(jobs);
+        }
+      } catch (e) {}
+      return _origGetTransactionsInRange.apply(this, arguments);
     };
   }
 
@@ -420,19 +476,18 @@
     var ws = weekStartOf(activePeriodDate); ws.setDate(ws.getDate() - 1); return keyOf(ws);
   }
 
-  // Quet 1 lan 12 thang cua nam de biet moc du lieu (min/max), co cache.
+  // Quet CA NAM (1 request nho fetchYearData) de biet moc du lieu (min/max), co cache.
   function getNavDataBounds(force) {
     if (force) window.__navBoundsPromise = null;
     if (window.__navBoundsPromise) return window.__navBoundsPromise;
     window.__navBoundsPromise = (async function () {
       var minKey = null, maxKey = null;
       try {
-        if (typeof fetchMonthData !== 'function') return { minKey: null, maxKey: null };
-        var jobs = [];
-        for (var i = 1; i <= 12; i++) jobs.push(fetchMonthData(i).catch(function () { return []; }));
-        var results = await Promise.all(jobs);
-        results.forEach(function (arr) {
-          (arr || []).forEach(function (t) {
+        var yr = new Date().getFullYear();
+        await fetchYearData(yr);
+        for (var m = 1; m <= 12; m++) {
+          var arr = (window.monthDataCache && window.monthDataCache[yr + '_' + m]) || [];
+          arr.forEach(function (t) {
             if (!t || !t.date) return;
             var p = String(t.date).split('/');
             if (p.length !== 3) return;
@@ -440,7 +495,7 @@
             if (minKey === null || k < minKey) minKey = k;
             if (maxKey === null || k > maxKey) maxKey = k;
           });
-        });
+        }
       } catch (e) {}
       return { minKey: minKey, maxKey: maxKey };
     })();
