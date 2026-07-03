@@ -99,35 +99,33 @@ window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
-// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG của giao dịch: lấy mã GD lớn nhất ĐANG CÓ trong tháng đó rồi +1.
+// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: lấy mã GD lớn nhất ĐANG CÓ
+// trong tháng đó CỦA CÙNG NĂM rồi +1. Nhờ lọc theo năm nên sang năm mới, mã tự khởi động lại từ GD001.
 // Đọc trực tiếp dữ liệu tháng trên Firebase (gồm cả mã do Bot tạo) nên không cấp trùng trong tháng -> không ghi đè.
-async function getNextTransactionId(month) {
+async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
-    const scanIds = (obj) => {
-        if (!obj || typeof obj !== 'object') return;
-        Object.keys(obj).forEach(id => {
-            if (String(id).startsWith('GD') && !String(id).includes('_')) {
-                const n = parseInt(String(id).replace('GD', ''), 10);
-                if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
-            }
-        });
+    const consider = (id, dateStr) => {
+        if (!String(id).startsWith('GD') || String(id).includes('_')) return;
+        if (year != null && dateStr) {
+            const p = String(dateStr).split('/');
+            if (p.length === 3 && parseInt(p[2], 10) !== parseInt(year, 10)) return; // chỉ tính giao dịch cùng năm
+        }
+        const n = parseInt(String(id).replace('GD', ''), 10);
+        if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
     };
     // Đọc đúng node tháng đó trên Firebase
     try {
         const res = await fetch(`${FIREBASE_URL}/transactions/month_${month}.json`);
         const data = await res.json();
-        scanIds(data);
+        if (data && typeof data === 'object') Object.keys(data).forEach(id => { const t = data[id]; consider(id, t && t.date); });
     } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
 
-    // Dự phòng: quét dữ liệu đang load trên máy nhưng CHỈ tính các giao dịch cùng tháng
+    // Dự phòng: quét dữ liệu đang load trên máy nhưng CHỈ tính các giao dịch cùng tháng (và cùng năm)
     [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])].forEach(item => {
         if (!item || !item.id || !item.date) return;
         const m = parseInt(String(item.date).split('/')[1], 10);
         if (m !== month) return;
-        if (String(item.id).startsWith('GD') && !String(item.id).includes('_')) {
-            const n = parseInt(String(item.id).replace('GD', ''), 10);
-            if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
-        }
+        consider(item.id, item.date);
     });
 
     const nextNum = maxInMonth + 1;
@@ -156,7 +154,8 @@ async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
     const month = parseInt(tx.date.split('/')[1], 10);
-    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month); }
+    const year = parseInt(tx.date.split('/')[2], 10);
+    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month, year); }
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
     // GHI LÊN FIREBASE TRƯỚC — xác nhận OK rồi mới cập nhật giao diện
