@@ -194,3 +194,10 @@ body.privacy-on .stat-compare {
 .icon-grid.icon-grid-scrollable { max-height: none !important; min-height: 0 !important; overflow-y: visible !important; }
 /* O nhap ten danh muc & vung nhap tu khoa: chua vao giua khi ban phim hien len */
 #iconPickerCategory, #tagInputArea, #tagInputField { scroll-margin-top: 20px; scroll-margin-bottom: 140px; }
+
+/* ---------- O NHAP TU KHOA: can giua chu theo chieu doc (tren/duoi bang nhau) ----------
+   O .tag-input-container dung chung class .field-input (co padding doc lon) nen
+   dong chu placeholder bi dinh len tren. Ep flex + can giua theo chieu doc de
+   khoang cach tren va duoi bang nhau. Them cursor:text de cham vao dau trong o cung go duoc. */
+.tag-input-container { display: flex !important; align-items: center !important; flex-wrap: wrap; gap: 6px; min-height: 48px; cursor: text; }
+.tag-input-container .tag-input-field { flex: 1; min-width: 120px; align-self: center; }
