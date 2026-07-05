@@ -327,6 +327,8 @@ window.openIconPickerModal = function() {
             // Nhãn hướng dẫn (chạm vào ô là gõ được; xong bấm Enter hoặc dấu phẩy)
             const tagLabel = document.querySelector('#tagInputArea .field-label');
             if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
+            // Cum chu vi du trong o nhap tu khoa
+            tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
         }
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
