@@ -374,10 +374,31 @@ function showCategoryDetail(cat) {
   
   document.getElementById('detailModalTitle').textContent = cat.toUpperCase(); 
   document.getElementById('detailModalTitle').style.color = 'var(--primary)';
+
+  // Sort theo logic thời gian (giống tuần/tháng): mới nhất -> cũ nhất dựa trên date,
+  // nếu trùng ngày thì ưu tiên id mới hơn.
+  const parseTxDate = (t) => {
+    if (!t || !t.date) return null;
+    const parts = String(t.date).split('/');
+    if (parts.length !== 3) return null;
+    const dd = parseInt(parts[0], 10);
+    const mm = parseInt(parts[1], 10) - 1;
+    const yy = parseInt(parts[2], 10);
+    if (Number.isNaN(dd) || Number.isNaN(mm) || Number.isNaN(yy)) return null;
+    return new Date(yy, mm, dd);
+  };
   
   const txs = cachedChartData.txs
     .filter(t => t.category === cat)
-    .sort((a, b) => b.id.localeCompare(a.id)); // mới nhất → cũ nhất
+    .sort((a, b) => {
+      const da = parseTxDate(a);
+      const db = parseTxDate(b);
+      const ta = da ? da.getTime() : 0;
+      const tb = db ? db.getTime() : 0;
+      if (tb !== ta) return tb - ta; // ngày mới -> cũ
+      // cùng ngày: id mới -> cũ
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
 
   let totalInc = 0, totalExp = 0;
   txs.forEach(t => { if(t.type === 'Thu nhập') totalInc += t.amount; else totalExp += t.amount; });
