@@ -311,17 +311,34 @@ window.openIconPickerModal = function() {
             
             triggerHaptic('medium'); showLoading(true, 'tab3');
             try {
-                // Ghi icon thẳng vào node gộp /categories/<tên>/icon
+                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon
                 await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/icon.json`, { method: 'PUT', body: JSON.stringify(selectedIcon) });
                 window.customCategoryIcons[cat] = selectedIcon; 
                 window.categoryIconMap[cat] = selectedIcon;
-                // GAS vẫn cập nhật sheet + từ khóa (giữ nguyên), sau đó sheet tự đồng bộ lại /categories
-                await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: newKws, sheetId: sheetId }) });
 
+                // 2) Nếu có từ khóa mới -> GỘP với danh sách hiện có rồi ghi THẲNG Firebase.
+                //    Đọc /keywords hiện có + gộp + chuẩn hóa GIỐNG HỆT GAS updateCategoryIcon
+                //    (gộp thêm, bỏ trùng, sort tiếng Việt) nên Firebase và Sheet luôn hội tụ.
+                if (newKws && newKws.trim()) {
+                    let existing = [];
+                    try {
+                        const r = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`);
+                        if (r.ok) { const raw = await r.json(); existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k); }
+                    } catch (err) { /* không đọc được -> coi như chưa có từ khóa */ }
+                    newKws.split(',').forEach(k => existing.push(k));
+                    const normalized = window.normalizeKeywordList(existing);
+                    await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`, { method: 'PUT', body: JSON.stringify(normalized) });
+                }
+
+                // 3) Cập nhật giao diện NGAY (không chờ Google Sheet)
                 showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
                 await window.initCategories(true); window.loadKeywords(false); 
                 if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
                 if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
+
+                // 4) Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS updateCategoryIcon) — không chặn UI, chỉ để backup sheet
+                fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: newKws, sheetId: sheetId }) })
+                    .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
             } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
         };
 
