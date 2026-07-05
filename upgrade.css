@@ -186,3 +186,11 @@ body.privacy-on #heroExpenseCompare,
 body.privacy-on .stat-compare {
     display: none !important;
 }
+
+/* ---------- FIX UI ICON PICKER: BO CUON LONG NHAU ----------
+   Truoc day #iconGridContainer co scroll rieng (max-height 240px) NAM TRONG vung
+   scroll cua than modal => cuon long nhau, vuot chon icon rat "dinh"/kho tren dt.
+   Bo scroll rieng cua luoi icon => CA modal chi cuon 1 lop duy nhat, vuot muot. */
+.icon-grid.icon-grid-scrollable { max-height: none !important; min-height: 0 !important; overflow-y: visible !important; }
+/* O nhap ten danh muc & vung nhap tu khoa: chua vao giua khi ban phim hien len */
+#iconPickerCategory, #tagInputArea, #tagInputField { scroll-margin-top: 20px; scroll-margin-bottom: 140px; }
