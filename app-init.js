@@ -15,6 +15,33 @@
 //   các thẻ Tab 2 khi đang tải báo cáo.
 // ============================================================================
 
+// ---------------- TIỆN ÍCH TỪ KHÓA: GHI THẲNG FIREBASE (NHANH) + ĐỒNG BỘ SHEET Ở NỀN ----------------
+// Chuẩn hóa danh sách từ khóa GIỐNG HỆT GAS (trim -> lowercase -> bỏ rỗng ->
+// bỏ trùng -> sắp xếp theo tiếng Việt -> nối bằng ", ") để khi GAS đồng bộ
+// ngược từ Google Sheet về Firebase thì giá trị trùng khớp, không bị "nhảy".
+window.normalizeKeywordList = function(arr) {
+  return (arr || [])
+    .map(k => String(k).trim().toLowerCase())
+    .filter(k => k)
+    .filter((k, i, a) => a.indexOf(k) === i)
+    .sort((a, b) => a.localeCompare(b, 'vi'))
+    .join(', ');
+};
+
+// Đọc danh sách từ khóa hiện tại của 1 danh mục trực tiếp từ Firebase -> mảng
+async function fetchCategoryKeywords(cat) {
+  const res = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`);
+  if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+  const raw = await res.json();
+  return String(raw || '').split(',').map(k => k.trim()).filter(k => k);
+}
+
+// Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục
+async function putCategoryKeywords(cat, listStr) {
+  const res = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`, { method: 'PUT', body: JSON.stringify(listStr) });
+  if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+}
+
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
   // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VỪA MỞ APP ---
@@ -111,17 +138,28 @@ document.addEventListener('DOMContentLoaded', async () => {
           if(!currentEditKeyword) return showToast('Vui lòng chọn từ khóa cần xóa', 'warning'); 
           triggerHaptic('medium');
           const cat = document.getElementById('keywordCategory').value;
+          const target = currentEditKeyword; // giữ lại vì cancelEditKeyword() sẽ reset biến
           
           showCustomConfirm(
               'Xóa từ khóa',
-              `Bạn có chắc chắn muốn xóa từ khóa <strong>${escapeHTML(currentEditKeyword)}</strong> khỏi danh mục <strong>${escapeHTML(cat)}</strong> không?`,
+              `Bạn có chắc chắn muốn xóa từ khóa <strong>${escapeHTML(target)}</strong> khỏi danh mục <strong>${escapeHTML(cat)}</strong> không?`,
               'Xóa',
               async () => {
                   showLoading(true, 'tab3'); 
                   try { 
-                      await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) }); 
+                      // Ghi thẳng Firebase: đọc danh sách -> bỏ từ khóa -> chuẩn hóa -> PUT
+                      const current = await fetchCategoryKeywords(cat);
+                      const t = String(target).trim().toLowerCase();
+                      const normalized = window.normalizeKeywordList(current.filter(k => k.toLowerCase() !== t));
+                      await putCategoryKeywords(cat, normalized);
+
+                      // Cập nhật giao diện ngay, không chờ Google Sheet
                       triggerHapticNotification('success'); 
                       showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
+
+                      // Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
+                      fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: target, sheetId: sheetId }) })
+                          .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
                   } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
               }
           );
@@ -191,12 +229,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         triggerHaptic('light');
         const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
         if(!cat || !kw) return showToast('Vui lòng nhập đủ thông tin', 'warning');
+        const editingFrom = currentEditKeyword; // giữ lại từ khóa đang sửa (nếu có)
         showLoading(true, 'tab3');
         try {
-            if (currentEditKeyword) await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: currentEditKeyword, sheetId: sheetId }) });
-            await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) });
+            // 1) Đọc danh sách từ khóa hiện tại của danh mục trực tiếp từ Firebase
+            let list = await fetchCategoryKeywords(cat);
+            // 2) Nếu đang SỬA: bỏ từ khóa cũ trước khi thêm bản mới
+            if (editingFrom) { const t = String(editingFrom).trim().toLowerCase(); list = list.filter(k => k.toLowerCase() !== t); }
+            // 3) Thêm (các) từ khóa mới — hỗ trợ nhập nhiều, ngăn cách bằng dấu phẩy
+            String(kw).split(',').forEach(k => list.push(k));
+            // 4) Chuẩn hóa GIỐNG GAS rồi GHI THẲNG Firebase
+            const normalized = window.normalizeKeywordList(list);
+            await putCategoryKeywords(cat, normalized);
+
+            // 5) Cập nhật giao diện NGAY (không chờ Google Sheet)
             triggerHapticNotification('success');
-            showToast(currentEditKeyword ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+            showToast(editingFrom ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+
+            // 6) Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
+            if (editingFrom) {
+                fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: editingFrom, sheetId: sheetId }) })
+                    .then(() => fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) }))
+                    .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
+            } else {
+                fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) })
+                    .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
+            }
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
