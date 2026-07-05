@@ -290,7 +290,7 @@ window.openIconPickerModal = function() {
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
 
         // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
-        // Dùng chung cho: bấm Enter/phẩy, bấm nút "+", rời ô, và ngay trước khi Áp dụng -> KHÔNG mất từ khóa.
+        // Dùng chung cho: bấm Enter/phẩy, rời ô, và ngay trước khi Áp dụng -> KHÔNG mất từ khóa.
         window.commitTagInput = function() {
             if (!tagInputField) return;
             const rawVal = tagInputField.value.trim();
@@ -312,25 +312,9 @@ window.openIconPickerModal = function() {
             // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Tạo NÚT "+" (chèn động, không cần sửa HTML) cho dễ thêm từ khóa trên điện thoại,
-            // thay vì bắt buộc người dùng phải biết bấm Enter/dấu phẩy.
-            const tagContainerEl = tagInputField.parentElement; // .tag-input-container
-            if (tagContainerEl && tagContainerEl.parentElement && !document.getElementById('addTagBtn')) {
-                const rowWrap = document.createElement('div');
-                rowWrap.style.cssText = 'display:flex; gap:8px; align-items:stretch;';
-                tagContainerEl.parentElement.insertBefore(rowWrap, tagContainerEl);
-                tagContainerEl.style.flex = '1'; tagContainerEl.style.minWidth = '0';
-                rowWrap.appendChild(tagContainerEl);
-                const addBtn = document.createElement('button');
-                addBtn.type = 'button'; addBtn.id = 'addTagBtn'; addBtn.className = 'btn-save m-0';
-                addBtn.style.cssText = 'flex:0 0 48px; padding:0; border-radius:12px;';
-                addBtn.innerHTML = '<i class="fas fa-plus"></i>';
-                addBtn.addEventListener('click', () => { triggerHaptic('light'); window.commitTagInput(); tagInputField.focus(); });
-                rowWrap.appendChild(addBtn);
-            }
-            // Cập nhật nhãn hướng dẫn cho khớp thao tác mới
+            // Nhãn hướng dẫn (tự chốt khi rời ô nên không bắt buộc thao tác đặc biệt)
             const tagLabel = document.querySelector('#tagInputArea .field-label');
-            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (gõ xong bấm nút +, hoặc phẩy/Enter)';
+            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (gõ xong bấm Enter hoặc dấu phẩy)';
         }
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
