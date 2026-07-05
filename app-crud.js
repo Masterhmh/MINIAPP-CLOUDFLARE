@@ -312,9 +312,21 @@ window.openIconPickerModal = function() {
             // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Nhãn hướng dẫn (tự chốt khi rời ô nên không bắt buộc thao tác đặc biệt)
+            // iOS/Telegram: cham thang vao <input> doi khi khong tu bat ban phim.
+            // Vi vay bat su kien cham vao CA vung o (.tag-input-container) roi ep focus vao input
+            // => cham vao o la go duoc ngay, khong can nut + nua.
+            const tagBoxEl = tagInputField.parentElement; // .tag-input-container
+            if (tagBoxEl) {
+                tagBoxEl.style.cursor = 'text';
+                tagBoxEl.addEventListener('click', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bam X xoa tag thi bo qua
+                    tagInputField.focus();
+                });
+            }
+
+            // Nhãn hướng dẫn (chạm vào ô là gõ được; xong bấm Enter hoặc dấu phẩy)
             const tagLabel = document.querySelector('#tagInputArea .field-label');
-            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (gõ xong bấm Enter hoặc dấu phẩy)';
+            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
         }
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
