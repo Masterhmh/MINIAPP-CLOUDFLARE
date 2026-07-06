@@ -211,7 +211,7 @@ body.privacy-on .stat-compare {
 
 /* ---------- LICH THANG TAB 2: hien AM LICH goc phai tren moi o (PA1) ----------
    So am nho, mo (text-3) o goc phai tren. Mung 1 hien "1/<thang am>", to dam.
-   Ram (15) & mung 1 to mau CAM (khong trung mau do cua so tien) de de nhan biet. */
+   Ram (15) & mung 1 to mau TIM (khong trung mau do cua so tien) de de nhan biet. */
 .calendar-day { position: relative; }
 .calendar-lunar { position: absolute; top: 2px; right: 3px; font-size: 0.5rem; font-weight: 600; line-height: 1; color: var(--text-3); pointer-events: none; }
-.calendar-lunar.lunar-special { color: #F97316; font-weight: 800; }
+.calendar-lunar.lunar-special { color: #A855F7; font-weight: 800; }
