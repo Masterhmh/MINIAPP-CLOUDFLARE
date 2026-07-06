@@ -243,6 +243,14 @@ function renderCalendar(txs, dateObj, mode) {
 
         const today = new Date(); const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
 
+        // Xác định TUẦN HIỆN TẠI (tuần chứa hôm nay) để tô nền pill khác màu cho cả tuần.
+        // diffToStart = số ngày lùi từ hôm nay về đầu tuần (theo cài đặt đầu tuần T2 hoặc CN).
+        const todayW = new Date(); todayW.setHours(0,0,0,0);
+        const dowW = todayW.getDay();
+        const diffToStart = (startOfWeek === 1) ? ((dowW === 0) ? 6 : dowW - 1) : dowW;
+        const weekStart = new Date(todayW); weekStart.setDate(todayW.getDate() - diffToStart); weekStart.setHours(0,0,0,0);
+        const weekEnd = new Date(weekStart); weekEnd.setDate(weekStart.getDate() + 6); weekEnd.setHours(0,0,0,0);
+
         for (let i = 1; i <= daysInMonth; i++) {
             const d = new Date(year, month, i); const dayKey = formatDateToYYYYMMDD(d);
             const data = dailyData[dayKey] || { inc: 0, exp: 0 };
@@ -257,6 +265,9 @@ function renderCalendar(txs, dateObj, mode) {
 
             let classes = ['calendar-day'];
             if (isCurrentMonth && today.getDate() === i) classes.push('today');
+            // Ô ngày nằm trong tuần hiện tại -> gắn class current-week để tô nền pill
+            const cellDate = new Date(year, month, i); cellDate.setHours(0,0,0,0);
+            if (cellDate >= weekStart && cellDate <= weekEnd) classes.push('current-week');
 
             const dayDiv = document.createElement('div'); dayDiv.className = classes.join(' ');
             dayDiv.innerHTML = `<span class="calendar-date">${i}</span>${balHTML}`;
