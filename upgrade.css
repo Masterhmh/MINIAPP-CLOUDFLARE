@@ -202,6 +202,12 @@ body.privacy-on .stat-compare {
 .tag-input-container { display: flex !important; align-items: center !important; flex-wrap: wrap; gap: 6px; min-height: 48px; cursor: text; }
 .tag-input-container .tag-input-field { flex: 1; min-width: 120px; align-self: center; }
 
+/* ---------- O THEM TU KHOA: an chu vi du khi da co it nhat 1 the tu khoa ----------
+   Truoc day dong "VD: Bao hanh, giao dich" van hien ben canh cac the tu khoa da them
+   (do input tu clear sau khi tao the) khien nguoi dung tuong chu goi y khong an.
+   An placeholder ngay khi tagsWrapper da co it nhat 1 the (.tag-badge). */
+.tag-input-container:has(.tag-badge) .tag-input-field::placeholder { color: transparent; }
+
 /* ---------- LICH THANG TAB 2: to nen pill cho cac ngay thuoc TUAN HIEN TAI ----------
    Tuan chua hom nay se co mau nen khac (amber nhat) de noi bat so voi cac ngay con lai.
    Van giu nguyen kieu o "hom nay" (cyan) va o "dang chon" bang selector uu tien cao hon. */
