@@ -201,3 +201,10 @@ body.privacy-on .stat-compare {
    khoang cach tren va duoi bang nhau. Them cursor:text de cham vao dau trong o cung go duoc. */
 .tag-input-container { display: flex !important; align-items: center !important; flex-wrap: wrap; gap: 6px; min-height: 48px; cursor: text; }
 .tag-input-container .tag-input-field { flex: 1; min-width: 120px; align-self: center; }
+
+/* ---------- LICH THANG TAB 2: to nen pill cho cac ngay thuoc TUAN HIEN TAI ----------
+   Tuan chua hom nay se co mau nen khac (amber nhat) de noi bat so voi cac ngay con lai.
+   Van giu nguyen kieu o "hom nay" (cyan) va o "dang chon" bang selector uu tien cao hon. */
+.calendar-day.current-week { background: rgba(255, 184, 0, 0.16); }
+.calendar-day.current-week.today { background: rgba(6, 182, 212, 0.30); }
+.calendar-day.current-week.selected-day { background: var(--primary-alpha); }
