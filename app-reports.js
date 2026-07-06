@@ -385,7 +385,19 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     document.getElementById('tab2ExpenseCompare').innerHTML = getCompareHTML(tExp, pExp, 'expense', compareText);
     document.getElementById('tab2BalanceCompare').innerHTML = getCompareHTML(tBal, pBal, 'balance', compareText);
     
-    document.querySelector('#tab2 .chart-container').style.display = 'block';
+    // Khi kỳ báo cáo KHÔNG có giao dịch nào -> ẩn 2 biểu đồ trống (Thu nhập & Chi tiêu +
+    // Chi tiêu theo danh mục) và hiện dòng thông báo gọn gàng. Giữ nguyên các thẻ tổng & lịch.
+    const chartContainerEl = document.querySelector('#tab2 .chart-container');
+    const reportPlaceholderEl = document.getElementById('placeholderTab2');
+    if (!currentTx || currentTx.length === 0) {
+        if (window.mChart) { window.mChart.destroy(); window.mChart = null; }
+        if (window.pChart) { window.pChart.destroy(); window.pChart = null; }
+        if (chartContainerEl) chartContainerEl.style.display = 'none';
+        if (reportPlaceholderEl) { reportPlaceholderEl.textContent = 'Không có dữ liệu báo cáo'; reportPlaceholderEl.style.display = 'block'; }
+        return;
+    }
+    if (reportPlaceholderEl) reportPlaceholderEl.style.display = 'none';
+    if (chartContainerEl) chartContainerEl.style.display = 'block';
     
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     if (window.mChart) window.mChart.destroy();
