@@ -170,7 +170,7 @@ async function getTransactionsInRange(startDate, endDate) {
 }
 
 // ---------------- ÂM LỊCH (thuật toán Hồ Ngọc Đức, tính offline, múi giờ +7) ----------------
-// Chỉ dùng để HIỂN THỊ số ngày âm trên lịch tháng Tab 2. Không đụng dữ liệu chi tiêu.
+// Chỉ dùng để HIỂN THỊ số ngày âm trên lịch Tab 2. Không đụng dữ liệu chi tiêu.
 function lunarJdFromDate(dd, mm, yy) {
     const a = Math.floor((14 - mm) / 12);
     const y = yy + 4800 - a;
@@ -291,7 +291,13 @@ function renderCalendar(txs, dateObj, mode) {
 
             const dayDiv = document.createElement('div'); dayDiv.className = 'calendar-day';
             if (dayKey === todayKey) dayDiv.classList.add('today');
-            dayDiv.innerHTML = `<span class="calendar-date">${d.getDate()}</span>${balHTML}`;
+            // ÂM LỊCH (PA1): số âm nhỏ ở góc phải trên (đồng bộ với lịch tháng)
+            const lunarW = convertSolar2Lunar(d.getDate(), d.getMonth() + 1, d.getFullYear());
+            const lunarTextW = (lunarW.day === 1) ? `${lunarW.day}/${lunarW.month}` : String(lunarW.day);
+            let lunarClsW = 'calendar-lunar';
+            if (lunarW.day === 1 || lunarW.day === 15) lunarClsW += ' lunar-special';
+            const lunarHTMLW = `<span class="${lunarClsW}">${lunarTextW}</span>`;
+            dayDiv.innerHTML = `<span class="calendar-date">${d.getDate()}</span>${lunarHTMLW}${balHTML}`;
 
             dayDiv.onclick = () => { triggerHaptic('light'); document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected-day')); dayDiv.classList.add('selected-day'); openDailyDetailView(d.getDate(), d.getMonth() + 1, d.getFullYear(), txs); };
             grid.appendChild(dayDiv);
