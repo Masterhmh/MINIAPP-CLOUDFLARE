@@ -398,7 +398,7 @@ window.openIconPickerModal = function() {
         };
     }
     
-    catSelect.innerHTML = '<option value="">-- Chọn danh mục hiện có --</option>';
+    catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
     const uniqueCats = [...new Set(cats)]; 
     uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
