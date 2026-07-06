@@ -329,6 +329,18 @@ document.getElementById('editForm').onsubmit = async function(e) {
       window.fetchTransactions(true); 
       if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); 
   };
+
+  // Kiểu biểu đồ (cột/đường) — lưu vào localStorage và đồng bộ với nút đổi biểu đồ ở Tab 2
+  const settingChartTypeEl = document.getElementById('settingChartType');
+  if (settingChartTypeEl) settingChartTypeEl.onchange = (e) => {
+      triggerHaptic('light');
+      const v = e.target.value === 'line' ? 'line' : 'bar';
+      window.currentChartType = v;
+      localStorage.setItem('settingChartType', v);
+      const tBtn = document.getElementById('toggleChartBtn');
+      if (tBtn) tBtn.innerHTML = v === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
+      if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
+  };
   
   document.getElementById('settingHaptic').onchange = (e) => { localStorage.setItem('settingHaptic', e.target.checked); if(e.target.checked) triggerHaptic('light'); };
   document.getElementById('settingChatId').onchange = (e) => localStorage.setItem('settingChatId', e.target.value.trim());
@@ -362,6 +374,9 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
           triggerHaptic('light');
           window.currentChartType = window.currentChartType === 'bar' ? 'line' : 'bar';
           document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
+          localStorage.setItem('settingChartType', window.currentChartType);
+          const _ctSel = document.getElementById('settingChartType');
+          if (_ctSel) _ctSel.value = window.currentChartType;
           const isTab2 = document.getElementById('tab2').classList.contains('active');
           if (isTab2 && window.mChart) {
               window.mChart.config.type = window.currentChartType;
@@ -379,6 +394,14 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
 
   // --- Nếu đã có hàm initSettings thì gọi, không có thì bỏ qua ---
   if(typeof initSettings === 'function') initSettings(); 
+
+  // Khôi phục kiểu biểu đồ đã lưu (cột/đường) và đồng bộ nút đổi biểu đồ + ô chọn trong Cài đặt
+  const savedChartType = (localStorage.getItem('settingChartType') === 'line') ? 'line' : 'bar';
+  window.currentChartType = savedChartType;
+  const chartTypeSel = document.getElementById('settingChartType');
+  if (chartTypeSel) chartTypeSel.value = savedChartType;
+  const toggleChartBtnInit = document.getElementById('toggleChartBtn');
+  if (toggleChartBtnInit) toggleChartBtnInit.innerHTML = savedChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
   
   window.initCategories();
   const defTab = localStorage.getItem('settingDefaultTab') || 'tab1';
