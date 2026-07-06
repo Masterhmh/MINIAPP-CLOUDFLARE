@@ -405,7 +405,7 @@ window.openIconPickerModal = function() {
     
     const newOpt = document.createElement('option');
     newOpt.value = "__NEW__";
-    newOpt.innerHTML = "➕ Tạo danh mục mới...";
+    newOpt.innerHTML = "Tạo danh mục mới...";
     newOpt.style.fontWeight = "bold";
     catSelect.appendChild(newOpt);
 
