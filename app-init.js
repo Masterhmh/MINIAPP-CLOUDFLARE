@@ -330,7 +330,7 @@ document.getElementById('editForm').onsubmit = async function(e) {
       if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); 
   };
 
-  // Kiểu biểu đồ (cột/đường) — lưu vào localStorage và đồng bộ với nút đổi biểu đồ ở Tab 2
+  // Kiểu biểu đồ (cột/đường) — ĐÂY LÀ NƠI DUY NHẤT LƯU CÀI ĐẶT (khôi phục khi mở lại app)
   const settingChartTypeEl = document.getElementById('settingChartType');
   if (settingChartTypeEl) settingChartTypeEl.onchange = (e) => {
       triggerHaptic('light');
@@ -367,16 +367,13 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
       });
   };
 
-  // Nút đổi biểu đồ tab 2
+  // Nút đổi biểu đồ nhanh (Tab 2) — CHỈ TÁC DỤNG TRONG PHIÊN, KHÔNG lưu đè cài đặt
   const toggleChartBtn = document.getElementById('toggleChartBtn');
   if(toggleChartBtn) {
       toggleChartBtn.onclick = () => {
           triggerHaptic('light');
           window.currentChartType = window.currentChartType === 'bar' ? 'line' : 'bar';
           document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
-          localStorage.setItem('settingChartType', window.currentChartType);
-          const _ctSel = document.getElementById('settingChartType');
-          if (_ctSel) _ctSel.value = window.currentChartType;
           const isTab2 = document.getElementById('tab2').classList.contains('active');
           if (isTab2 && window.mChart) {
               window.mChart.config.type = window.currentChartType;
@@ -395,7 +392,7 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
   // --- Nếu đã có hàm initSettings thì gọi, không có thì bỏ qua ---
   if(typeof initSettings === 'function') initSettings(); 
 
-  // Khôi phục kiểu biểu đồ đã lưu (cột/đường) và đồng bộ nút đổi biểu đồ + ô chọn trong Cài đặt
+  // Khôi phục kiểu biểu đồ đã lưu (cột/đường) từ Cài đặt — đồng bộ nút đổi + ô chọn
   const savedChartType = (localStorage.getItem('settingChartType') === 'line') ? 'line' : 'bar';
   window.currentChartType = savedChartType;
   const chartTypeSel = document.getElementById('settingChartType');
