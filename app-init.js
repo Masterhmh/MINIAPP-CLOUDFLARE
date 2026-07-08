@@ -1,5 +1,5 @@
 // ============================================================================
-// app-init.js — KHỞI ĐỘNG & GẮN SỰ KIỆN
+// app-init.js — KHỞĐỘNG & GẮN SỰ KIỆN
 // ----------------------------------------------------------------------------
 // Vai trò: Điểm khởi động chính của app (chạy khi DOMContentLoaded). Gắn tất
 //   cả trình xử lý sự kiện cho nút điều hướng tab, lọc thời gian, tìm kiếm,
@@ -28,18 +28,15 @@ window.normalizeKeywordList = function(arr) {
     .join(', ');
 };
 
-// Đọc danh sách từ khóa hiện tại của 1 danh mục trực tiếp từ Firebase -> mảng
+// Đọc danh sách từ khóa hiện tại của 1 danh mục trực tiếp từ Firebase (qua cổng bảo mật) -> mảng
 async function fetchCategoryKeywords(cat) {
-  const res = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`);
-  if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
-  const raw = await res.json();
+  const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
   return String(raw || '').split(',').map(k => k.trim()).filter(k => k);
 }
 
-// Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục
+// Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục (qua cổng bảo mật)
 async function putCategoryKeywords(cat, listStr) {
-  const res = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`, { method: 'PUT', body: JSON.stringify(listStr) });
-  if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+  await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', listStr);
 }
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
@@ -84,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
+  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỪA CÁC TAB ----------------
   // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
   // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
   if (!window.__tabSwipeWrapped) {
@@ -234,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             // 1) Đọc danh sách từ khóa hiện tại của danh mục trực tiếp từ Firebase
             let list = await fetchCategoryKeywords(cat);
-            // 2) Nếu đang SỬA: bỏ từ khóa cũ trước khi thêm bản mới
+            // 2) Nếu đang SỪA: bỏ từ khóa cũ trước khi thêm bản mới
             if (editingFrom) { const t = String(editingFrom).trim().toLowerCase(); list = list.filter(k => k.toLowerCase() !== t); }
             // 3) Thêm (các) từ khóa mới — hỗ trợ nhập nhiều, ngăn cách bằng dấu phẩy
             String(kw).split(',').forEach(k => list.push(k));
@@ -358,9 +355,9 @@ document.getElementById('editForm').onsubmit = async function(e) {
           showLoading(true, 'tab3');
           try {
               await Promise.all([
-    fetch(`${FIREBASE_URL}/transactions.json`, { method: 'DELETE' }),
-    fetch(`${FIREBASE_URL}/categories.json`, { method: 'DELETE' }),
-    fetch(`${FIREBASE_URL}/meta.json`, { method: 'DELETE' }) // xóa cả bộ đếm mã GD
+    secureFetch('/transactions.json', 'DELETE'),
+    secureFetch('/categories.json', 'DELETE'),
+    secureFetch('/meta.json', 'DELETE') // xóa cả bộ đếm mã GD
 ]);
 localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
           } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
