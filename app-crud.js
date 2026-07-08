@@ -5,7 +5,7 @@
 //   thêm/sửa/xóa giao dịch (modal Add/Edit), sinh mã giao dịch, ghi/đọc
 //   Firebase + đồng bộ Google Sheet (GAS), và cửa sổ ICON PICKER (cấu hình
 //   danh mục + icon + từ khóa).
-// Phụ thuộc: app-core.js (tiện ích, fetchMonthData, FIREBASE_URL...) và
+// Phụ thuộc: app-core.js (tiện ích, fetchMonthData, secureFetch...) và
 //   currency.js (formatNumberWithCommas dùng ở app-core). Tương tác với
 //   displayTransactions/updateTimeNavUI/displaySearchResults (app-reports.js).
 // Thứ tự nạp: sau app-reports.js.
@@ -16,8 +16,8 @@ window.loadKeywords = async function(isInit = false) {
     if(!isInit) showLoading(true, 'tab3');
     if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
     try {
-        // Đọc 1 node /categories duy nhất (object keyed theo tên danh mục)
-        const res = await fetch(`${FIREBASE_URL}/categories.json`); let raw = await res.json();
+        // Đọc 1 node /categories duy nhất (object keyed theo tên danh mục) qua cổng bảo mật
+        let raw = await secureFetch('/categories.json');
         if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); raw = await gasRes.json(); }
 
         // Chuẩn hóa -> mảng [{category, icon, keywords}] (hỗ trợ cả cấu trúc cũ là mảng)
@@ -79,7 +79,7 @@ function displayKeywords() {
 // ---------------- MODALS & CRUD ----------------
 async function fetchCategories() { 
     try { 
-        const res = await fetch(`${FIREBASE_URL}/categories.json`); let raw = await res.json(); 
+        let raw = await secureFetch('/categories.json'); 
         if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); raw = await gasRes.json(); } 
         let cats = [];
         if (Array.isArray(raw)) {
@@ -114,10 +114,9 @@ async function getNextTransactionId(month, year) {
         const n = parseInt(String(id).replace('GD', ''), 10);
         if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
     };
-    // Đọc đúng nhánh năm/tháng đó trên Firebase
+    // Đọc đúng nhánh năm/tháng đó trên Firebase (qua cổng bảo mật)
     try {
-        const res = await fetch(`${FIREBASE_URL}/transactions/${year}/month_${month}.json`);
-        const data = await res.json();
+        const data = await secureFetch(`/transactions/${year}/month_${month}.json`);
         if (data && typeof data === 'object') Object.keys(data).forEach(id => { const t = data[id]; consider(id, t && t.date); });
     } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
 
@@ -159,9 +158,8 @@ async function submitTx(tx) {
     if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month, year); }
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
-    // GHI LÊN FIREBASE TRƯỚC — xác nhận OK rồi mới cập nhật giao diện
-    const res = await fetch(`${FIREBASE_URL}/transactions/${year}/month_${month}/${tx.id}.json`, { method: 'PUT', body: JSON.stringify(fbTx) });
-    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+    // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới cập nhật giao diện
+    await secureFetch(`/transactions/${year}/month_${month}/${tx.id}.json`, 'PUT', fbTx);
 
     // Ghi thành công -> mới đụng vào cache + render
     if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); }
@@ -211,9 +209,8 @@ window.deleteTransaction = function(id) {
 
           showToast("Đang xóa giao dịch...", "info");
           try {
-              // XÓA TRÊN FIREBASE TRƯỚC — xác nhận OK rồi mới đụng vào giao diện
-              const res = await fetch(`${FIREBASE_URL}/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, { method: 'DELETE' });
-              if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status}`);
+              // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
+              await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
 
               // Xóa thành công -> giờ mới gỡ khỏi cache + render lại
               [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
@@ -342,8 +339,8 @@ window.openIconPickerModal = function() {
             
             triggerHaptic('medium'); showLoading(true, 'tab3');
             try {
-                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon
-                await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/icon.json`, { method: 'PUT', body: JSON.stringify(selectedIcon) });
+                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon (qua cổng bảo mật)
+                await secureFetch(`/categories/${encodeURIComponent(cat)}/icon.json`, 'PUT', selectedIcon);
                 window.customCategoryIcons[cat] = selectedIcon; 
                 window.categoryIconMap[cat] = selectedIcon;
 
@@ -353,12 +350,12 @@ window.openIconPickerModal = function() {
                 if (newKws && newKws.trim()) {
                     let existing = [];
                     try {
-                        const r = await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`);
-                        if (r.ok) { const raw = await r.json(); existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k); }
+                        const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
+                        existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
                     } catch (err) { /* không đọc được -> coi như chưa có từ khóa */ }
                     newKws.split(',').forEach(k => existing.push(k));
                     const normalized = window.normalizeKeywordList(existing);
-                    await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}/keywords.json`, { method: 'PUT', body: JSON.stringify(normalized) });
+                    await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', normalized);
                 }
 
                 // 3) Cập nhật giao diện NGAY (không chờ Google Sheet)
@@ -385,7 +382,7 @@ window.openIconPickerModal = function() {
                 async () => {
                     showLoading(true, 'tab3');
                     try {
-                        await fetch(`${FIREBASE_URL}/categories/${encodeURIComponent(cat)}.json`, { method: 'DELETE' });
+                        await secureFetch(`/categories/${encodeURIComponent(cat)}.json`, 'DELETE');
                         delete window.customCategoryIcons[cat];
                         delete window.categoryIconMap[cat];
                         await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
