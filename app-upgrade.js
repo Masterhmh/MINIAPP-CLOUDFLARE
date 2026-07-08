@@ -225,8 +225,8 @@
   // de fetchMonthData khong goi mang lai. Bao cao Nam giam tu 24 -> 2 request,
   // va moi thao tac chuyen tuan/thang trong cung nam sau do gan nhu tuc thi.
   // Chong trung: neu 1 nam dang duoc tai, cac loi goi khac dung chung 1 promise.
+  // (Da chuyen sang window.secureFetch -> doc qua cong bao mat, khong lo FIREBASE_URL.)
   // ------------------------------------------------------------------
-  function __fbBase() { return (typeof FIREBASE_URL !== 'undefined' && FIREBASE_URL) ? FIREBASE_URL : ''; }
   function fetchYearData(year, force) {
     if (!window.monthDataCache) window.monthDataCache = {};
     if (!window.__yearFetchInFlight) window.__yearFetchInFlight = {};
@@ -237,13 +237,9 @@
       if (allCached) return Promise.resolve(true);
       if (window.__yearFetchInFlight[y]) return window.__yearFetchInFlight[y];
     }
-    var base = __fbBase();
-    if (!base) return Promise.resolve(false);
     var p = (async function () {
       try {
-        var res = await fetch(base + '/transactions/' + y + '.json');
-        if (!res.ok) return false;
-        var data = await res.json();
+        var data = await window.secureFetch('/transactions/' + y + '.json');
         for (var mm = 1; mm <= 12; mm++) {
           var node = data ? data['month_' + mm] : null;
           var result = [];
@@ -388,7 +384,7 @@
   //   Năm 2026 -> "so với năm 2025". (Bản gốc chỉ ghi chung "kỳ trước".)
   // Cách làm: mỗi hàm tải báo cáo tự tính nhãn kỳ trước và lưu vào
   // window.__cmpText; processReportData (bản bọc) vẽ lại 3 ô so sánh với nhãn đó.
-  // Baseline so sánh KHÔNG đổi (vẫn là tuần -1 / tháng -1 / năm -1), chỉ đổi CHỮ.
+  // Baseline so sánh KHÔNG đổi (vẫn là tuần -1 / tháng -1 / năm -1), chỉ đổi CHỪ.
   // ------------------------------------------------------------------
   var _origProcessReportData = window.processReportData;
   if (typeof _origProcessReportData === 'function') {
@@ -682,7 +678,7 @@
   };
 
   // ------------------------------------------------------------------
-  // KHỞI TẠO SAU KHI DOM SẴN SÀNG
+  // KHỞĐ TẠO SAU KHI DOM SẴN SÀNG
   // ------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
     var fabBtn = document.getElementById('fabBtn');
