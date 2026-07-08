@@ -34,8 +34,28 @@ async function notifyTelegram(methodStr, tx) {
     } catch(e) { console.log('Lỗi gửi thông báo Telegram:', e); }
 }
 
-// KẾT NỐI TRỰC TIẾP FIREBASE
-const FIREBASE_URL = 'https://quanlychitieu-hmh-default-rtdb.firebaseio.com/';
+// ==== secureFetch: cổng truy cập Firebase an toàn (bản cá nhân) ====
+// Thay cho việc gọi thẳng FIREBASE_URL. Mọi đọc/ghi Firebase đi qua đây.
+// Ví dụ path: `/transactions/2026/month_07.json`
+async function secureFetch(path, method = 'GET', data = null) {
+    const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || '';
+    const opts = {
+        method,
+        headers: {
+            'Authorization': initData,      // gửi initData để server xác thực
+            'Content-Type': 'application/json'
+        }
+    };
+    if (data !== null && (method === 'PUT' || method === 'PATCH' || method === 'POST')) {
+        opts.body = JSON.stringify(data);
+    }
+    const res = await fetch('/api/secure_firebase?path=' + encodeURIComponent(path), opts);
+    if (!res.ok) throw new Error('secureFetch ' + method + ' ' + path + ' -> ' + res.status);
+    const text = await res.text();
+    if (!text || text === 'null') return null;
+    try { return JSON.parse(text); } catch (e) { return text; }
+}
+window.secureFetch = secureFetch;
 
 if (!apiUrl || !sheetId) showToast("Thiếu thông tin API hoặc Sheet ID!", "error");
 
@@ -57,7 +77,7 @@ let currentFilterMode = 'weekly', activePeriodDate = new Date();
 
 let isPrivacyActive = localStorage.getItem('settingPrivacyMode') === 'true';
 
-// ---------------- BỘ TỪ ĐIỂN DỊCH EMOJI SANG ICON VECTOR (VÀ NGƯỢC LẠI) ----------------
+// ---------------- BỘ TỪ ĐIỂN DẪCH EMOJI SANG ICON VECTOR (VÀ NGƯỢC LẠI) ----------------
 const EMOJI_TO_FA_MAP = {
     '🍔': 'fa-burger', '🍽️': 'fa-utensils', '🍜': 'fa-bowl-food', '☕': 'fa-mug-hot', '🍺': 'fa-beer-mug-empty', '🍕': 'fa-pizza-slice',
     '🚗': 'fa-car', '🛵': 'fa-motorcycle', '🚕': 'fa-taxi', '🚌': 'fa-bus', '✈️': 'fa-plane', '⛽': 'fa-gas-pump', '🚆': 'fa-train',
@@ -270,7 +290,7 @@ function getCategoryIcon(cat) {
     return `<span style="font-weight: 900; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.9em; line-height: 1;">${firstLetter}</span>`;
 }
 
-// ---------------- THẺ GIAO DỊCH DÙNG CHUNG ----------------
+// ---------------- THẼ GIAO DỊCH DÙNG CHUNG ----------------
 // Trước đây HTML thẻ giao dịch bị lặp ở 3 nơi (Tab 1, chi tiết, tìm kiếm).
 // Gộp về 1 hàm để dễ đọc & bảo trì; các nút .edit-btn/.delete-btn giữ data-id
 // nên mọi chỗ vẫn gắn sự kiện như cũ.
@@ -323,7 +343,7 @@ window.openTab = function(tabId) {
 };
 
 // fetchMonthData(month, year, forceRefresh)
-// Tải toàn bộ giao dịch của 1 tháng thuộc 1 NĂM cụ thể TRỰC TIẾP từ Firebase,
+// Tải toàn bộ giao dịch của 1 tháng thuộc 1 NĂM cụ thể qua secureFetch,
 // theo cấu trúc mới: /transactions/{năm}/month_{tháng}. Nhờ tách theo năm nên
 // dữ liệu các năm được giữ lại vĩnh viễn để so sánh, không bị ghi đè lẫn nhau.
 // Có cache theo "năm_tháng" (window.monthDataCache) để gộp/tránh gọi lặp khi
@@ -336,9 +356,7 @@ async function fetchMonthData(month, year, forceRefresh = false) {
     if (!forceRefresh && window.monthDataCache && window.monthDataCache[cacheKey]) {
         return window.monthDataCache[cacheKey];
     }
-    const res = await fetch(`${FIREBASE_URL}/transactions/${yKey}/month_${mKey}.json`);
-    if (!res.ok) throw new Error(`Máy chủ trả lỗi ${res.status} khi tải tháng ${mKey}/${yKey}`);
-    const data = await res.json();
+    const data = await secureFetch(`/transactions/${yKey}/month_${mKey}.json`);
     let result = [];
     if (data) {
         result = Object.values(data).filter(item => item !== null).map(item => {
