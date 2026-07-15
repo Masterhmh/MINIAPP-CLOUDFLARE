@@ -524,16 +524,208 @@ window.exportToPDF = function() {
     };
 };
 window.exportToCSV = async function() {
-    if (isPrivacyActive) {
-        return showToast("Số tiền đang bị ẩn! Vui lòng bấm vào biểu tượng con mắt để hiển thị số dư trước khi xuất dữ liệu CSV.", "warning");
-    }
+  if (isPrivacyActive) {
+    return showToast(
+      "Số tiền đang bị ẩn! Vui lòng bấm vào biểu tượng con mắt để hiển thị số dư trước khi xuất dữ liệu CSV.",
+      "warning"
+    );
+  }
 
-    const isTab2 = document.getElementById('tab2').classList.contains('active'); const dataToExport = isTab2 ? (cachedChartData?.txs || []) : (cachedTransactions?.data || []);
-    if (dataToExport.length === 0) return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
-    triggerHaptic('light'); let csvContent = "\uFEFFMã GD,Ngày,Phân loại,Danh mục,Số tiền,Nội dung,Ghi chú\n";
-    dataToExport.forEach(t => { let content = t.content ? t.content.replace(/,/g, " ") : ""; let note = t.note ? t.note.replace(/,/g, " ") : ""; csvContent += `${t.id},${t.date},${t.type},${t.category},${t.amount},${content},${note}\n`; });
-    const reportName = isTab2 ? (cachedChartData?.periodStr || "Bao_Cao") : formatDateToYYYYMMDD(new Date()); const fileName = `Giao_Dich_${reportName}.csv`; const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-    const platform = window.Telegram?.WebApp?.platform || 'unknown'; const isMobile = ['android', 'android_x', 'ios'].includes(platform.toLowerCase());
-    if (isMobile && navigator.canShare) { try { const file = new File([blob], fileName, { type: 'text/csv' }); if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: fileName }); triggerHapticNotification('success'); return; } } catch (error) {} } 
-    const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); triggerHapticNotification('success'); showToast("Đã tải file CSV!", "success");
+  const isTab2 = document.getElementById("tab2").classList.contains("active");
+  const dataToExport = isTab2
+    ? (cachedChartData?.txs || [])
+    : (cachedTransactions?.data || []);
+
+  if (dataToExport.length === 0) {
+    return showToast("Không có dữ liệu giao dịch để xuất!", "warning");
+  }
+
+  triggerHaptic("light");
+
+  const escapeCSV = (value) => {
+    if (value === null || value === undefined) return "";
+    const text = String(value);
+    return `"${text.replace(/"/g, '""')}"`;
+  };
+
+  const parseDateParts = (dateStr) => {
+    const parts = String(dateStr || "").split("/");
+    if (parts.length !== 3) return null;
+
+    return {
+      day: Number(parts[0]),
+      month: Number(parts[1]),
+      year: Number(parts[2])
+    };
+  };
+
+  const getNumericId = (id) => {
+    const match = String(id || "").match(/\d+/);
+    return match ? Number(match[0]) : 0;
+  };
+
+  const formatMonthId = (index) => {
+    return `GD${String(index).padStart(3, "0")}`;
+  };
+
+  const sortTransactions = (items) => {
+    return [...items].sort((a, b) => {
+      const da = parseDateParts(a.date);
+      const db = parseDateParts(b.date);
+
+      const timeA = da
+        ? new Date(da.year, da.month - 1, da.day).getTime()
+        : 0;
+
+      const timeB = db
+        ? new Date(db.year, db.month - 1, db.day).getTime()
+        : 0;
+
+      if (timeA !== timeB) return timeA - timeB;
+
+      return getNumericId(a.id) - getNumericId(b.id);
+    });
+  };
+
+  const headers = [
+    "NGÀY",
+    "PHÂN LOẠI",
+    "ID",
+    "DANH MỤC",
+    "SỐ TIỀN",
+    "PHÂN LOẠI CHI TIẾT",
+    "GHI CHÚ",
+    "TỔNG THU NHẬP",
+    "TỔNG CHI TIÊU",
+    "MAX ID"
+  ];
+
+  const makeCsvRow = (values) => {
+    return values.map(escapeCSV).join(",") + "\n";
+  };
+
+  const sortedData = sortTransactions(dataToExport);
+
+  const years = [
+    ...new Set(
+      sortedData
+        .map(tx => parseDateParts(tx.date)?.year)
+        .filter(Boolean)
+    )
+  ];
+
+  const exportYear = years.length === 1
+    ? years[0]
+    : new Date().getFullYear();
+
+  let csvContent = "\uFEFF";
+
+  for (let month = 1; month <= 12; month++) {
+    const monthTransactions = sortedData.filter(tx => {
+      const parts = parseDateParts(tx.date);
+      return parts && parts.year === exportYear && parts.month === month;
+    });
+
+    if (monthTransactions.length === 0) continue;
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+
+    monthTransactions.forEach(tx => {
+      const amount = Number(tx.amount || 0);
+      if (tx.type === "Thu nhập") totalIncome += amount;
+      if (tx.type === "Chi tiêu") totalExpense += amount;
+    });
+
+    const maxId = monthTransactions.length > 0
+      ? formatMonthId(monthTransactions.length)
+      : "GD000";
+
+    // Dòng tách tháng
+    csvContent += makeCsvRow([
+      `THÁNG ${String(month).padStart(2, "0")}`,
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      ""
+    ]);
+
+    // Header mỗi tháng
+    csvContent += makeCsvRow(headers);
+
+    // Dòng tổng giống sheet
+    csvContent += makeCsvRow([
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      totalIncome,
+      totalExpense,
+      maxId
+    ]);
+
+    // Giao dịch trong tháng
+    monthTransactions.forEach((tx, index) => {
+      csvContent += makeCsvRow([
+        tx.date || "",
+        tx.type || "",
+        formatMonthId(index + 1),
+        tx.content || "",
+        Number(tx.amount || 0),
+        tx.category || "",
+        tx.note || "",
+        "",
+        "",
+        ""
+      ]);
+    });
+
+    // Dòng trống giữa các tháng cho dễ nhìn
+    csvContent += makeCsvRow(["", "", "", "", "", "", "", "", "", ""]);
+  }
+
+  const reportName = isTab2
+    ? (cachedChartData?.periodStr || `Nam_${exportYear}`)
+    : formatDateToYYYYMMDD(new Date());
+
+  const fileName = `Giao_Dich_${reportName}.csv`;
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8" });
+
+  const platform = window.Telegram?.WebApp?.platform || "unknown";
+  const isMobile = ["android", "android_x", "ios"].includes(platform.toLowerCase());
+
+  if (isMobile && navigator.canShare) {
+    try {
+      const file = new File([blob], fileName, { type: "text/csv" });
+
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: fileName });
+        triggerHapticNotification("success");
+        return;
+      }
+    } catch (error) {}
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = fileName;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+  triggerHapticNotification("success");
+  showToast("Đã tải file CSV!", "success");
 };
