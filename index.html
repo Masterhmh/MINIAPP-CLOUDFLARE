@@ -513,20 +513,21 @@
 
    <div id="iconPickerModal" class="modal-sheet" style="display: flex; flex-direction: column;">
       <div class="modal-handle" onclick="closeIconPickerModal()"></div>
-      <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Cấu hình Danh mục & Icon</div>
+      <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Chỉnh sửa danh mục</div>
+      <div class="field-helper" style="margin-top: -4px; margin-bottom: 12px; color: var(--text-3); font-size: 0.85rem; line-height: 1.4;">Đổi tên, icon và từ khóa của danh mục. Nếu đổi tên, các giao dịch liên quan cũng sẽ được cập nhật.</div>
       <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
           <div class="field-group flex-shrink-0">
-              <div class="field-label">Chọn danh mục để sửa</div>
-              <select id="iconPickerSelect" class="field-input"><option value="">-- Chọn danh mục --</option></select>
+              <div class="field-label">Chọn hoặc tạo danh mục</div>
+              <select id="iconPickerSelect" class="field-input"><option value="">-- Chọn hoặc tạo danh mục --</option></select>
           </div>
           <div class="field-group flex-shrink-0" id="newCategoryInputGroup" style="display: none; animation: fadeIn 0.3s ease;">
-              <div class="field-label" style="color: var(--primary-light);">Tạo tên danh mục mới</div>
-              <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Học phí, Du lịch...">
+              <div class="field-label" style="color: var(--primary-light);">Tên danh mục</div>
+              <input type="text" id="iconPickerCategory" class="field-input" placeholder="VD: Ăn ngoài, Du lịch, Hóa đơn...">
           </div>
-          <div class="field-label flex-shrink-0">Icon phân loại</div>
+          <div class="field-label flex-shrink-0">Icon danh mục</div>
           <div id="iconGridContainer" class="icon-grid icon-grid-scrollable"></div>
           <div class="field-group flex-shrink-0" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
-              <div class="field-label">Thêm từ khóa (Gõ phẩy hoặc Enter để tạo)</div>
+              <div class="field-label">Từ khóa nhận diện (gõ phẩy hoặc Enter để thêm)</div>
               <div class="field-input tag-input-container">
                   <span id="tagsWrapper" style="display: flex; flex-wrap: wrap; gap: 6px;"></span>
                   <input type="text" id="tagInputField" class="tag-input-field" placeholder="VD: ăn sáng, ăn trưa...">
@@ -537,7 +538,7 @@
       <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0; align-items: stretch;">
           <button class="btn-danger-outline flex-shrink-0 m-0" id="deleteCategoryBtn" style="display: none; padding: 14px 0; border-radius: 12px; flex-basis: 44px;"><i class="fas fa-trash"></i></button>
           <button class="btn-cancel m-0 flex-1" onclick="closeIconPickerModal()"><i class="fas fa-times"></i> Đóng</button>
-          <button class="btn-save m-0 flex-1" id="saveIconPickerBtn"><i class="fas fa-save"></i> Áp dụng</button>
+          <button class="btn-save m-0 flex-1" id="saveIconPickerBtn"><i class="fas fa-save"></i> Lưu thay đổi</button>
       </div>
     </div>
 
