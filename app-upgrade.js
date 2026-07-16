@@ -3,7 +3,7 @@
 // ----------------------------------------------------------------------------
 // 1) Tab 1: bấm dòng ngày -> bảng chọn ngày GỐC của OS.
 // 2) Nút ＋ (FAB): Thêm thu nhập / chi tiêu / Cài đặt / Giới thiệu.
-// 3) Cài đặt / Giới thiệu dạng trang toàn màn hình (Quay Lại bên phải + vuốt).
+// 3) Cài đặt / Giới thiệu dạng trang toàn màn hình (Quay lại bên phải + vuốt).
 // 4) Tab 2: ẩn/hiện lịch + mũi tên tiến/lùi (chặn kỳ không có dữ liệu).
 // 5) Ngày dd/MM/yyyy ở form Thêm/Sửa.
 // 6) Nút đóng ✕ cho modal.
@@ -718,7 +718,7 @@
       if (!b.querySelector('.fs-back-label')) {
         var s = document.createElement('span');
         s.className = 'fs-back-label';
-        s.textContent = 'Quay Lại';
+        s.textContent = 'Quay lại';
         b.appendChild(s);
       }
     });
