@@ -238,6 +238,87 @@ window.deleteTransaction = function(id) {
 // TÍNH NĂNG CỪA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
+
+// Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
+// Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
+async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
+    if (!oldCat || !newCat || oldCat === newCat) return;
+
+    let allData = null;
+    try {
+        allData = await secureFetch('/transactions.json');
+    } catch (e) {
+        console.log('Không đọc được toàn bộ transactions để đổi danh mục:', e);
+        throw new Error('Không đọc được dữ liệu giao dịch Firebase để đổi tên danh mục');
+    }
+
+    if (!allData || typeof allData !== 'object') return;
+
+    for (const year of Object.keys(allData)) {
+        const yearData = allData[year];
+        if (!yearData || typeof yearData !== 'object') continue;
+
+        for (const monthKey of Object.keys(yearData)) {
+            const monthData = yearData[monthKey];
+            if (!monthData || typeof monthData !== 'object') continue;
+
+            let changed = false;
+            Object.keys(monthData).forEach(id => {
+                const tx = monthData[id];
+                if (tx && tx.category === oldCat) {
+                    tx.category = newCat;
+                    changed = true;
+                }
+            });
+
+            if (changed) {
+                await secureFetch(`/transactions/${year}/${monthKey}.json`, 'PUT', monthData);
+            }
+        }
+    }
+}
+
+// Lưu cấu hình danh mục lên Firebase trước, sau đó GAS chỉ backup Google Sheet.
+async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws) {
+    let existingKeywords = [];
+    let oldData = null;
+
+    if (oldCat) {
+        try {
+            oldData = await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`);
+        } catch (e) {
+            oldData = null;
+        }
+    }
+
+    if (oldData && oldData.keywords) {
+        existingKeywords = String(oldData.keywords).split(',').map(k => k.trim()).filter(k => k);
+    }
+
+    if (newKws && newKws.trim()) {
+        newKws.split(',').forEach(k => {
+            const clean = k.trim();
+            if (clean) existingKeywords.push(clean);
+        });
+    }
+
+    const finalKeywords = window.normalizeKeywordList
+        ? window.normalizeKeywordList(existingKeywords)
+        : [...new Set(existingKeywords.map(k => k.toLowerCase()))].sort((a, b) => a.localeCompare(b, 'vi')).join(', ');
+
+    await secureFetch(`/categories/${encodeURIComponent(newCat)}.json`, 'PUT', {
+        icon: selectedIcon,
+        keywords: finalKeywords || ''
+    });
+
+    if (oldCat && oldCat !== newCat) {
+        await renameCategoryInFirebaseTransactions(oldCat, newCat);
+        await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`, 'DELETE');
+    }
+
+    return finalKeywords;
+}
+
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -355,24 +436,10 @@ window.openIconPickerModal = function() {
                 showLoading(true, 'tab3');
 
                 try {
-                    const payload = {
-                        action: 'saveCategory',
-                        oldCategory: oldCat,
-                        newCategory: newCat,
-                        icon: selectedIcon,
-                        keywords: newKws,
-                        sheetId: sheetId
-                    };
+                    // 1) Firebase là nguồn chính: lưu danh mục + đổi transactions nhiều năm qua secureFetch trước.
+                    const finalKeywords = await saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws);
 
-                    const res = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
-                        method: 'POST',
-                        body: JSON.stringify(payload)
-                    });
-
-                    let result = {};
-                    try { result = await res.json(); } catch (e) { result = {}; }
-                    if (result && result.success === false) throw new Error(result.error || 'Không lưu được danh mục');
-
+                    // 2) Cập nhật map icon local để giao diện đổi ngay.
                     if (oldCat && oldCat !== newCat) {
                         delete window.customCategoryIcons[oldCat];
                         delete window.categoryIconMap[oldCat];
@@ -380,6 +447,7 @@ window.openIconPickerModal = function() {
                     window.customCategoryIcons[newCat] = selectedIcon;
                     window.categoryIconMap[newCat] = selectedIcon;
 
+                    // 3) Nếu đổi tên danh mục, cập nhật cache giao dịch đang hiển thị.
                     if (oldCat && oldCat !== newCat) {
                         [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
                             if (!arr) return;
@@ -400,6 +468,33 @@ window.openIconPickerModal = function() {
                     if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
                     if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
                     if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+                    // 4) Backup Google Sheet ở nền. GAS chỉ cập nhật Sheet hiện tại, không ghi Firebase.
+                    fetch(proxyUrl + encodeURIComponent(apiUrl), {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'saveCategory',
+                            oldCategory: oldCat,
+                            newCategory: newCat,
+                            icon: selectedIcon,
+                            keywords: newKws,
+                            finalKeywords: finalKeywords,
+                            sheetId: sheetId
+                        })
+                    }).then(async res => {
+                        try {
+                            const result = await res.json();
+                            if (result && result.success === false) {
+                                triggerHapticNotification('warning');
+                                showToast('Đã lưu Firebase, nhưng backup Google Sheet lỗi: ' + (result.error || 'Không rõ lỗi'), 'warning');
+                            }
+                        } catch (e) {}
+                    }).catch(err => {
+                        console.log('Lỗi backup danh mục xuống Google Sheet:', err);
+                        triggerHapticNotification('warning');
+                        showToast('Đã lưu Firebase, nhưng backup Google Sheet đang lỗi.', 'warning');
+                    });
+
                 } catch(e) {
                     showToast('Lỗi lưu danh mục: ' + e.message, 'error');
                 } finally {
@@ -410,7 +505,7 @@ window.openIconPickerModal = function() {
             if (oldCat && oldCat !== newCat) {
                 showCustomConfirm(
                     'Đổi tên danh mục',
-                    `Bạn có chắc muốn đổi danh mục <b>${escapeHTML(oldCat)}</b> thành <b>${escapeHTML(newCat)}</b>?<br><br>Tất cả giao dịch thuộc danh mục cũ cũng sẽ được cập nhật.`,
+                    `Bạn có chắc muốn đổi danh mục <b>${escapeHTML(oldCat)}</b> thành <b>${escapeHTML(newCat)}</b>?<br><br>Tất cả giao dịch trên Firebase thuộc danh mục cũ ở mọi năm cũng sẽ được cập nhật. Google Sheet hiện tại sẽ được backup sau.`,
                     'Đổi tên',
                     doSaveCategory
                 );
