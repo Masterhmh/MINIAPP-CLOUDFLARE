@@ -329,45 +329,94 @@ window.openIconPickerModal = function() {
         }
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
-            if (window.commitTagInput) window.commitTagInput(); // chốt nốt từ khóa đang gõ dở trước khi lưu
-            const cat = catInput.value.trim();
+            if (window.commitTagInput) window.commitTagInput();
+
+            const oldCat = (modal.getAttribute('data-original-category') || '').trim();
+            const newCat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
             const newKws = hiddenKeywords ? hiddenKeywords.value : "";
-            
-            if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
+
+            if (!newCat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
-            
-            triggerHaptic('medium'); showLoading(true, 'tab3');
-            try {
-                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon (qua cổng bảo mật)
-                await secureFetch(`/categories/${encodeURIComponent(cat)}/icon.json`, 'PUT', selectedIcon);
-                window.customCategoryIcons[cat] = selectedIcon; 
-                window.categoryIconMap[cat] = selectedIcon;
 
-                // 2) Nếu có từ khóa mới -> GỘP với danh sách hiện có rồi ghi THẲNG Firebase.
-                //    Đọc /keywords hiện có + gộp + chuẩn hóa GIỐNG HỆT GAS updateCategoryIcon
-                //    (gộp thêm, bỏ trùng, sort tiếng Việt) nên Firebase và Sheet luôn hội tụ.
-                if (newKws && newKws.trim()) {
-                    let existing = [];
-                    try {
-                        const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
-                        existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
-                    } catch (err) { /* không đọc được -> coi như chưa có từ khóa */ }
-                    newKws.split(',').forEach(k => existing.push(k));
-                    const normalized = window.normalizeKeywordList(existing);
-                    await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', normalized);
+            const existingCats = Array.from(document.getElementById('keywordCategory').options)
+                .map(opt => opt.value)
+                .filter(v => v);
+
+            const isDuplicate = existingCats.some(c =>
+                c.toLowerCase() === newCat.toLowerCase() &&
+                c.toLowerCase() !== oldCat.toLowerCase()
+            );
+
+            if (isDuplicate) return showToast('Tên danh mục này đã tồn tại!', 'warning');
+
+            const doSaveCategory = async () => {
+                triggerHaptic('medium');
+                showLoading(true, 'tab3');
+
+                try {
+                    const payload = {
+                        action: 'saveCategory',
+                        oldCategory: oldCat,
+                        newCategory: newCat,
+                        icon: selectedIcon,
+                        keywords: newKws,
+                        sheetId: sheetId
+                    };
+
+                    const res = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+
+                    let result = {};
+                    try { result = await res.json(); } catch (e) { result = {}; }
+                    if (result && result.success === false) throw new Error(result.error || 'Không lưu được danh mục');
+
+                    if (oldCat && oldCat !== newCat) {
+                        delete window.customCategoryIcons[oldCat];
+                        delete window.categoryIconMap[oldCat];
+                    }
+                    window.customCategoryIcons[newCat] = selectedIcon;
+                    window.categoryIconMap[newCat] = selectedIcon;
+
+                    if (oldCat && oldCat !== newCat) {
+                        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
+                            if (!arr) return;
+                            arr.forEach(tx => { if (tx.category === oldCat) tx.category = newCat; });
+                        });
+                    }
+
+                    window.dayTxCache = {};
+                    window.apiTxCache = {};
+                    window.monthDataCache = {};
+                    tab2NeedsReload = true;
+
+                    showToast('Đã lưu thay đổi danh mục!', 'success');
+                    closeIconPickerModal();
+                    await window.initCategories(true);
+                    window.loadKeywords(false);
+
+                    if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
+                    if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
+                    if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+                } catch(e) {
+                    showToast('Lỗi lưu danh mục: ' + e.message, 'error');
+                } finally {
+                    showLoading(false, 'tab3');
                 }
+            };
 
-                // 3) Cập nhật giao diện NGAY (không chờ Google Sheet)
-                showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
-                await window.initCategories(true); window.loadKeywords(false); 
-                if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
-                if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
-
-                // 4) Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS updateCategoryIcon) — không chặn UI, chỉ để backup sheet
-                fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: newKws, sheetId: sheetId }) })
-                    .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
-            } catch(e) { showToast('Lỗi cập nhật icon: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+            if (oldCat && oldCat !== newCat) {
+                showCustomConfirm(
+                    'Đổi tên danh mục',
+                    `Bạn có chắc muốn đổi danh mục <b>${escapeHTML(oldCat)}</b> thành <b>${escapeHTML(newCat)}</b>?<br><br>Tất cả giao dịch thuộc danh mục cũ cũng sẽ được cập nhật.`,
+                    'Đổi tên',
+                    doSaveCategory
+                );
+            } else {
+                await doSaveCategory();
+            }
         };
 
         document.getElementById('deleteCategoryBtn').onclick = () => {
@@ -480,14 +529,22 @@ window.openIconPickerModal = function() {
             tagArea.style.display = 'block';
             delBtn.style.display = 'none';
             catInput.value = '';
+            modal.removeAttribute('data-original-category');
+            pendingTags = [];
+            if (window.renderTags) window.renderTags();
             catInput.focus();
             updateIconState(''); 
         } else {
-            catInputGroup.style.display = 'none';
-            tagArea.style.display = 'none';
-            delBtn.style.display = e.target.value ? 'flex' : 'none';
-            catInput.value = e.target.value;
-            updateIconState(e.target.value);
+            const selectedCategory = e.target.value || '';
+            catInputGroup.style.display = selectedCategory ? 'block' : 'none';
+            tagArea.style.display = selectedCategory ? 'block' : 'none';
+            delBtn.style.display = selectedCategory ? 'flex' : 'none';
+            catInput.value = selectedCategory;
+            if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
+            else modal.removeAttribute('data-original-category');
+            pendingTags = [];
+            if (window.renderTags) window.renderTags();
+            updateIconState(selectedCategory);
         }
     };
 
@@ -497,9 +554,10 @@ window.openIconPickerModal = function() {
     if(currentSelected) {
         catSelect.value = currentSelected;
         catInput.value = currentSelected;
-        catInputGroup.style.display = 'none';
-        tagArea.style.display = 'none';
+        catInputGroup.style.display = 'block';
+        tagArea.style.display = 'block';
         delBtn.style.display = 'flex';
+        modal.setAttribute('data-original-category', currentSelected);
         updateIconState(currentSelected);
     } else {
         catSelect.value = '';
@@ -507,6 +565,7 @@ window.openIconPickerModal = function() {
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'none';
         delBtn.style.display = 'none';
+        modal.removeAttribute('data-original-category');
         updateIconState('');
     }
     
