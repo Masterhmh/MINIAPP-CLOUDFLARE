@@ -184,53 +184,65 @@ async function submitTx(tx) {
   }
 }
 
-window.deleteTransaction = function(id) {
-  closeEditForm(); triggerHaptic('medium'); 
+window.deleteTransaction = function(id, opts = {}) {
+  if (!opts.fromSearch) closeEditForm(); // Xoá từ modal Tìm kiếm thì KHÔNG đụng modalOverlay (dùng chung) để không làm mất nền modal
+  triggerHaptic('medium'); 
   
   showCustomConfirm(
-      'Xóa giao dịch',
-      `Bạn có chắc chắn muốn xóa giao dịch <strong>#${escapeHTML(id)}</strong> này không?`,
-      'Xóa',
-      async () => {
-          // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
-          let tx = null;
-          if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
-          if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
-          if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
+    'Xóa giao dịch',
+    `Bạn có chắc chắn muốn xóa giao dịch #${escapeHTML(id)} này không?`,
+    'Xóa',
+    async () => {
+      // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
+      let tx = null;
+      if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
+      if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
+      if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
 
-          // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
-          if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
-              triggerHapticNotification('error');
-              showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
-              return;
-          }
-          const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
-          const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
-
-          showToast("Đang xóa giao dịch...", "info");
-          try {
-              // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
-              await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
-
-              // Xóa thành công -> giờ mới gỡ khỏi cache + render lại
-              [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
-              if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
-
-              triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
-              window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
-              window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-              window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
-
-              // Bắn tín hiệu về Bot
-              if (tx) notifyTelegram('delete', tx);
-
-              // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
-              postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
-          } catch(e) {
-              triggerHapticNotification('error');
-              showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
-          }
+      // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
+      if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
+        triggerHapticNotification('error');
+        showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
+        return;
       }
+      const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
+      const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
+
+      showToast("Đang xóa giao dịch...", "info");
+      try {
+        // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
+        await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
+
+        // Xóa thành công -> giờ mới gỡ khỏi cache
+        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
+
+        // Nếu modal Tìm kiếm đang mở -> GIỮ NGUYÊN modal, chỉ cập nhật lại danh sách kết quả (vd 14 -> 13)
+        const searchModalEl = document.getElementById('searchModal');
+        const searchOpen = opts.fromSearch || (searchModalEl && searchModalEl.classList.contains('show'));
+        if (searchOpen) {
+          const totalPages = Math.max(1, Math.ceil((cachedSearchResults?.length || 0) / itemsPerPage));
+          if (currentPageSearch > totalPages) currentPageSearch = totalPages; // tránh đứng ở trang trống sau khi xoá
+          displaySearchResults();
+        }
+
+        // Cập nhật lại tab nền đang mở để dữ liệu vẫn đồng bộ khi đóng modal
+        if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+        triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
+        window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
+        window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
+        window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+
+        // Bắn tín hiệu về Bot
+        if (tx) notifyTelegram('delete', tx);
+
+        // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
+        postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
+      } catch(e) {
+        triggerHapticNotification('error');
+        showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
+      }
+    }
   );
 };
 
