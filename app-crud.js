@@ -521,15 +521,35 @@ window.openIconPickerModal = function() {
             // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // iOS/Telegram: cham thang vao <input> doi khi khong tu bat ban phim.
-            // Vi vay bat su kien cham vao CA vung o (.tag-input-container) roi ep focus vao input
-            // => cham vao o la go duoc ngay, khong can nut + nua.
+            // iOS/Telegram: chạm vào vùng tags/input phải focus đúng vào ô nhập từ khoá
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
+
+                const focusTagInput = (e) => {
+                    if (e) {
+                        if (typeof e.preventDefault === 'function') e.preventDefault();
+                        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+                    }
+                    setTimeout(() => {
+                        try { tagInputField.focus({ preventScroll: true }); }
+                        catch (_) { try { tagInputField.focus(); } catch (__) {} }
+                    }, 0);
+                };
+
+                tagBoxEl.addEventListener('touchstart', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bấm X xoá tag
+                    focusTagInput(e);
+                }, { passive: false });
+
+                tagBoxEl.addEventListener('mousedown', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                    focusTagInput(e);
+                });
+
                 tagBoxEl.addEventListener('click', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bam X xoa tag thi bo qua
-                    tagInputField.focus();
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                    focusTagInput(e);
                 });
             }
 
