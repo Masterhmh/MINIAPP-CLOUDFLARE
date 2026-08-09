@@ -9,7 +9,41 @@
 //   currency.js (formatNumberWithCommas dùng ở app-core). Tương tác với
 //   displayTransactions/updateTimeNavUI/displaySearchResults (app-reports.js).
 // Thứ tự nạp: sau app-reports.js.
+// ----------------------------------------------------------------------------
+// CẬP NHẬT:
+//   [A] window.refreshAllData(): sau MỌI thêm/sửa/xóa giao dịch hoặc đổi
+//       danh mục/từ khóa -> xoá sạch cache và ĐỌC LẠI từ Firebase. Không còn
+//       tình trạng sửa ngày xong danh sách cũ vẫn hiển thị (phải tắt/mở app).
+//   [B] Icon Picker: chọn danh mục CÓ SẴN sẽ hiện luôn danh sách từ khóa của
+//       danh mục đó để sửa/xóa trực tiếp; danh sách trên màn hình là danh sách
+//       cuối cùng (xoá thẻ = xoá từ khóa), đồng bộ Sheet theo đúng phần thêm/bớt.
 // ============================================================================
+
+// ---------------- [A] LÀM MỚI TOÀN BỘ DỮ LIỆU SAU MỌI THAY ĐỔI ----------------
+// Xoá sạch mọi tầng cache rồi tải lại tab đang mở từ Firebase.
+window.refreshAllData = async function () {
+    window.dayTxCache = {};            // cache Tab 1 theo ngày (app-reports.js)
+    window.apiTxCache = {};            // cache theo khoảng ngày (Tab 2)
+    window.monthDataCache = {};        // cache năm_tháng (app-core.js)
+    window.__yearHasDataCache = {};    // cache của app-upgrade.js
+    window.__yearFetchInFlight = {};
+    window.__navBoundsPromise = null;
+    cachedTransactions = null;
+    cachedChartData = null;
+    tab2NeedsReload = true;
+
+    const active = id => !!document.getElementById(id) && document.getElementById(id).classList.contains('active');
+    try {
+        if (active('tab1')) {
+            await window.fetchTransactions(true);            // ép tải lại ngày đang xem
+        } else if (active('tab2')) {
+            updateTimeNavUI();
+        } else if (active('tab3') && cachedSearchResults && cachedSearchResults.length
+                   && typeof window.rerunSearch === 'function') {
+            await window.rerunSearch();                      // chạy lại tìm kiếm cho khớp dữ liệu mới
+        }
+    } catch (e) { console.log('refreshAllData:', e); }
+};
 
 // ---------------- TAB TỪ KHÓA ----------------
 window.loadKeywords = async function(isInit = false) {
@@ -101,8 +135,6 @@ window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearc
 
 // Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
 // /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
-// Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
-// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
 async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
     const consider = (id, dateStr) => {
@@ -132,8 +164,7 @@ async function getNextTransactionId(month, year) {
     return "GD" + String(nextNum).padStart(3, '0');
 }
 
-// Gửi POST sang Google Sheet (GAS) CÓ KIỂM TRA + THỬ LẠI; trả về true nếu thành công, false nếu thất bại.
-// Tránh "nuốt" lỗi đồng bộ sheet một cách im lặng (chống lệch dữ liệu Firebase <-> Google Sheet).
+// Gửi POST sang Google Sheet (GAS) CÓ KIỂM TRA + THỬ LẠI; trả về true nếu thành công.
 async function postToSheetWithRetry(payload, retries = 2) {
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
@@ -158,23 +189,28 @@ async function submitTx(tx) {
     if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month, year); }
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
-    // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới cập nhật giao diện
+    // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại
     await secureFetch(`/transactions/${year}/month_${month}/${tx.id}.json`, 'PUT', fbTx);
 
-    // Ghi thành công -> mới đụng vào cache + render
-    if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); }
-    else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
-    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+    // [A] Ghi thành công -> KHÔNG vá cache tay nữa: xoá cache + ĐỌC LẠI từ Firebase
+    triggerHapticNotification('success');
+    showToast("Đã lưu giao dịch!", "success");
 
-    triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
-    window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
-    window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-    window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+    // Nếu người dùng đổi ngày -> nói rõ giao dịch đã chuyển sang ngày khác
+    const viewing = document.getElementById('transactionDate')?.value; // yyyy-mm-dd
+    if (viewing) {
+        const [vy, vm, vd] = viewing.split('-');
+        if (`${vd}/${vm}/${vy}` !== formatDate(tx.date)) {
+            showToast(`Giao dịch đã chuyển sang ngày ${formatDate(tx.date)}`, 'info');
+        }
+    }
+
+    await window.refreshAllData();
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
 
-    // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại thay vì nuốt lỗi im lặng
+    // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
     postToSheetWithRetry(tx).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning'); } });
     return true;
   } catch(e) {
@@ -184,152 +220,74 @@ async function submitTx(tx) {
   }
 }
 
-window.deleteTransaction = function(id, opts = {}) {
-  if (!opts.fromSearch) closeEditForm(); // Xoá từ modal Tìm kiếm thì KHÔNG đụng modalOverlay (dùng chung) để không làm mất nền modal
-  triggerHaptic('medium'); 
+window.deleteTransaction = function(id) {
+  closeEditForm(); triggerHaptic('medium'); 
   
   showCustomConfirm(
-    'Xóa giao dịch',
-    `Bạn có chắc chắn muốn xóa giao dịch #${escapeHTML(id)} này không?`,
-    'Xóa',
-    async () => {
-      // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
-      let tx = null;
-      if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
-      if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
-      if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
+      'Xóa giao dịch',
+      `Bạn có chắc chắn muốn xóa giao dịch <strong>#${escapeHTML(id)}</strong> này không?`,
+      'Xóa',
+      async () => {
+          // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot
+          let tx = null;
+          if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
+          if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
+          if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
 
-      // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
-      if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
-        triggerHapticNotification('error');
-        showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
-        return;
+          // An toàn dữ liệu: không xác định chắc chắn được tháng thì DỪNG
+          if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
+              triggerHapticNotification('error');
+              showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
+              return;
+          }
+          const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
+          const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
+
+          showToast("Đang xóa giao dịch...", "info");
+          try {
+              // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật)
+              await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
+
+              // [A] Xóa thành công -> xoá cache + ĐỌC LẠI từ Firebase
+              triggerHapticNotification('success');
+              showToast("Đã xóa giao dịch!", "success");
+              await window.refreshAllData();
+
+              // Bắn tín hiệu về Bot
+              if (tx) notifyTelegram('delete', tx);
+
+              // Đồng bộ xóa trên Google Sheet (nền)
+              postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
+          } catch(e) {
+              triggerHapticNotification('error');
+              showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
+          }
       }
-      const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
-      const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
-
-      showToast("Đang xóa giao dịch...", "info");
-      try {
-        // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
-        await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
-
-        // Xóa thành công -> giờ mới gỡ khỏi cache
-        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
-
-        // Nếu modal Tìm kiếm đang mở -> GIỮ NGUYÊN modal, chỉ cập nhật lại danh sách kết quả (vd 14 -> 13)
-        const searchModalEl = document.getElementById('searchModal');
-        const searchOpen = opts.fromSearch || (searchModalEl && searchModalEl.classList.contains('show'));
-        if (searchOpen) {
-          const totalPages = Math.max(1, Math.ceil((cachedSearchResults?.length || 0) / itemsPerPage));
-          if (currentPageSearch > totalPages) currentPageSearch = totalPages; // tránh đứng ở trang trống sau khi xoá
-          displaySearchResults();
-        }
-
-        // Cập nhật lại tab nền đang mở để dữ liệu vẫn đồng bộ khi đóng modal
-        if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
-
-        triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
-        window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
-        window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-        window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
-
-        // Bắn tín hiệu về Bot
-        if (tx) notifyTelegram('delete', tx);
-
-        // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
-        postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
-      } catch(e) {
-        triggerHapticNotification('error');
-        showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
-      }
-    }
   );
 };
 
 // ==========================================
-// TÍNH NĂNG CỪA SỔ "ICON PICKER"
+// TÍNH NĂNG CỬA SỔ "ICON PICKER"
 // ==========================================
 let pendingTags = [];
 
-// Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
-// Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
-async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
-    if (!oldCat || !newCat || oldCat === newCat) return;
+// [B] Trạng thái đang sửa danh mục CÓ SẴN + bản gốc danh sách từ khóa
+window.__editingExistingCat = null;
+window.__originalTags = [];
 
-    let allData = null;
+// [B] Nạp danh sách từ khóa hiện có của 1 danh mục vào khu thẻ để sửa/xóa trực tiếp
+window.loadTagsForCategory = async function (cat) {
+    pendingTags = [];
+    if (window.renderTags) window.renderTags();
+    if (!cat) { window.__editingExistingCat = null; window.__originalTags = []; return; }
+    window.__editingExistingCat = cat;
     try {
-        allData = await secureFetch('/transactions.json');
-    } catch (e) {
-        console.log('Không đọc được toàn bộ transactions để đổi danh mục:', e);
-        throw new Error('Không đọc được dữ liệu giao dịch Firebase để đổi tên danh mục');
-    }
-
-    if (!allData || typeof allData !== 'object') return;
-
-    for (const year of Object.keys(allData)) {
-        const yearData = allData[year];
-        if (!yearData || typeof yearData !== 'object') continue;
-
-        for (const monthKey of Object.keys(yearData)) {
-            const monthData = yearData[monthKey];
-            if (!monthData || typeof monthData !== 'object') continue;
-
-            let changed = false;
-            Object.keys(monthData).forEach(id => {
-                const tx = monthData[id];
-                if (tx && tx.category === oldCat) {
-                    tx.category = newCat;
-                    changed = true;
-                }
-            });
-
-            if (changed) {
-                await secureFetch(`/transactions/${year}/${monthKey}.json`, 'PUT', monthData);
-            }
-        }
-    }
-}
-
-// Lưu cấu hình danh mục lên Firebase trước, sau đó GAS chỉ backup Google Sheet.
-async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws) {
-    let existingKeywords = [];
-    let oldData = null;
-
-    if (oldCat) {
-        try {
-            oldData = await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`);
-        } catch (e) {
-            oldData = null;
-        }
-    }
-
-    if (oldData && oldData.keywords) {
-        existingKeywords = String(oldData.keywords).split(',').map(k => k.trim()).filter(k => k);
-    }
-
-    if (newKws && newKws.trim()) {
-        newKws.split(',').forEach(k => {
-            const clean = k.trim();
-            if (clean) existingKeywords.push(clean);
-        });
-    }
-
-    const finalKeywords = window.normalizeKeywordList
-        ? window.normalizeKeywordList(existingKeywords)
-        : [...new Set(existingKeywords.map(k => k.toLowerCase()))].sort((a, b) => a.localeCompare(b, 'vi')).join(', ');
-
-    await secureFetch(`/categories/${encodeURIComponent(newCat)}.json`, 'PUT', {
-        icon: selectedIcon,
-        keywords: finalKeywords || ''
-    });
-
-    if (oldCat && oldCat !== newCat) {
-        await renameCategoryInFirebaseTransactions(oldCat, newCat);
-        await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`, 'DELETE');
-    }
-
-    return finalKeywords;
-}
+        const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
+        pendingTags = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
+    } catch (e) { /* không đọc được -> coi như chưa có từ khóa */ }
+    window.__originalTags = pendingTags.slice();   // bản gốc, để tính từ khóa bị xoá khi đồng bộ Sheet
+    if (window.renderTags) window.renderTags();
+};
 
 window.openIconPickerModal = function() {
     triggerHaptic('light');
@@ -380,7 +338,6 @@ window.openIconPickerModal = function() {
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
 
         // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
-        // Dùng chung cho: bấm Enter/phẩy, rời ô, và ngay trước khi Áp dụng -> KHÔNG mất từ khóa.
         window.commitTagInput = function() {
             if (!tagInputField) return;
             const rawVal = tagInputField.value.trim();
@@ -399,12 +356,10 @@ window.openIconPickerModal = function() {
                     pendingTags.pop(); window.renderTags();
                 }
             });
-            // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
+            // Rời ô -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // iOS/Telegram: cham thang vao <input> doi khi khong tu bat ban phim.
-            // Vi vay bat su kien cham vao CA vung o (.tag-input-container) roi ep focus vao input
-            // => cham vao o la go duoc ngay, khong can nut + nua.
+            // iOS/Telegram: cham vao CA vung o roi ep focus vao input
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
@@ -414,116 +369,64 @@ window.openIconPickerModal = function() {
                 });
             }
 
-            // Nhãn hướng dẫn (chạm vào ô là gõ được; xong bấm Enter hoặc dấu phẩy)
             const tagLabel = document.querySelector('#tagInputArea .field-label');
-            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
-            // Cum chu vi du trong o nhap tu khoa
+            if (tagLabel) tagLabel.textContent = 'Từ khóa của danh mục (chạm vào ô để thêm; bấm ✕ trên thẻ để xoá)';
             tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
         }
         
         document.getElementById('saveIconPickerBtn').onclick = async () => {
-            if (window.commitTagInput) window.commitTagInput();
-
-            const oldCat = (modal.getAttribute('data-original-category') || '').trim();
-            const newCat = catInput.value.trim();
+            if (window.commitTagInput) window.commitTagInput(); // chốt nốt từ khóa đang gõ dở trước khi lưu
+            const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
-            const newKws = hiddenKeywords ? hiddenKeywords.value : "";
-
-            if (!newCat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
+            
+            if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
+            
+            triggerHaptic('medium'); showLoading(true, 'tab3');
+            try {
+                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon (qua cổng bảo mật)
+                await secureFetch(`/categories/${encodeURIComponent(cat)}/icon.json`, 'PUT', selectedIcon);
+                window.customCategoryIcons[cat] = selectedIcon; 
+                window.categoryIconMap[cat] = selectedIcon;
 
-            const existingCats = Array.from(document.getElementById('keywordCategory').options)
-                .map(opt => opt.value)
-                .filter(v => v);
-
-            const isDuplicate = existingCats.some(c =>
-                c.toLowerCase() === newCat.toLowerCase() &&
-                c.toLowerCase() !== oldCat.toLowerCase()
-            );
-
-            if (isDuplicate) return showToast('Tên danh mục này đã tồn tại!', 'warning');
-
-            const doSaveCategory = async () => {
-                triggerHaptic('medium');
-                showLoading(true, 'tab3');
-
-                try {
-                    // 1) Firebase là nguồn chính: lưu danh mục + đổi transactions nhiều năm qua secureFetch trước.
-                    const finalKeywords = await saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws);
-
-                    // 2) Cập nhật map icon local để giao diện đổi ngay.
-                    if (oldCat && oldCat !== newCat) {
-                        delete window.customCategoryIcons[oldCat];
-                        delete window.categoryIconMap[oldCat];
-                    }
-                    window.customCategoryIcons[newCat] = selectedIcon;
-                    window.categoryIconMap[newCat] = selectedIcon;
-
-                    // 3) Nếu đổi tên danh mục, cập nhật cache giao dịch đang hiển thị.
-                    if (oldCat && oldCat !== newCat) {
-                        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
-                            if (!arr) return;
-                            arr.forEach(tx => { if (tx.category === oldCat) tx.category = newCat; });
-                        });
-                    }
-
-                    window.dayTxCache = {};
-                    window.apiTxCache = {};
-                    window.monthDataCache = {};
-                    tab2NeedsReload = true;
-
-                    showToast('Đã lưu thay đổi danh mục!', 'success');
-                    closeIconPickerModal();
-                    await window.initCategories(true);
-                    window.loadKeywords(false);
-
-                    if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
-                    if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
-                    if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
-
-                    // 4) Backup Google Sheet ở nền. GAS chỉ cập nhật Sheet hiện tại, không ghi Firebase.
-                    fetch(proxyUrl + encodeURIComponent(apiUrl), {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            action: 'saveCategory',
-                            oldCategory: oldCat,
-                            newCategory: newCat,
-                            icon: selectedIcon,
-                            keywords: newKws,
-                            finalKeywords: finalKeywords,
-                            sheetId: sheetId
-                        })
-                    }).then(async res => {
-                        try {
-                            const result = await res.json();
-                            if (result && result.success === false) {
-                                triggerHapticNotification('warning');
-                                showToast('Đã lưu Firebase, nhưng backup Google Sheet lỗi: ' + (result.error || 'Không rõ lỗi'), 'warning');
-                            }
-                        } catch (e) {}
-                    }).catch(err => {
-                        console.log('Lỗi backup danh mục xuống Google Sheet:', err);
-                        triggerHapticNotification('warning');
-                        showToast('Đã lưu Firebase, nhưng backup Google Sheet đang lỗi.', 'warning');
-                    });
-
-                } catch(e) {
-                    showToast('Lỗi lưu danh mục: ' + e.message, 'error');
-                } finally {
-                    showLoading(false, 'tab3');
+                // 2) [B] TỪ KHÓA
+                const newList = pendingTags.map(k => String(k).trim()).filter(k => k);
+                const editingExisting = (window.__editingExistingCat === cat);
+                let finalStr;
+                if (editingExisting) {
+                    // Danh mục CÓ SẴN: danh sách đang hiện LÀ danh sách cuối cùng -> xoá thẻ = xoá từ khóa
+                    finalStr = window.normalizeKeywordList(newList);
+                } else {
+                    // Danh mục MỚI: gộp thêm với danh sách hiện có (như trước)
+                    let existing = [];
+                    try {
+                        const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
+                        existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
+                    } catch (err) { /* chưa có -> bỏ qua */ }
+                    finalStr = window.normalizeKeywordList(existing.concat(newList));
                 }
-            };
+                await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', finalStr);
 
-            if (oldCat && oldCat !== newCat) {
-                showCustomConfirm(
-                    'Đổi tên danh mục',
-                    `Bạn có chắc muốn đổi danh mục <b>${escapeHTML(oldCat)}</b> thành <b>${escapeHTML(newCat)}</b>?<br><br>Tất cả giao dịch trên Firebase thuộc danh mục cũ ở mọi năm cũng sẽ được cập nhật. Google Sheet hiện tại sẽ được backup sau.`,
-                    'Đổi tên',
-                    doSaveCategory
-                );
-            } else {
-                await doSaveCategory();
-            }
+                // 3) Cập nhật giao diện NGAY (không chờ Google Sheet)
+                showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
+                await window.initCategories(true);
+                await window.loadKeywords(false);
+                await window.refreshAllData();
+
+                // 4) Đồng bộ Google Sheet ở NỀN theo ĐÚNG phần thêm/bớt (dùng GAS sẵn có)
+                const oldArr   = (window.__originalTags || []).map(k => k.trim().toLowerCase()).filter(k => k);
+                const finalArr = finalStr ? finalStr.split(',').map(k => k.trim()).filter(k => k) : [];
+                const removed  = editingExisting ? oldArr.filter(k => !finalArr.includes(k)) : [];
+                const added    = finalArr.filter(k => !oldArr.includes(k));
+                const post = (payload) => fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(payload) });
+                (async () => {
+                    try {
+                        await post({ action: 'updateCategoryIcon', category: cat, icon: selectedIcon, newKeywords: '', sheetId: sheetId });
+                        for (const k of removed) await post({ action: 'deleteKeyword', category: cat, keyword: k, sheetId: sheetId });
+                        if (added.length) await post({ action: 'addKeyword', category: cat, keywords: added.join(', '), sheetId: sheetId });
+                    } catch (err) { console.log('Lỗi đồng bộ Sheet (nền):', err); }
+                })();
+            } catch(e) { showToast('Lỗi cập nhật danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
         };
 
         document.getElementById('deleteCategoryBtn').onclick = () => {
@@ -544,7 +447,9 @@ window.openIconPickerModal = function() {
                         await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
                         
                         showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
-                        await window.initCategories(false); window.loadKeywords(false);
+                        await window.initCategories(false);
+                        await window.loadKeywords(false);
+                        await window.refreshAllData();
                     } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
                 }
             );
@@ -629,29 +534,31 @@ window.openIconPickerModal = function() {
         }
     };
 
-    catSelect.onchange = (e) => {
+    // [B] Chọn danh mục có sẵn -> hiện luôn danh sách từ khóa của nó để sửa/xóa
+    catSelect.onchange = async (e) => {
         triggerHaptic('light');
         if (e.target.value === '__NEW__') {
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
             delBtn.style.display = 'none';
             catInput.value = '';
-            modal.removeAttribute('data-original-category');
-            pendingTags = [];
-            if (window.renderTags) window.renderTags();
             catInput.focus();
-            updateIconState(''); 
+            updateIconState('');
+            window.__editingExistingCat = null; window.__originalTags = [];
+            pendingTags = []; window.renderTags();
         } else {
-            const selectedCategory = e.target.value || '';
-            catInputGroup.style.display = selectedCategory ? 'block' : 'none';
-            tagArea.style.display = selectedCategory ? 'block' : 'none';
-            delBtn.style.display = selectedCategory ? 'flex' : 'none';
-            catInput.value = selectedCategory;
-            if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
-            else modal.removeAttribute('data-original-category');
-            pendingTags = [];
-            if (window.renderTags) window.renderTags();
-            updateIconState(selectedCategory);
+            catInputGroup.style.display = 'none';
+            delBtn.style.display = e.target.value ? 'flex' : 'none';
+            catInput.value = e.target.value;
+            updateIconState(e.target.value);
+            if (e.target.value) {
+                tagArea.style.display = 'block';
+                await window.loadTagsForCategory(e.target.value);
+            } else {
+                tagArea.style.display = 'none';
+                window.__editingExistingCat = null; window.__originalTags = [];
+                pendingTags = []; window.renderTags();
+            }
         }
     };
 
@@ -661,22 +568,21 @@ window.openIconPickerModal = function() {
     if(currentSelected) {
         catSelect.value = currentSelected;
         catInput.value = currentSelected;
-        catInputGroup.style.display = 'block';
-        tagArea.style.display = 'block';
+        catInputGroup.style.display = 'none';
+        tagArea.style.display = 'block';            // [B] hiện danh sách từ khóa
         delBtn.style.display = 'flex';
-        modal.setAttribute('data-original-category', currentSelected);
         updateIconState(currentSelected);
+        window.loadTagsForCategory(currentSelected); // [B] nạp từ khóa hiện có
     } else {
         catSelect.value = '';
         catInput.value = '';
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'none';
         delBtn.style.display = 'none';
-        modal.removeAttribute('data-original-category');
         updateIconState('');
+        window.__editingExistingCat = null; window.__originalTags = [];
+        pendingTags = []; if (window.renderTags) window.renderTags();
     }
-    
-    pendingTags = []; window.renderTags();
 
     document.getElementById('modalOverlay').classList.add('show');
     setTimeout(() => modal.classList.add('show'), 10);
