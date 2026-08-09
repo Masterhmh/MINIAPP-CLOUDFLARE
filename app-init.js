@@ -1,24 +1,18 @@
 // ============================================================================
-// app-init.js — KHỞĐỘNG & GẮN SỰ KIỆN
+// app-init.js — KHỞI ĐỘNG & GẮN SỰ KIỆN
 // ----------------------------------------------------------------------------
 // Vai trò: Điểm khởi động chính của app (chạy khi DOMContentLoaded). Gắn tất
 //   cả trình xử lý sự kiện cho nút điều hướng tab, lọc thời gian, tìm kiếm,
 //   form Thêm/Sửa, cài đặt, backup, reset, đổi biểu đồ...; nạp danh mục và
 //   mở tab mặc định.
-// Phụ thuộc: TẤT CẢ các module khác phải được nạp TRƯỚC file này
-//   (app-core.js, currency.js, app-reports.js, app-crud.js, app-export.js).
-//   parseNumber lấy từ currency.js (bản strict, trả null khi nhập sai).
+// Phụ thuộc: TẤT CẢ các module khác phải được nạp TRƯỚC file này.
 // Thứ tự nạp: CUỐI CÙNG.
-//   Ghi chú: bọc fetchTransactions để hiện "—" mờ ở hero Tab 1 khi đang tải
-//   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch). Tương tự, bọc
-//   loadWeeklyReport/loadMonthlyReport/loadCustomReport để hiện "—" mờ ở
-//   các thẻ Tab 2 khi đang tải báo cáo.
+// ----------------------------------------------------------------------------
+// CẬP NHẬT: tách logic tìm kiếm ra window.rerunSearch() để refreshAllData()
+//   (app-crud.js) có thể chạy lại tìm kiếm sau mỗi lần sửa/xóa giao dịch.
 // ============================================================================
 
-// ---------------- TIỆN ÍCH TỪ KHÓA: GHI THẲNG FIREBASE (NHANH) + ĐỒNG BỘ SHEET Ở NỀN ----------------
-// Chuẩn hóa danh sách từ khóa GIỐNG HỆT GAS (trim -> lowercase -> bỏ rỗng ->
-// bỏ trùng -> sắp xếp theo tiếng Việt -> nối bằng ", ") để khi GAS đồng bộ
-// ngược từ Google Sheet về Firebase thì giá trị trùng khớp, không bị "nhảy".
+// ---------------- TIỆN ÍCH TỪ KHÓA: GHI THẲNG FIREBASE + ĐỒNG BỘ SHEET Ở NỀN ----------------
 window.normalizeKeywordList = function(arr) {
   return (arr || [])
     .map(k => String(k).trim().toLowerCase())
@@ -28,13 +22,13 @@ window.normalizeKeywordList = function(arr) {
     .join(', ');
 };
 
-// Đọc danh sách từ khóa hiện tại của 1 danh mục trực tiếp từ Firebase (qua cổng bảo mật) -> mảng
+// Đọc danh sách từ khóa hiện tại của 1 danh mục trực tiếp từ Firebase -> mảng
 async function fetchCategoryKeywords(cat) {
   const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
   return String(raw || '').split(',').map(k => k.trim()).filter(k => k);
 }
 
-// Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục (qua cổng bảo mật)
+// Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục
 async function putCategoryKeywords(cat, listStr) {
   await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', listStr);
 }
@@ -44,7 +38,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- ÁP DỤNG TRẠNG THÁI RIÊNG TƯ (Ẩn số) ĐÃ LƯU KHI VỪA MỞ APP ---
   applyPrivacyMode(); 
 
-  // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" Mờ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
+  // --- BỌC fetchTransactions ĐỂ HIỂN THỊ "—" MỜ Ở HERO CARD TAB 1 KHI ĐANG TẢI ---
   if (typeof window.fetchTransactions === 'function' && !window.__tab1LoadingWrapped) {
     window.__tab1LoadingWrapped = true;
     const _origFetchTransactions = window.fetchTransactions;
@@ -56,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" Mờ Ở CÁC THẺ TAB 2 KHI ĐANG TẢI ---
+  // --- BỌC CÁC HÀM TẢI BÁO CÁO ĐỂ HIỂN THỊ "—" MỜ Ở CÁC THẺ TAB 2 KHI ĐANG TẢI ---
   if (!window.__tab2LoadingWrapped) {
     const setTab2Dim = function() {
       const dim = '<span style="opacity:0.35;">—</span>';
@@ -81,9 +75,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỪA CÁC TAB ----------------
-  // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
-  // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
+  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
   if (!window.__tabSwipeWrapped) {
     window.__tabSwipeWrapped = true;
     const TAB_ORDER = ['tab1', 'tab2', 'tab3'];
@@ -112,15 +104,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isAnyModalOpen()) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
-      // Phải là cú vuốt ngang rõ rệt: đủ dài (>=70px) và ngang trội hơn dọc
       if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
       const activeTab = document.querySelector('.tab-content.active');
       if (!activeTab) return;
       const idx = TAB_ORDER.indexOf(activeTab.id);
       if (idx === -1) return;
-      // Vuốt sang trái (dx<0) -> tab kế tiếp; vuốt sang phải (dx>0) -> tab trước
       const targetIdx = dx < 0 ? idx + 1 : idx - 1;
-      if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return; // không lặp vòng
+      if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return;
       const targetBtn = document.querySelector(`.nav-btn[data-tab="${TAB_ORDER[targetIdx]}"]`);
       if (targetBtn) { triggerHaptic('light'); targetBtn.click(); }
     }, { passive: true });
@@ -144,17 +134,17 @@ document.addEventListener('DOMContentLoaded', async () => {
               async () => {
                   showLoading(true, 'tab3'); 
                   try { 
-                      // Ghi thẳng Firebase: đọc danh sách -> bỏ từ khóa -> chuẩn hóa -> PUT
                       const current = await fetchCategoryKeywords(cat);
                       const t = String(target).trim().toLowerCase();
                       const normalized = window.normalizeKeywordList(current.filter(k => k.toLowerCase() !== t));
                       await putCategoryKeywords(cat, normalized);
 
-                      // Cập nhật giao diện ngay, không chờ Google Sheet
                       triggerHapticNotification('success'); 
-                      showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
+                      showToast('Đã xóa từ khóa thành công!', 'success');
+                      window.cancelEditKeyword();
+                      await window.loadKeywords(false);
+                      if (typeof window.refreshAllData === 'function') await window.refreshAllData();
 
-                      // Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
                       fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: target, sheetId: sheetId }) })
                           .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
                   } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
@@ -186,14 +176,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // ---------------- TÌM KIẾM: 1 Ô NHẬP DUY NHẤT ----------------
   // Người dùng gõ MỘT trong hai:
-  //   - Số tiền: đầy đủ (2000000) hoặc rút gọn (50k, 1tr5, 2m, 3ty...) -> tìm giao
-  //     dịch có số tiền đúng bằng giá trị đó (trị tuyệt đối).
+  //   - Số tiền: đầy đủ (2000000) hoặc rút gọn (50k, 1tr5, 2m, 3ty...)
   //   - Nội dung/ghi chú: nhiều từ cách nhau bằng dấu cách (TẤT CẢ từ phải xuất hiện).
-  // Phân biệt: nếu chuỗi KHÔNG chứa khoảng trắng VÀ parse ra số > 0 => coi là số tiền.
-  document.getElementById('searchTransactionsBtn').onclick = async () => {
-    triggerHaptic('light');
+  // Tách ra window.rerunSearch để chạy lại được sau khi sửa/xóa giao dịch.
+  window.rerunSearch = async function() {
     const raw = document.getElementById('searchQuery').value.trim();
-    if(!raw) return showToast("Nhập nội dung hoặc số tiền để tìm", "warning");
+    if(!raw) return;
 
     let amount = null;
     if (!/\s/.test(raw)) { const n = window.parseNumber(raw); if (n && n > 0) amount = n; }
@@ -220,6 +208,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       txs.sort((a,b) => b.id.localeCompare(a.id)); cachedSearchResults = txs; currentPageSearch = 1; displaySearchResults();
     } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
+
+  document.getElementById('searchTransactionsBtn').onclick = () => {
+    triggerHaptic('light');
+    const raw = document.getElementById('searchQuery').value.trim();
+    if(!raw) return showToast("Nhập nội dung hoặc số tiền để tìm", "warning");
+    window.rerunSearch();
+  };
   
   document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
   document.getElementById('addKeywordBtn').onclick = async () => {
@@ -231,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             // 1) Đọc danh sách từ khóa hiện tại của danh mục trực tiếp từ Firebase
             let list = await fetchCategoryKeywords(cat);
-            // 2) Nếu đang SỪA: bỏ từ khóa cũ trước khi thêm bản mới
+            // 2) Nếu đang SỬA: bỏ từ khóa cũ trước khi thêm bản mới
             if (editingFrom) { const t = String(editingFrom).trim().toLowerCase(); list = list.filter(k => k.toLowerCase() !== t); }
             // 3) Thêm (các) từ khóa mới — hỗ trợ nhập nhiều, ngăn cách bằng dấu phẩy
             String(kw).split(',').forEach(k => list.push(k));
@@ -241,7 +236,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             // 5) Cập nhật giao diện NGAY (không chờ Google Sheet)
             triggerHapticNotification('success');
-            showToast(editingFrom ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+            showToast(editingFrom ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success');
+            window.cancelEditKeyword();
+            await window.loadKeywords(false);
+            if (typeof window.refreshAllData === 'function') await window.refreshAllData();
 
             // 6) Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
             if (editingFrom) {
@@ -319,7 +317,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
   document.getElementById('settingDefaultTab').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingDefaultTab', e.target.value); };
   document.getElementById('settingStartOfWeek').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingStartOfWeek', e.target.value); if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); };
   
-  // Thay đổi cài đặt Rút gọn tiền thì Render lại ngay biểu đồ để tránh lỗi
   document.getElementById('settingCurrencyFormat').onchange = (e) => { 
       triggerHaptic('light'); 
       localStorage.setItem('settingCurrencyFormat', e.target.value); 
@@ -327,7 +324,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
       if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); 
   };
 
-  // Kiểu biểu đồ (cột/đường) — ĐÂY LÀ NƠI DUY NHẤT LƯU CÀI ĐẶT (khôi phục khi mở lại app)
   const settingChartTypeEl = document.getElementById('settingChartType');
   if (settingChartTypeEl) settingChartTypeEl.onchange = (e) => {
       triggerHaptic('light');
@@ -355,16 +351,16 @@ document.getElementById('editForm').onsubmit = async function(e) {
           showLoading(true, 'tab3');
           try {
               await Promise.all([
-    secureFetch('/transactions.json', 'DELETE'),
-    secureFetch('/categories.json', 'DELETE'),
-    secureFetch('/meta.json', 'DELETE') // xóa cả bộ đếm mã GD
-]);
-localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
+                secureFetch('/transactions.json', 'DELETE'),
+                secureFetch('/categories.json', 'DELETE'),
+                secureFetch('/meta.json', 'DELETE') // xóa cả bộ đếm mã GD
+              ]);
+              localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
           } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
       });
   };
 
-  // Nút đổi biểu đồ nhanh (Tab 2) — CHỈ TÁC DỤNG TRONG PHIÊN, KHÔNG lưu đè cài đặt
+  // Nút đổi biểu đồ nhanh (Tab 2) — CHỈ TÁC DỤNG TRONG PHIÊN
   const toggleChartBtn = document.getElementById('toggleChartBtn');
   if(toggleChartBtn) {
       toggleChartBtn.onclick = () => {
@@ -386,10 +382,8 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
       };
   }
 
-  // --- Nếu đã có hàm initSettings thì gọi, không có thì bỏ qua ---
   if(typeof initSettings === 'function') initSettings(); 
 
-  // Khôi phục kiểu biểu đồ đã lưu (cột/đường) từ Cài đặt — đồng bộ nút đổi + ô chọn
   const savedChartType = (localStorage.getItem('settingChartType') === 'line') ? 'line' : 'bar';
   window.currentChartType = savedChartType;
   const chartTypeSel = document.getElementById('settingChartType');
@@ -404,7 +398,6 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
   window.loadKeywords(true);
 
   // ---------------- ĐĂNG KÝ SERVICE WORKER (PWA / OFFLINE) ----------------
-  // Cho phép cài đặt như app và mở lại khi mất mạng (khung giao diện được cache).
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(err => console.log('Đăng ký Service Worker thất bại:', err));
