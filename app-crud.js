@@ -314,6 +314,62 @@ window.deleteTransaction = function(id, opts = {}) {
 // ==========================================
 let pendingTags = [];
 
+/* =========================
+   NEW: LOCK SCROLL NỀN KHI MỞ ICON PICKER
+   (dùng với body.iconpicker-open trong upgrade.css)
+   ========================= */
+let __iconPickerScrollY = 0;
+function lockBackgroundScrollForIconPicker() {
+    try {
+        __iconPickerScrollY = window.scrollY || 0;
+        document.body.classList.add('iconpicker-open');
+        document.body.style.top = `-${__iconPickerScrollY}px`;
+    } catch(e) {}
+}
+function unlockBackgroundScrollForIconPicker() {
+    try {
+        document.body.classList.remove('iconpicker-open');
+        const top = document.body.style.top || '';
+        document.body.style.top = '';
+        const y = top ? parseInt(top.replace('-', '').replace('px',''), 10) : __iconPickerScrollY;
+        window.scrollTo(0, isNaN(y) ? 0 : y);
+    } catch(e) {}
+}
+
+/* =========================
+   NEW: LOAD KEYWORDS CỦA DANH MỤC ĐANG CHỌN VÀO pendingTags (trong modal)
+   ========================= */
+async function loadExistingKeywordsIntoTags(categoryName) {
+    if (!categoryName) {
+        pendingTags = [];
+        if (window.renderTags) window.renderTags();
+        return;
+    }
+    try {
+        const raw = await secureFetch(`/categories/${encodeURIComponent(categoryName)}/keywords.json`);
+        const list = String(raw || '')
+            .split(',')
+            .map(k => k.trim())
+            .filter(k => k);
+
+        // Loại trùng case-insensitive để sạch
+        const seen = new Set();
+        pendingTags = [];
+        list.forEach(k => {
+            const key = k.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            pendingTags.push(k);
+        });
+
+        if (window.renderTags) window.renderTags();
+    } catch (e) {
+        // lỗi thì cứ để trống
+        pendingTags = [];
+        if (window.renderTags) window.renderTags();
+    }
+}
+
 // Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
 // Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
@@ -687,7 +743,10 @@ window.openIconPickerModal = function() {
         }
     };
 
-    catSelect.onchange = (e) => {
+    // =========================
+    // ĐÃ SỬA: onchange async để load keyword của danh mục vào pendingTags
+    // =========================
+    catSelect.onchange = async (e) => {
         triggerHaptic('light');
         if (e.target.value === '__NEW__') {
             catInputGroup.style.display = 'block';
@@ -695,10 +754,11 @@ window.openIconPickerModal = function() {
             delBtn.style.display = 'none';
             catInput.value = '';
             modal.removeAttribute('data-original-category');
+
             pendingTags = [];
             if (window.renderTags) window.renderTags();
             catInput.focus();
-            updateIconState(''); 
+            updateIconState('');
         } else {
             const selectedCategory = e.target.value || '';
             catInputGroup.style.display = selectedCategory ? 'block' : 'none';
@@ -707,8 +767,10 @@ window.openIconPickerModal = function() {
             catInput.value = selectedCategory;
             if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
             else modal.removeAttribute('data-original-category');
-            pendingTags = [];
-            if (window.renderTags) window.renderTags();
+
+            // NEW: load keyword của danh mục vào tags
+            await loadExistingKeywordsIntoTags(selectedCategory);
+
             updateIconState(selectedCategory);
         }
     };
@@ -723,6 +785,10 @@ window.openIconPickerModal = function() {
         tagArea.style.display = 'block';
         delBtn.style.display = 'flex';
         modal.setAttribute('data-original-category', currentSelected);
+
+        // NEW: nạp keyword ngay khi mở modal theo category đang chọn
+        loadExistingKeywordsIntoTags(currentSelected);
+
         updateIconState(currentSelected);
     } else {
         catSelect.value = '';
@@ -732,9 +798,15 @@ window.openIconPickerModal = function() {
         delBtn.style.display = 'none';
         modal.removeAttribute('data-original-category');
         updateIconState('');
+        pendingTags = [];
+        if (window.renderTags) window.renderTags();
     }
-    
-    pendingTags = []; window.renderTags();
+
+    // đảm bảo renderTags đã có (nếu modal chưa init thì nó sẽ được tạo ở block trên)
+    if (window.renderTags) window.renderTags();
+
+    // NEW: khóa scroll nền
+    lockBackgroundScrollForIconPicker();
 
     document.getElementById('modalOverlay').classList.add('show');
     setTimeout(() => modal.classList.add('show'), 10);
@@ -744,4 +816,7 @@ window.closeIconPickerModal = function() {
     const modal = document.getElementById('iconPickerModal');
     if (modal) modal.classList.remove('show');
     setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
+
+    // NEW: mở lại scroll nền + trả về vị trí cũ
+    unlockBackgroundScrollForIconPicker();
 };
