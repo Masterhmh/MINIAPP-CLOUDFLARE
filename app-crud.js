@@ -584,8 +584,42 @@ window.openIconPickerModal = function() {
         pendingTags = []; if (window.renderTags) window.renderTags();
     }
 
+    // ---- LUÔN MỞ Ở ĐẦU TRANG ----
+    // 1) Đưa trang Tab 3 (và toàn bộ document) về đỉnh trước khi hiện modal
+    //    -> tránh trường hợp modal bị "rơi" ở giữa/cuối vùng đang cuộn.
+    const scrollTopAll = () => {
+        try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
+        if (document.documentElement) document.documentElement.scrollTop = 0;
+        if (document.body) document.body.scrollTop = 0;
+        const tab3El = document.getElementById('tab3');
+        if (tab3El) tab3El.scrollTop = 0;
+        const appWrap = document.querySelector('.app-container') || document.querySelector('.container');
+        if (appWrap) appWrap.scrollTop = 0;
+    };
+    scrollTopAll();
+
     document.getElementById('modalOverlay').classList.add('show');
-    setTimeout(() => modal.classList.add('show'), 10);
+    setTimeout(() => {
+        modal.classList.add('show');
+
+        // 2) Nội dung bên trong modal cũng phải ở đầu (tên danh mục + icon hiện ra trước)
+        scrollTopAll();
+        modal.scrollTop = 0;
+        const inner = modal.querySelector('.modal-content') || modal.querySelector('.modal-body');
+        if (inner) inner.scrollTop = 0;
+        if (container) container.scrollTop = 0;   // lưới icon về đầu
+
+        // 3) Telegram WebApp: mở rộng hết chiều cao cho chắc, khỏi bị che
+        try { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.expand) Telegram.WebApp.expand(); } catch (e) {}
+
+        // 4) Chốt lại sau khi animation modal kết thúc (một số máy iOS tự cuộn lại)
+        setTimeout(() => {
+            scrollTopAll();
+            modal.scrollTop = 0;
+            if (inner) inner.scrollTop = 0;
+            if (container) container.scrollTop = 0;
+        }, 320);
+    }, 10);
 };
 
 window.closeIconPickerModal = function() {
