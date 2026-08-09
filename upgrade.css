@@ -222,14 +222,17 @@ body.privacy-on .stat-compare {
 .calendar-lunar { position: absolute; top: 2px; right: 3px; font-size: 0.5rem; font-weight: 600; line-height: 1; color: var(--text-3); pointer-events: none; }
 .calendar-lunar.lunar-special { color: #A855F7; font-weight: 800; }
 /* ============================================================================
-   FIX ICON PICKER (v2) — 09/08
-   Nguyên nhân đã xác định trong repo:
-   1) .icon-item.selected có transform: scale(1.1) NHƯNG lưới .icon-grid là vùng
-      cuộn (overflow-y:auto). updateIconState() chèn ô đang chọn lên ĐẦU lưới
+   FIX ICON PICKER (v3) — 09/08
+   Nguyên nhân đã xác định trong styles.css:
+   1) .icon-item.selected có transform: scale(1.1) NHƯNG .icon-grid là vùng cuộn
+      (overflow-y:auto) và updateIconState() chèn ô đang chọn lên ĐẦU lưới
       => ô nở ra ngoài mép trái và BỊ CẮT.
-   2) overflow-y:auto khiến trục ngang tự thành auto => lưới cuộn ngang được.
+   2) overflow-y:auto khiến trục ngang tự thành auto => lưới cuộn ngang được,
+      code chỉ reset scrollTop mà không reset scrollLeft.
    3) repeat(5, 1fr) = minmax(auto,1fr) => cột không co được => tràn ngang.
-   4) Modal là bottom-sheet nên phần đầu bị đẩy khỏi màn hình.
+   4) .modal-sheet là bottom-sheet có padding-bottom: 40px => thanh nút sticky
+      để lộ 40px nền phía dưới (dải trắng), và màu nền thanh nút lệch với modal.
+   5) #deleteCategoryBtn không dùng chung hệ .btn-cancel/.btn-save nên lệch cỡ.
    ============================================================================ */
 
 /* ---------- 1. LƯỚI ICON: KHÔNG CUỘN, KHÔNG CẮT ---------- */
@@ -284,21 +287,59 @@ body.privacy-on .stat-compare {
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch;
-  padding-top: max(14px, env(safe-area-inset-top)) !important;
+  /* Bỏ padding-bottom 40px của .modal-sheet -> hết dải trắng dưới nút Lưu/Đóng.
+     Khoảng cách đáy do chính thanh nút đảm nhiệm (xem mục 4). */
+  padding: max(14px, env(safe-area-inset-top)) 20px 0 !important;
   transform: translateY(-100%) !important;        /* ẩn: nằm phía trên màn hình */
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 #iconPickerModal.show { transform: translateY(0) !important; }   /* trượt xuống từ đỉnh */
 #iconPickerModal .modal-handle { display: none !important; }     /* gạch kéo không còn ý nghĩa */
 #iconPickerModal .modal-title { margin-bottom: 16px !important; }
-/* Hàng nút Xóa / Đóng / Lưu luôn dính đáy modal */
+
+/* ---------- 4. THANH NÚT ĐÁY: liền mạch, KHÔNG còn dải trắng ---------- */
 #iconPickerModal .modal-actions {
   position: sticky;
   bottom: 0;
-  background: var(--bg-card);
+  z-index: 3;
+  display: flex !important;
+  align-items: stretch !important;                 /* mọi nút cao bằng nhau */
+  gap: 10px !important;
+  /* Kéo tràn hết bề ngang (bù padding 20px hai bên của .modal-sheet) */
+  margin: 12px -20px 0 !important;
+  /* Tự lo khoảng cách đáy + vùng an toàn iPhone */
+  padding: 12px 20px max(14px, env(safe-area-inset-bottom)) !important;
+  /* Dùng ĐÚNG màu nền của .modal-sheet -> không còn khối trắng nổi lên */
+  background: var(--bg-surface);
   backdrop-filter: var(--glass-effect);
   -webkit-backdrop-filter: var(--glass-effect);
-  margin-top: 12px !important;
-  padding: 10px 0 max(10px, env(safe-area-inset-bottom)) !important;
-  z-index: 3;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0 0 24px 24px;
 }
+
+/* ---------- 5. ĐỒNG BỘ KÍCH THƯỚC 3 NÚT: Xóa / Đóng / Lưu ---------- */
+#iconPickerModal .modal-actions > button {
+  height: 52px !important;
+  min-height: 52px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  border-radius: var(--radius-md) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+/* Nút Xóa: ô vuông 52x52, cùng chiều cao & bo góc với 2 nút còn lại */
+#iconPickerModal #deleteCategoryBtn {
+  flex: 0 0 52px !important;
+  width: 52px !important;
+  min-width: 52px !important;
+  padding: 0 !important;
+  font-size: 1.05rem !important;
+}
+#iconPickerModal #deleteCategoryBtn i { margin: 0 !important; }
+/* Nút Đóng và Lưu chia phần còn lại (Lưu rộng hơn một chút cho cân mắt) */
+#iconPickerModal .modal-actions .btn-cancel { flex: 1 1 0 !important; padding: 0 10px !important; }
+#iconPickerModal .modal-actions .btn-save   { flex: 1.35 1 0 !important; padding: 0 10px !important; }
