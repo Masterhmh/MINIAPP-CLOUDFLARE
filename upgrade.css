@@ -187,16 +187,24 @@ body.privacy-on .stat-compare {
     display: none !important;
 }
 
-/* ---------- FIX UI ICON PICKER: BO CUON LONG NHAU + HET CAT COT BEN TRAI ----------
-   Truoc day #iconGridContainer co scroll rieng (max-height 40vh trong styles.css)
-   NAM TRONG vung scroll cua than modal => cuon long nhau, vuot chon icon rat "dinh".
-   LOI CAT BEN TRAI: rule cu viet .icon-grid.icon-grid-scrollable nhung phan tu that
-   chi co class .icon-grid => rule KHONG khop => luoi van con overflow-y:auto. Theo
-   chuan CSS, overflow-y:auto lam truc NGANG tu thanh auto => luoi cuon ngang duoc;
-   updateIconState() lai chen o dang chon (transform: scale(1.1)) len DAU luoi nen
-   trinh duyet tu cuon ngang toi no => COT DAU BI CAT.
-   Cach sua: bat theo ID cho chac chan, bo HAN vung cuon (ca doc va ngang), va doi
-   repeat(5,1fr) -> repeat(5,minmax(0,1fr)) de cot co duoc, khong tran ngang. */
+/* >>> SUA 1/2 --------------------------------------------------------------
+   FIX UI ICON PICKER: BO CUON LONG NHAU + HET CAT COT BEN TRAI
+   Nguyen nhan THUC SU (xac dinh tu index.html): trong #iconPickerModal, luoi icon
+   nam trong mot div boc CHI co inline style "flex:1; overflow-y:auto; padding-bottom:10px".
+   Div do (nay dat id="iconPickerBody") moi la VUNG CUON THAT cua modal, va vi
+   overflow-y:auto lam truc NGANG tu thanh auto => no la VUNG CAT theo chieu ngang.
+   Nghiem trong hon: no KHONG co padding trai/phai => mep cat trung khit mep luoi.
+   Trong khi do styles.css cho .icon-item.selected transform: scale(1.1) + box-shadow
+   lan 15px => o dang chon o cot 1 bi cat mat mot phan ben trai.
+   Cach sua: (a) cho #iconPickerBody chut padding ngang + chan cuon ngang;
+             (b) o dang chon dung vien VE VAO TRONG (inset) va bo transform, nen
+                 khong con gi tran ra ngoai vung cat.
+   LUU Y: rule cu chi bo scroll cua ban than luoi nen khong the sua duoc loi nay. */
+#iconPickerBody {
+  overflow-x: hidden !important;
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
 #iconGridContainer,
 .icon-grid,
 .icon-grid.icon-grid-scrollable {
@@ -207,11 +215,19 @@ body.privacy-on .stat-compare {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  padding: 3px !important;               /* chua cho cho o dang chon scale(1.1) */
 }
 /* O icon phai co duoc theo cot, neu khong cot se rong hon khung modal */
 #iconGridContainer .icon-item,
 .icon-grid .icon-item { box-sizing: border-box !important; min-width: 0 !important; width: 100% !important; }
+/* O dang chon: vien 2px VE VAO TRONG => khong the tran ra ngoai vung cat */
+#iconGridContainer .icon-item.selected,
+.icon-grid .icon-item.selected { transform: none !important; box-shadow: inset 0 0 0 2px var(--primary) !important; }
+#iconGridContainer .icon-item:hover:not(.selected),
+.icon-grid .icon-item:hover:not(.selected) { transform: none !important; }
+#iconGridContainer .icon-item:active,
+.icon-grid .icon-item:active { transform: scale(0.94) !important; }
+/* <<< HET SUA 1/2 */
+
 /* O nhap ten danh muc & vung nhap tu khoa: chua vao giua khi ban phim hien len */
 #iconPickerCategory, #tagInputArea, #tagInputField { scroll-margin-top: 20px; scroll-margin-bottom: 140px; }
 
@@ -228,12 +244,17 @@ body.privacy-on .stat-compare {
    An placeholder ngay khi tagsWrapper da co it nhat 1 the (.tag-badge). */
 .tag-input-container:has(.tag-badge) .tag-input-field::placeholder { color: transparent; }
 
-/* ---------- NUT XOA DANH MUC: CHI HIEN KHI DANG SUA DANH MUC CO SAN ----------
-   Tranh bam nham khi dang tao danh muc moi hoac chua chon gi. JS se them/bo class
-   .editing-existing tren #iconPickerModal (xem app-crud.js: setDeleteBtnVisibility). */
-#deleteCategoryBtn { display: none !important; }
-#iconPickerModal.editing-existing #deleteCategoryBtn { display: flex !important; }
-/* Khi nut xoa an, 2 nut con lai tu gian ra chiem het chieu ngang (flex:1 co san) */
+/* >>> SUA 2/2 --------------------------------------------------------------
+   NUT XOA DANH MUC: KHONG dat rule CSS nao o day.
+   Truoc day khoi nay co:
+       #deleteCategoryBtn { display: none !important; }
+       #iconPickerModal.editing-existing #deleteCategoryBtn { display: flex !important; }
+   Nhung index.html DA co inline style="display:none" cho #deleteCategoryBtn va
+   app-crud.js dieu khien bang btn.style.display. Rule `display:none !important`
+   o tren THANG inline style => nut xoa KHONG BAO GIO hien ra.
+   => Da xoa han. Viec an/hien do setDeleteBtnVisibility() trong app-crud.js lo.
+   Khi nut xoa an, 2 nut con lai tu gian ra chiem het chieu ngang (flex:1 co san).
+   <<< HET SUA 2/2 */
 
 /* ---------- LICH THANG TAB 2: to nen pill cho cac ngay thuoc TUAN HIEN TAI ----------
    Tuan chua hom nay se co mau nen khac (amber nhat) de noi bat so voi cac ngay con lai.
