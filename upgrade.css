@@ -177,42 +177,38 @@ body.privacy-on .stat-compare {
 }
 
 /* >>> SUA 1/2 --------------------------------------------------------------
-   FIX UI ICON PICKER: BO CUON LONG NHAU + HET CAT COT BEN TRAI
-   Nguyen nhan THUC SU (xac dinh tu index.html): trong #iconPickerModal, luoi icon
-   nam trong mot div boc CHI co inline style "flex:1; overflow-y:auto; padding-bottom:10px".
-   Div do (nay dat id="iconPickerBody") moi la VUNG CUON THAT cua modal, va vi
-   overflow-y:auto lam truc NGANG tu thanh auto => no la VUNG CAT theo chieu ngang.
-   Nghiem trong hon: no KHONG co padding trai/phai => mep cat trung khit mep luoi.
-   Trong khi do styles.css cho .icon-item.selected transform: scale(1.1) + box-shadow
-   lan 15px => o dang chon o cot 1 bi cat mat mot phan ben trai.
-   Cach sua: (a) cho #iconPickerBody chut padding ngang + chan cuon ngang;
-             (b) o dang chon dung vien VE VAO TRONG (inset) va bo transform, nen
-                 khong con gi tran ra ngoai vung cat.
-   LUU Y: rule cu chi bo scroll cua ban than luoi nen khong the sua duoc loi nay. */
+   FIX UI ICON PICKER: BO CUON LONG NHAU + HET CAT COT BEN TRAI */
 #iconPickerBody {
   overflow-x: hidden !important;
   padding-left: 4px !important;
   padding-right: 4px !important;
 }
+
 #iconGridContainer,
 .icon-grid,
 .icon-grid.icon-grid-scrollable {
-  max-height: none !important;
+  /* IMPORTANT FIX:
+     - Bỏ !important ở max-height/overflow để JS collapse (app-crud.js) điều khiển được */
+  max-height: none;
   min-height: 0 !important;
-  overflow: visible !important;
+  overflow: visible;
   grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
 /* O icon phai co duoc theo cot, neu khong cot se rong hon khung modal */
 #iconGridContainer .icon-item,
 .icon-grid .icon-item { box-sizing: border-box !important; min-width: 0 !important; width: 100% !important; }
+
 /* O dang chon: vien 2px VE VAO TRONG => khong the tran ra ngoai vung cat */
 #iconGridContainer .icon-item.selected,
 .icon-grid .icon-item.selected { transform: none !important; box-shadow: inset 0 0 0 2px var(--primary) !important; }
+
 #iconGridContainer .icon-item:hover:not(.selected),
 .icon-grid .icon-item:hover:not(.selected) { transform: none !important; }
+
 #iconGridContainer .icon-item:active,
 .icon-grid .icon-item:active { transform: scale(0.94) !important; }
 /* <<< HET SUA 1/2 */
@@ -229,15 +225,7 @@ body.privacy-on .stat-compare {
 
 /* >>> SUA 2/2 --------------------------------------------------------------
    NUT XOA DANH MUC: KHONG dat rule CSS nao o day.
-   Truoc day khoi nay co:
-       #deleteCategoryBtn { display: none !important; }
-       #iconPickerModal.editing-existing #deleteCategoryBtn { display: flex !important; }
-   Nhung index.html DA co inline style="display:none" cho #deleteCategoryBtn va
-   app-crud.js dieu khien bang btn.style.display. Rule `display:none !important`
-   o tren THANG inline style => nut xoa KHONG BAO GIO hien ra.
-   => Da xoa han. Viec an/hien do setDeleteBtnVisibility() trong app-crud.js lo.
-   Khi nut xoa an, 2 nut con lai tu gian ra chiem het chieu ngang (flex:1 co san).
-   <<< HET SUA 2/2 */
+   (giữ nguyên như hiện tại) */
 
 /* ---------- LICH THANG TAB 2: to nen pill cho cac ngay thuoc TUAN HIEN TAI ---------- */
 .calendar-day.current-week { background: rgba(255, 184, 0, 0.16); }
@@ -248,6 +236,7 @@ body.privacy-on .stat-compare {
 .calendar-day { position: relative; }
 .calendar-lunar { position: absolute; top: 2px; right: 3px; font-size: 0.5rem; font-weight: 600; line-height: 1; color: var(--text-3); pointer-events: none; }
 .calendar-lunar.lunar-special { color: #A855F7; font-weight: 800; }
+
 /* ===========================
    LOCK SCROLL BACKGROUND WHEN ICON PICKER OPEN
    =========================== */
