@@ -17,6 +17,9 @@
 //   [B] Icon Picker: chọn danh mục CÓ SẴN sẽ hiện luôn danh sách từ khóa của
 //       danh mục đó để sửa/xóa trực tiếp; danh sách trên màn hình là danh sách
 //       cuối cùng (xoá thẻ = xoá từ khóa), đồng bộ Sheet theo đúng phần thêm/bớt.
+//   [C] Nút XÓA DANH MỤC chỉ hiện khi đang sửa MỘT danh mục CÓ SẴN (tránh bấm
+//       nhầm). Điều khiển bằng class .editing-existing trên #iconPickerModal
+//       (xem upgrade.css) — KHÔNG dùng style.display vì CSS có !important.
 // ============================================================================
 
 // ---------------- [A] LÀM MỚI TOÀN BỘ DỮ LIỆU SAU MỌI THAY ĐỔI ----------------
@@ -272,6 +275,7 @@ window.deleteTransaction = function(id) {
 // CỬA SỔ "QUẢN LÝ DANH MỤC" (ICON PICKER) — bản tối ưu 09/08
 // - Chọn danh mục có sẵn -> hiện luôn danh sách từ khóa để sửa/xóa.
 // - Modal LUÔN mở ở đầu trang; lưới icon không còn bị cắt mép trái.
+// - Nút XÓA chỉ hiện khi đang sửa danh mục CÓ SẴN (tránh bấm nhầm).
 // ============================================================================
 let pendingTags = [];
 
@@ -299,6 +303,15 @@ function iconValueToEmoji(raw) {
     if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
     return FA_TO_EMOJI_MAP[faClass] || null;
 }
+
+// [C] Nút xóa danh mục: CHỈ hiện khi đang sửa MỘT danh mục CÓ SẴN.
+// Dùng class trên modal (upgrade.css có `#deleteCategoryBtn { display:none !important }`
+// nên gán style.display trực tiếp sẽ KHÔNG có tác dụng).
+function setDeleteBtnVisibility(isExisting) {
+    const modal = document.getElementById('iconPickerModal');
+    if (modal) modal.classList.toggle('editing-existing', !!isExisting);
+}
+window.setDeleteBtnVisibility = setDeleteBtnVisibility;
 
 // Đưa modal + trang + lưới icon về vị trí ĐẦU (cả trục dọc VÀ trục ngang)
 function scrollIconPickerToTop() {
@@ -479,7 +492,11 @@ window.openIconPickerModal = function () {
         // ---------- XÓA DANH MỤC ----------
         delBtn.onclick = () => {
             const cat = catInput.value.trim();
+            // Chốt an toàn 2 lớp: chỉ cho xóa khi đang thực sự sửa danh mục CÓ SẴN
             if (!cat) return;
+            if (window.__editingExistingCat !== cat) {
+                return showToast('Chỉ xóa được danh mục đã có. Hãy chọn danh mục từ danh sách.', 'warning');
+            }
             triggerHaptic('medium');
             showCustomConfirm(
                 'Xóa danh mục',
@@ -560,7 +577,7 @@ window.openIconPickerModal = function () {
         if (val === '__NEW__') {
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
-            delBtn.style.display = 'none';
+            setDeleteBtnVisibility(false);              // tạo mới -> KHÔNG có nút xóa
             catInput.value = '';
             catInput.focus();
             updateIconState('');
@@ -568,7 +585,7 @@ window.openIconPickerModal = function () {
             pendingTags = []; window.renderTags();
         } else {
             catInputGroup.style.display = 'none';
-            delBtn.style.display = val ? 'flex' : 'none';
+            setDeleteBtnVisibility(!!val);              // chỉ danh mục CÓ SẴN mới hiện nút xóa
             catInput.value = val;
             updateIconState(val);
             if (val) {
@@ -590,7 +607,7 @@ window.openIconPickerModal = function () {
         catInput.value = currentSelected;
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'block';
-        delBtn.style.display = 'flex';
+        setDeleteBtnVisibility(true);                    // mở sẵn 1 danh mục có sẵn -> hiện nút xóa
         updateIconState(currentSelected);
         window.loadTagsForCategory(currentSelected);
     } else {
@@ -598,7 +615,7 @@ window.openIconPickerModal = function () {
         catInput.value = '';
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'none';
-        delBtn.style.display = 'none';
+        setDeleteBtnVisibility(false);                   // chưa chọn gì -> ẩn nút xóa
         updateIconState('');
         window.__editingExistingCat = null; window.__originalTags = [];
         pendingTags = []; if (window.renderTags) window.renderTags();
@@ -620,5 +637,7 @@ window.openIconPickerModal = function () {
 window.closeIconPickerModal = function () {
     const modal = document.getElementById('iconPickerModal');
     if (modal) modal.classList.remove('show');
+    // Dọn trạng thái: lần mở sau không "kế thừa" việc đang hiện nút xóa
+    if (modal) modal.classList.remove('editing-existing');
     setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
