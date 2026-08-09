@@ -9,10 +9,6 @@
 //   (app-core.js, currency.js, app-reports.js, app-crud.js, app-export.js).
 //   parseNumber lấy từ currency.js (bản strict, trả null khi nhập sai).
 // Thứ tự nạp: CUỐI CÙNG.
-//   Ghi chú: bọc fetchTransactions để hiện "—" mờ ở hero Tab 1 khi đang tải
-//   (thay cho 0 ₫, tránh hiểu nhầm là không có giao dịch). Tương tự, bọc
-//   loadWeeklyReport/loadMonthlyReport/loadCustomReport để hiện "—" mờ ở
-//   các thẻ Tab 2 khi đang tải báo cáo.
 // ============================================================================
 
 // ---------------- TIỆN ÍCH TỪ KHÓA: GHI THẲNG FIREBASE (NHANH) + ĐỒNG BỘ SHEET Ở NỀN ----------------
@@ -37,6 +33,60 @@ async function fetchCategoryKeywords(cat) {
 // Ghi thẳng chuỗi từ khóa (đã chuẩn hóa) vào Firebase cho 1 danh mục (qua cổng bảo mật)
 async function putCategoryKeywords(cat, listStr) {
   await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', listStr);
+}
+
+// =========================
+// TAB 3: HIỂN THỊ KEYWORD THEO DANH MỤC (NEW)
+// =========================
+function getKeywordsFromCacheByCategory(cat) {
+  if (!cat || !window.cachedKeywords && typeof cachedKeywords === 'undefined') return [];
+  const source = (typeof cachedKeywords !== 'undefined' && Array.isArray(cachedKeywords)) ? cachedKeywords : (window.cachedKeywords || []);
+  const item = source.find(x => x && x.category && String(x.category).trim() === String(cat).trim());
+  const raw = item && item.keywords ? String(item.keywords) : '';
+  return raw.split(',').map(k => k.trim()).filter(k => k);
+}
+
+function renderKeywordsByCategory(cat) {
+  const box = document.getElementById('keywordsByCategoryBox');
+  const tags = document.getElementById('keywordsByCategoryTags');
+  const title = document.getElementById('kwCatTitle');
+  const count = document.getElementById('kwCatCount');
+  const icon = document.getElementById('kwCatIcon');
+
+  if (!box || !tags || !title || !count || !icon) return;
+
+  if (!cat) {
+    box.style.display = 'none';
+    tags.innerHTML = '';
+    return;
+  }
+
+  const list = getKeywordsFromCacheByCategory(cat);
+  box.style.display = 'block';
+  title.textContent = cat;
+  count.textContent = `${list.length} từ khóa`;
+  icon.innerHTML = getCategoryIcon(cat);
+
+  if (list.length === 0) {
+    tags.innerHTML = `<span class="tx-note">Chưa có từ khóa</span>`;
+    return;
+  }
+
+  tags.innerHTML = '';
+  list.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => {
+    const span = document.createElement('span');
+    span.className = 'keyword-tag';
+    span.textContent = kw;
+    span.addEventListener('click', () => window.startEditKeyword(kw, cat));
+    tags.appendChild(span);
+  });
+}
+
+function scrollToTopTab3() {
+  // Tab3 không có scroll riêng => dùng window.scrollTo
+  requestAnimationFrame(() => {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
+  });
 }
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
@@ -81,9 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỪA CÁC TAB ----------------
-  // Tái dùng chính logic click nút nav (để vẫn tự tải dữ liệu Tab 1 / báo cáo Tab 2).
-  // Bỏ qua khi: đang mở modal, hoặc cử chỉ thiên về dọc (để không đụng kéo-làm-mới).
+  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
   if (!window.__tabSwipeWrapped) {
     window.__tabSwipeWrapped = true;
     const TAB_ORDER = ['tab1', 'tab2', 'tab3'];
@@ -112,22 +160,69 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (isAnyModalOpen()) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
-      // Phải là cú vuốt ngang rõ rệt: đủ dài (>=70px) và ngang trội hơn dọc
       if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
       const activeTab = document.querySelector('.tab-content.active');
       if (!activeTab) return;
       const idx = TAB_ORDER.indexOf(activeTab.id);
       if (idx === -1) return;
-      // Vuốt sang trái (dx<0) -> tab kế tiếp; vuốt sang phải (dx>0) -> tab trước
       const targetIdx = dx < 0 ? idx + 1 : idx - 1;
-      if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return; // không lặp vòng
+      if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return;
       const targetBtn = document.querySelector(`.nav-btn[data-tab="${TAB_ORDER[targetIdx]}"]`);
       if (targetBtn) { triggerHaptic('light'); targetBtn.click(); }
     }, { passive: true });
   }
 
-  document.querySelectorAll('.nav-btn').forEach(b => { b.onclick = () => { const targetTab = b.dataset.tab; window.openTab(targetTab); if (targetTab === 'tab1') window.fetchTransactions(false); if (targetTab === 'tab2') { if (tab2NeedsReload) { tab2NeedsReload = false; cachedChartData = null; } updateTimeNavUI(); } }; });
+  // =========================
+  // NAV CLICK (ĐÃ SỬA: vào tab3 luôn lên đầu)
+  // =========================
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.onclick = () => {
+      const targetTab = b.dataset.tab;
+      window.openTab(targetTab);
+
+      if (targetTab === 'tab1') window.fetchTransactions(false);
+
+      if (targetTab === 'tab2') {
+        if (tab2NeedsReload) { tab2NeedsReload = false; cachedChartData = null; }
+        updateTimeNavUI();
+      }
+
+      if (targetTab === 'tab3') {
+        scrollToTopTab3();
+        // render ngay keyword theo danh mục đang chọn
+        const cat = document.getElementById('keywordCategory')?.value || '';
+        renderKeywordsByCategory(cat);
+      }
+    };
+  });
   
+  // =========================
+  // TAB 3: hook select danh mục => hiện keyword ngay
+  // =========================
+  const kwCatSel = document.getElementById('keywordCategory');
+  if (kwCatSel) {
+    kwCatSel.addEventListener('change', () => {
+      triggerHaptic('light');
+      window.cancelEditKeyword && window.cancelEditKeyword();
+      renderKeywordsByCategory(kwCatSel.value);
+      scrollToTopTab3();
+    });
+  }
+
+  // nút refresh keyword theo danh mục
+  const kwRefreshBtn = document.getElementById('kwCatRefreshBtn');
+  if (kwRefreshBtn) {
+    kwRefreshBtn.onclick = async (e) => {
+      e.preventDefault();
+      triggerHaptic('light');
+      const cat = document.getElementById('keywordCategory')?.value || '';
+      if (!cat) return;
+      // loadKeywords sẽ refresh cachedKeywords từ Firebase
+      await window.loadKeywords(false);
+      renderKeywordsByCategory(cat);
+    };
+  }
+
   const kwActionContainer = document.getElementById('keywordActionContainer');
   if(kwActionContainer) {
       const deleteBtn = document.createElement('button'); deleteBtn.id = 'deleteEditKeywordBtn'; deleteBtn.className = 'btn-danger-outline flex-1 m-0'; deleteBtn.style.display = 'none'; deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Xóa';
@@ -144,17 +239,17 @@ document.addEventListener('DOMContentLoaded', async () => {
               async () => {
                   showLoading(true, 'tab3'); 
                   try { 
-                      // Ghi thẳng Firebase: đọc danh sách -> bỏ từ khóa -> chuẩn hóa -> PUT
                       const current = await fetchCategoryKeywords(cat);
                       const t = String(target).trim().toLowerCase();
                       const normalized = window.normalizeKeywordList(current.filter(k => k.toLowerCase() !== t));
                       await putCategoryKeywords(cat, normalized);
 
-                      // Cập nhật giao diện ngay, không chờ Google Sheet
                       triggerHapticNotification('success'); 
-                      showToast('Đã xóa từ khóa thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false); 
+                      showToast('Đã xóa từ khóa thành công!', 'success'); 
+                      window.cancelEditKeyword();
+                      await window.loadKeywords(false);
+                      renderKeywordsByCategory(cat);
 
-                      // Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
                       fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: target, sheetId: sheetId }) })
                           .catch(err => console.log('Lỗi đồng bộ Sheet (nền):', err));
                   } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
@@ -185,11 +280,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
   
   // ---------------- TÌM KIẾM: 1 Ô NHẬP DUY NHẤT ----------------
-  // Người dùng gõ MỘT trong hai:
-  //   - Số tiền: đầy đủ (2000000) hoặc rút gọn (50k, 1tr5, 2m, 3ty...) -> tìm giao
-  //     dịch có số tiền đúng bằng giá trị đó (trị tuyệt đối).
-  //   - Nội dung/ghi chú: nhiều từ cách nhau bằng dấu cách (TẤT CẢ từ phải xuất hiện).
-  // Phân biệt: nếu chuỗi KHÔNG chứa khoảng trắng VÀ parse ra số > 0 => coi là số tiền.
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');
     const raw = document.getElementById('searchQuery').value.trim();
@@ -204,12 +294,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       for (let m = 1; m <= 12; m++) { fetchPromises.push((async () => { return await fetchMonthData(m); })()); }
       const monthsResults = await Promise.all(fetchPromises);
       if (amount !== null) {
-        // Tìm theo SỐ TIỀN: khớp đúng giá trị tuyệt đối
         monthsResults.forEach(monthData => { monthData.forEach(t => {
           if (Math.abs(Number(t.amount) || 0) === amount) txs.push(t);
         }); });
       } else {
-        // Tìm theo NỘI DUNG / GHI CHÚ: tách theo khoảng trắng, TẤT CẢ từ phải xuất hiện
         const terms = raw.toLowerCase().split(/\s+/).filter(Boolean);
         monthsResults.forEach(monthData => { monthData.forEach(t => {
           const content = (t.content || '').toLowerCase();
@@ -222,28 +310,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
   
   document.getElementById('fetchKeywordsBtn').onclick = () => { triggerHaptic('light'); window.loadKeywords(false); };
+
+  // =========================
+  // THÊM/SỬA keyword: sau khi cập nhật => refresh cachedKeywords + render ngay theo danh mục
+  // =========================
   document.getElementById('addKeywordBtn').onclick = async () => {
         triggerHaptic('light');
         const cat = document.getElementById('keywordCategory').value, kw = document.getElementById('keywordInput').value;
         if(!cat || !kw) return showToast('Vui lòng nhập đủ thông tin', 'warning');
-        const editingFrom = currentEditKeyword; // giữ lại từ khóa đang sửa (nếu có)
+        const editingFrom = currentEditKeyword;
         showLoading(true, 'tab3');
         try {
-            // 1) Đọc danh sách từ khóa hiện tại của danh mục trực tiếp từ Firebase
             let list = await fetchCategoryKeywords(cat);
-            // 2) Nếu đang SỪA: bỏ từ khóa cũ trước khi thêm bản mới
             if (editingFrom) { const t = String(editingFrom).trim().toLowerCase(); list = list.filter(k => k.toLowerCase() !== t); }
-            // 3) Thêm (các) từ khóa mới — hỗ trợ nhập nhiều, ngăn cách bằng dấu phẩy
             String(kw).split(',').forEach(k => list.push(k));
-            // 4) Chuẩn hóa GIỐNG GAS rồi GHI THẲNG Firebase
             const normalized = window.normalizeKeywordList(list);
             await putCategoryKeywords(cat, normalized);
 
-            // 5) Cập nhật giao diện NGAY (không chờ Google Sheet)
             triggerHapticNotification('success');
-            showToast(editingFrom ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success'); window.cancelEditKeyword(); window.loadKeywords(false);
+            showToast(editingFrom ? 'Cập nhật từ khóa thành công!' : 'Thêm từ khóa mới thành công!', 'success');
+            window.cancelEditKeyword();
 
-            // 6) Đồng bộ Google Sheet ở NỀN (giữ nguyên GAS cũ) — không chặn UI
+            await window.loadKeywords(false);
+            renderKeywordsByCategory(cat);
+
             if (editingFrom) {
                 fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteKeyword', category: cat, keyword: editingFrom, sheetId: sheetId }) })
                     .then(() => fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'addKeyword', category: cat, keywords: kw, sheetId: sheetId }) }))
@@ -255,27 +345,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab3'); }
   };
 
-['addAmount','editAmount'].forEach(id => { 
+  ['addAmount','editAmount'].forEach(id => { 
     const el = document.getElementById(id); 
     if(el) el.oninput = function() { 
-        if (/[a-zA-Z]/.test(this.value)) return; // có chữ (k/m/tr) -> để người dùng gõ tiếp
+        if (/[a-zA-Z]/.test(this.value)) return;
         this.value = formatNumberWithCommas(this.value); 
     }; 
-});  
+  });  
+
   document.getElementById('addForm').onsubmit = async function(e) {
-  e.preventDefault();
-  const [y,m,d] = document.getElementById('addDate').value.split('-');
-  const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId };
-  const ok = await submitTx(tx);
-  if (ok) closeAddForm();   // chỉ đóng form khi đã lưu thành công
-};
-document.getElementById('editForm').onsubmit = async function(e) {
-  e.preventDefault();
-  const [y,m,d] = document.getElementById('editDate').value.split('-');
-  const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId };
-  const ok = await submitTx(tx);
-  if (ok) closeEditForm();   // chỉ đóng form khi đã lưu thành công
-};
+    e.preventDefault();
+    const [y,m,d] = document.getElementById('addDate').value.split('-');
+    const tx = { content: document.getElementById('addContent').value, amount: parseNumber(document.getElementById('addAmount').value), type: document.getElementById('addType').value, category: document.getElementById('addCategory').value, note: document.getElementById('addNote').value, date: `${d}/${m}/${y}`, action: 'addTransaction', sheetId };
+    const ok = await submitTx(tx);
+    if (ok) closeAddForm();
+  };
+
+  document.getElementById('editForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const [y,m,d] = document.getElementById('editDate').value.split('-');
+    const tx = { id: document.getElementById('editTransactionId').value, content: document.getElementById('editContent').value, amount: parseNumber(document.getElementById('editAmount').value), type: document.getElementById('editType').value, category: document.getElementById('editCategory').value, note: document.getElementById('editNote').value, date: `${d}/${m}/${y}`, month: m, action: 'updateTransaction', sheetId };
+    const ok = await submitTx(tx);
+    if (ok) closeEditForm();
+  };
 
   window.initCategories = async function(preserveValues = false) {
     try {
@@ -283,7 +375,15 @@ document.getElementById('editForm').onsubmit = async function(e) {
       const kCat = document.getElementById('keywordCategory'), addCat = document.getElementById('addCategory'), editCat = document.getElementById('editCategory');
       const kVal = kCat?.value, addVal = addCat?.value, editVal = editCat?.value;
 
-      if(kCat) { kCat.innerHTML = '<option value="">Chọn phân loại</option>'; cats.forEach(c => kCat.appendChild(new Option(c, c))); if(preserveValues && kVal) { kCat.value = kVal; } else if (preserveValues && document.getElementById('iconPickerCategory').value) { const newVal = document.getElementById('iconPickerCategory').value.trim(); if (cats.includes(newVal)) kCat.value = newVal; } }
+      if(kCat) {
+        kCat.innerHTML = '<option value="">Chọn phân loại</option>';
+        cats.forEach(c => kCat.appendChild(new Option(c, c)));
+        if(preserveValues && kVal) { kCat.value = kVal; }
+        else if (preserveValues && document.getElementById('iconPickerCategory')?.value) {
+          const newVal = document.getElementById('iconPickerCategory').value.trim();
+          if (cats.includes(newVal)) kCat.value = newVal;
+        }
+      }
       if(addCat) { addCat.innerHTML = ''; cats.forEach(c => addCat.appendChild(new Option(c, c))); if(preserveValues && addVal) addCat.value = addVal; }
       if(editCat) { editCat.innerHTML = ''; cats.forEach(c => editCat.appendChild(new Option(c, c))); if(preserveValues && editVal) editCat.value = editVal; }
       
@@ -304,6 +404,10 @@ document.getElementById('editForm').onsubmit = async function(e) {
           wrapper.appendChild(btn); 
           kCat.classList.add('flex-1');
       }
+
+      // Sau khi init danh mục => render keyword theo danh mục đang chọn
+      if (kCat) renderKeywordsByCategory(kCat.value);
+
     } catch(e) {}
   }
   
@@ -319,7 +423,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
   document.getElementById('settingDefaultTab').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingDefaultTab', e.target.value); };
   document.getElementById('settingStartOfWeek').onchange = (e) => { triggerHaptic('light'); localStorage.setItem('settingStartOfWeek', e.target.value); if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); };
   
-  // Thay đổi cài đặt Rút gọn tiền thì Render lại ngay biểu đồ để tránh lỗi
   document.getElementById('settingCurrencyFormat').onchange = (e) => { 
       triggerHaptic('light'); 
       localStorage.setItem('settingCurrencyFormat', e.target.value); 
@@ -327,7 +430,6 @@ document.getElementById('editForm').onsubmit = async function(e) {
       if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); 
   };
 
-  // Kiểu biểu đồ (cột/đường) — ĐÂY LÀ NƠI DUY NHẤT LƯU CÀI ĐẶT (khôi phục khi mở lại app)
   const settingChartTypeEl = document.getElementById('settingChartType');
   if (settingChartTypeEl) settingChartTypeEl.onchange = (e) => {
       triggerHaptic('light');
@@ -355,16 +457,15 @@ document.getElementById('editForm').onsubmit = async function(e) {
           showLoading(true, 'tab3');
           try {
               await Promise.all([
-    secureFetch('/transactions.json', 'DELETE'),
-    secureFetch('/categories.json', 'DELETE'),
-    secureFetch('/meta.json', 'DELETE') // xóa cả bộ đếm mã GD
-]);
-localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
+                secureFetch('/transactions.json', 'DELETE'),
+                secureFetch('/categories.json', 'DELETE'),
+                secureFetch('/meta.json', 'DELETE')
+              ]);
+              localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); setTimeout(() => window.location.reload(), 1500);
           } catch(e) { showToast('Lỗi: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
       });
   };
 
-  // Nút đổi biểu đồ nhanh (Tab 2) — CHỈ TÁC DỤNG TRONG PHIÊN, KHÔNG lưu đè cài đặt
   const toggleChartBtn = document.getElementById('toggleChartBtn');
   if(toggleChartBtn) {
       toggleChartBtn.onclick = () => {
@@ -386,10 +487,8 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
       };
   }
 
-  // --- Nếu đã có hàm initSettings thì gọi, không có thì bỏ qua ---
   if(typeof initSettings === 'function') initSettings(); 
 
-  // Khôi phục kiểu biểu đồ đã lưu (cột/đường) từ Cài đặt — đồng bộ nút đổi + ô chọn
   const savedChartType = (localStorage.getItem('settingChartType') === 'line') ? 'line' : 'bar';
   window.currentChartType = savedChartType;
   const chartTypeSel = document.getElementById('settingChartType');
@@ -397,14 +496,16 @@ localStorage.clear(); showToast('Đã xoá sạch dữ liệu!', 'success'); set
   const toggleChartBtnInit = document.getElementById('toggleChartBtn');
   if (toggleChartBtnInit) toggleChartBtnInit.innerHTML = savedChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
   
-  window.initCategories();
+  await window.initCategories();
   const defTab = localStorage.getItem('settingDefaultTab') || 'tab1';
   window.openTab(defTab); 
   if(defTab === 'tab1') { showLoading(true, 'tab1'); window.fetchTransactions(false); } else { updateTimeNavUI(); }
-  window.loadKeywords(true);
 
-  // ---------------- ĐĂNG KÝ SERVICE WORKER (PWA / OFFLINE) ----------------
-  // Cho phép cài đặt như app và mở lại khi mất mạng (khung giao diện được cache).
+  // loadKeywords init => sau khi có cachedKeywords thì render theo danh mục đang chọn
+  await window.loadKeywords(true);
+  const currentCat = document.getElementById('keywordCategory')?.value || '';
+  renderKeywordsByCategory(currentCat);
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(err => console.log('Đăng ký Service Worker thất bại:', err));
