@@ -222,37 +222,54 @@ body.privacy-on .stat-compare {
 .calendar-lunar { position: absolute; top: 2px; right: 3px; font-size: 0.5rem; font-weight: 600; line-height: 1; color: var(--text-3); pointer-events: none; }
 .calendar-lunar.lunar-special { color: #A855F7; font-weight: 800; }
 /* ============================================================================
-   FIX 1: LƯỚI ICON BỊ CẮT MẤT CỘT BÊN TRÁI
-   Nguyên nhân: .icon-grid dùng repeat(5, 1fr) = minmax(auto,1fr) -> cột không
-   được co nhỏ hơn nội dung => tràn ngang; cộng với overflow-y:auto khiến trục
-   ngang tự thành auto => trình duyệt cuộn ngang, cắt mất cột đầu.
+   FIX ICON PICKER (v2) — 09/08
+   Nguyên nhân đã xác định trong repo:
+   1) .icon-item.selected có transform: scale(1.1) NHƯNG lưới .icon-grid là vùng
+      cuộn (overflow-y:auto). updateIconState() chèn ô đang chọn lên ĐẦU lưới
+      => ô nở ra ngoài mép trái và BỊ CẮT.
+   2) overflow-y:auto khiến trục ngang tự thành auto => lưới cuộn ngang được.
+   3) repeat(5, 1fr) = minmax(auto,1fr) => cột không co được => tràn ngang.
+   4) Modal là bottom-sheet nên phần đầu bị đẩy khỏi màn hình.
    ============================================================================ */
-.icon-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important; /* cho phép co cột */
-  overflow-x: hidden !important;      /* CHẶN cuộn ngang -> không bị cắt trái */
-  overscroll-behavior-x: none;
+
+/* ---------- 1. LƯỚI ICON: KHÔNG CUỘN, KHÔNG CẮT ---------- */
+.icon-grid,
+.icon-grid.icon-grid-scrollable {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important; /* cho cột co lại */
+  gap: 10px !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;          /* bỏ HẲN vùng cuộn -> hết bị cắt */
+  overflow-x: hidden !important;
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
-  padding-left: 2px;                  /* chừa chỗ cho viền ô đang chọn */
-  padding-right: 2px;
-}
-.icon-grid .icon-item {
-  box-sizing: border-box !important;
-  min-width: 0 !important;            /* mấu chốt: cho ô co lại theo cột */
-  width: 100% !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-  display: flex; align-items: center; justify-content: center;
-  aspect-ratio: 1 / 1;                /* ô vuông đều nhau */
-  overflow: hidden;
+  padding: 4px !important;               /* chừa chỗ cho viền ô đang chọn */
+  margin-bottom: 16px !important;
 }
 
-/* ============================================================================
-   FIX 2: MODAL QUẢN LÝ DANH MỤC LUÔN HIỆN Ở ĐẦU TRANG
-   Trước đây modal là bottom-sheet (trượt từ dưới lên) nên nội dung phía trên
-   dễ bị đẩy khỏi màn hình. Neo nó lên đỉnh và trượt xuống từ trên.
-   ============================================================================ */
+/* ---------- 2. Ô ICON: vuông đều, co được, KHÔNG phóng to gây cắt ---------- */
+.icon-grid .icon-item {
+  box-sizing: border-box !important;
+  min-width: 0 !important;               /* mấu chốt: cho ô co theo cột */
+  width: 100% !important;
+  padding: 0 !important;
+  aspect-ratio: 1 / 1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.45rem !important;
+  overflow: hidden;
+}
+/* Thay hiệu ứng "phóng to" bằng viền sáng -> không lấn ra ngoài lưới nữa */
+.icon-grid .icon-item.selected {
+  transform: none !important;
+  box-shadow: 0 0 0 2px var(--primary) !important;
+}
+.icon-grid .icon-item:hover:not(.selected) { transform: none !important; }
+.icon-grid .icon-item:active { transform: scale(0.94) !important; }
+
+/* ---------- 3. MODAL QUẢN LÝ DANH MỤC: LUÔN NEO Ở ĐẦU TRANG ---------- */
 #iconPickerModal {
   top: 0 !important;
   bottom: auto !important;
@@ -260,27 +277,28 @@ body.privacy-on .stat-compare {
   right: 0 !important;
   margin: 0 auto !important;
   height: auto !important;
-  max-height: 100dvh !important;              /* iOS: dùng dvh cho đúng chiều cao thật */
+  max-height: 100dvh !important;                 /* iOS: dvh mới đúng chiều cao thật */
   display: flex !important;
   flex-direction: column !important;
-  border-radius: 0 0 24px 24px !important;    /* bo góc dưới vì giờ dán vào đỉnh */
+  border-radius: 0 0 24px 24px !important;       /* bo góc dưới vì dán vào đỉnh */
   overflow-y: auto !important;
   overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch;
-  padding-top: max(12px, env(safe-area-inset-top)) !important; /* tránh tai thỏ */
-  transform: translateY(-100%) !important;    /* trạng thái ẩn: nằm trên màn hình */
+  padding-top: max(14px, env(safe-area-inset-top)) !important;
+  transform: translateY(-100%) !important;        /* ẩn: nằm phía trên màn hình */
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-#iconPickerModal.show {
-  transform: translateY(0) !important;        /* trượt xuống từ đỉnh */
-}
-/* Thanh gạch "kéo" của bottom-sheet không còn ý nghĩa khi neo trên đỉnh */
-#iconPickerModal .modal-handle { display: none !important; }
-/* Hàng nút Xóa / Đóng / Lưu luôn dính đáy modal, không bị lọt khỏi tầm mắt */
-#iconPickerModal .modal-actions,
-#iconPickerModal .modal-footer {
-  position: sticky; bottom: 0;
-  background: var(--bg-card, #fff);
-  padding-bottom: max(10px, env(safe-area-inset-bottom));
-  z-index: 2;
+#iconPickerModal.show { transform: translateY(0) !important; }   /* trượt xuống từ đỉnh */
+#iconPickerModal .modal-handle { display: none !important; }     /* gạch kéo không còn ý nghĩa */
+#iconPickerModal .modal-title { margin-bottom: 16px !important; }
+/* Hàng nút Xóa / Đóng / Lưu luôn dính đáy modal */
+#iconPickerModal .modal-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-effect);
+  -webkit-backdrop-filter: var(--glass-effect);
+  margin-top: 12px !important;
+  padding: 10px 0 max(10px, env(safe-area-inset-bottom)) !important;
+  z-index: 3;
 }
