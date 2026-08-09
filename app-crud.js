@@ -99,6 +99,36 @@ window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'
 window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
+// ---------------- TAB 1: CHIẾN LƯỢC CẬP NHẬT DỮ LIỆU "LUÔN MỚI NHẤT" ----------------
+// Quy tắc theo yêu cầu:
+// - Hễ thêm/sửa/xóa giao dịch => XÓA cache cũ (Tab 1 / Tab 2 / tháng) và refetch lại.
+// - Tránh trường hợp "sửa đổi ngày 09 -> 08 nhưng list 09 vẫn còn" do cache ngày.
+async function invalidateCachesAndRefreshUI(options = {}) {
+    // Xóa toàn bộ cache liên quan dữ liệu giao dịch
+    window.dayTxCache = {};
+    window.apiTxCache = {};
+    window.monthDataCache = {};
+    tab2NeedsReload = true;
+
+    // Nếu đang ở Tab 1: luôn refetch cưỡng bức để list + hero đúng tuyệt đối
+    if (document.getElementById('tab1') && document.getElementById('tab1').classList.contains('active')) {
+        try { await window.fetchTransactions(true); } catch (e) {}
+        return;
+    }
+
+    // Tab 2: refresh UI (sẽ tự load theo mode)
+    if (document.getElementById('tab2') && document.getElementById('tab2').classList.contains('active')) {
+        updateTimeNavUI();
+        return;
+    }
+
+    // Tab 3: nếu đang mở search results thì render lại
+    if (document.getElementById('tab3') && document.getElementById('tab3').classList.contains('active')) {
+        if (typeof displaySearchResults === 'function') displaySearchResults();
+        return;
+    }
+}
+
 // Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
 // /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
 // Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
@@ -153,33 +183,53 @@ async function postToSheetWithRetry(payload, retries = 2) {
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
+
     const month = parseInt(tx.date.split('/')[1], 10);
     const year = parseInt(tx.date.split('/')[2], 10);
     if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month, year); }
+
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
     // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới cập nhật giao diện
     await secureFetch(`/transactions/${year}/month_${month}/${tx.id}.json`, 'PUT', fbTx);
 
-    // Ghi thành công -> mới đụng vào cache + render
-    if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); }
-    else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
-    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+    // Cập nhật cache in-memory tối thiểu (để các view khác không bị "trễ" nếu chưa kịp refetch)
+    if (tx.action === 'addTransaction') {
+        if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx);
+    } else {
+        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
+            if (!arr) return;
+            const idx = arr.findIndex(i => String(i.id) === String(tx.id));
+            if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx };
+        });
+    }
 
-    triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
-    window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
-    window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-    window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+    triggerHapticNotification('success');
+    showToast("Đã lưu giao dịch!", "success");
+
+    // Theo yêu cầu: HỄ có thay đổi => XÓA cache cũ + REFRESH dữ liệu mới nhất
+    await invalidateCachesAndRefreshUI({ reason: 'submitTx' });
 
     // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
 
     // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại thay vì nuốt lỗi im lặng
-    postToSheetWithRetry(tx).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning'); } });
+    postToSheetWithRetry(tx).then(ok => {
+        if (!ok) {
+            triggerHapticNotification('warning');
+            showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning');
+        }
+    });
+
     return true;
   } catch(e) {
     triggerHapticNotification('error');
-    showToast(navigator.onLine ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!') : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!', "error");
+    showToast(
+      navigator.onLine
+        ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!')
+        : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!',
+      "error"
+    );
     return false;
   }
 }
@@ -213,8 +263,12 @@ window.deleteTransaction = function(id, opts = {}) {
         // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
         await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
 
-        // Xóa thành công -> giờ mới gỡ khỏi cache
-        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
+        // Xóa thành công -> gỡ khỏi cache in-memory tối thiểu
+        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
+            if (!arr) return;
+            const idx = arr.findIndex(i => String(i.id) === String(id));
+            if (idx !== -1) arr.splice(idx, 1);
+        });
 
         // Nếu modal Tìm kiếm đang mở -> GIỮ NGUYÊN modal, chỉ cập nhật lại danh sách kết quả (vd 14 -> 13)
         const searchModalEl = document.getElementById('searchModal');
@@ -225,22 +279,31 @@ window.deleteTransaction = function(id, opts = {}) {
           displaySearchResults();
         }
 
-        // Cập nhật lại tab nền đang mở để dữ liệu vẫn đồng bộ khi đóng modal
-        if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+        triggerHapticNotification('success');
+        showToast("Đã xóa giao dịch!", "success");
 
-        triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
-        window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
-        window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
-        window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+        // Theo yêu cầu: HỄ có thay đổi => XÓA cache cũ + REFRESH dữ liệu mới nhất
+        await invalidateCachesAndRefreshUI({ reason: 'deleteTx' });
 
         // Bắn tín hiệu về Bot
         if (tx) notifyTelegram('delete', tx);
 
         // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
-        postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
+        postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => {
+            if (!ok) {
+                triggerHapticNotification('warning');
+                showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning');
+            }
+        });
+
       } catch(e) {
         triggerHapticNotification('error');
-        showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
+        showToast(
+          navigator.onLine
+            ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!')
+            : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!',
+          "error"
+        );
       }
     }
   );
@@ -467,19 +530,12 @@ window.openIconPickerModal = function() {
                         });
                     }
 
-                    window.dayTxCache = {};
-                    window.apiTxCache = {};
-                    window.monthDataCache = {};
-                    tab2NeedsReload = true;
+                    await invalidateCachesAndRefreshUI({ reason: 'saveCategory' });
 
                     showToast('Đã lưu thay đổi danh mục!', 'success');
                     closeIconPickerModal();
                     await window.initCategories(true);
                     window.loadKeywords(false);
-
-                    if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
-                    if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
-                    if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
 
                     // 4) Backup Google Sheet ở nền. GAS chỉ cập nhật Sheet hiện tại, không ghi Firebase.
                     fetch(proxyUrl + encodeURIComponent(apiUrl), {
@@ -545,6 +601,8 @@ window.openIconPickerModal = function() {
                         
                         showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
                         await window.initCategories(false); window.loadKeywords(false);
+
+                        await invalidateCachesAndRefreshUI({ reason: 'deleteCategory' });
                     } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
                 }
             );
