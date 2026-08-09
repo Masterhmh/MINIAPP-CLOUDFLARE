@@ -128,7 +128,6 @@ async function invalidateCachesAndRefreshUI(options = {}) {
         return;
     }
 }
-
 // Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
 // /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
 // Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
@@ -370,6 +369,85 @@ async function loadExistingKeywordsIntoTags(categoryName) {
     }
 }
 
+// =========================
+// UX: tự cuộn xuống vùng từ khoá + focus ô nhập (khi chọn danh mục)
+// =========================
+function scrollToTagInputAndFocus() {
+    const body = document.getElementById('iconPickerBody');
+    const area = document.getElementById('tagInputArea');
+    const input = document.getElementById('tagInputField');
+    if (!body || !area || !input) return;
+
+    setTimeout(() => {
+        try {
+            area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (e) {
+            try { body.scrollTop = area.offsetTop - 80; } catch (_) {}
+        }
+
+        setTimeout(() => {
+            try { input.focus({ preventScroll: true }); }
+            catch (_) { try { input.focus(); } catch (__) {} }
+        }, 120);
+    }, 50);
+}
+
+// =========================
+// UX: thu gọn icon grid 2 hàng + nút Xem thêm/Thu gọn
+// =========================
+function setupIconGridCollapse() {
+    const grid = document.getElementById('iconGridContainer');
+    if (!grid) return;
+
+    if (document.getElementById('toggleIconGridBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'toggleIconGridBtn';
+    btn.type = 'button';
+    btn.className = 'btn-soft';
+    btn.style.margin = '8px 0 10px';
+    btn.style.padding = '10px 12px';
+    btn.style.width = '100%';
+    btn.style.display = 'flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.gap = '8px';
+    btn.innerHTML = '<i class="fas fa-chevron-down"></i> Xem thêm icon';
+
+    grid.dataset.collapsed = '1';
+
+    const apply = () => {
+        const collapsed = grid.dataset.collapsed === '1';
+
+        const firstItem = grid.querySelector('.icon-item');
+        let twoRowsHeight = 128;
+        if (firstItem) {
+            const rect = firstItem.getBoundingClientRect();
+            const itemH = rect.height || 56;
+            twoRowsHeight = Math.round(itemH * 2 + 16);
+        }
+
+        if (collapsed) {
+            grid.style.maxHeight = twoRowsHeight + 'px';
+            grid.style.overflow = 'hidden';
+            btn.innerHTML = '<i class="fas fa-chevron-down"></i> Xem thêm icon';
+        } else {
+            grid.style.maxHeight = 'none';
+            grid.style.overflow = 'visible';
+            btn.innerHTML = '<i class="fas fa-chevron-up"></i> Thu gọn icon';
+        }
+    };
+
+    btn.onclick = (e) => {
+        e.preventDefault();
+        if (typeof triggerHaptic === 'function') triggerHaptic('light');
+        grid.dataset.collapsed = (grid.dataset.collapsed === '1') ? '0' : '1';
+        apply();
+    };
+
+    grid.parentElement.insertBefore(btn, grid);
+    apply();
+}
 // Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
 // Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
@@ -499,7 +577,6 @@ window.openIconPickerModal = function() {
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
 
         // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
-        // Dùng chung cho: bấm Enter/phẩy, rời ô, và ngay trước khi Áp dụng -> KHÔNG mất từ khóa.
         window.commitTagInput = function() {
             if (!tagInputField) return;
             const rawVal = tagInputField.value.trim();
@@ -518,10 +595,9 @@ window.openIconPickerModal = function() {
                     pendingTags.pop(); window.renderTags();
                 }
             });
-            // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // iOS/Telegram: chạm vào vùng tags/input phải focus đúng vào ô nhập từ khoá
+            // Focus chắc vào ô nhập khi chạm vùng tag
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
@@ -538,7 +614,7 @@ window.openIconPickerModal = function() {
                 };
 
                 tagBoxEl.addEventListener('touchstart', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bấm X xoá tag
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                     focusTagInput(e);
                 }, { passive: false });
 
@@ -553,10 +629,8 @@ window.openIconPickerModal = function() {
                 });
             }
 
-            // Nhãn hướng dẫn (chạm vào ô là gõ được; xong bấm Enter hoặc dấu phẩy)
             const tagLabel = document.querySelector('#tagInputArea .field-label');
             if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
-            // Cum chu vi du trong o nhap tu khoa
             tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
         }
         
@@ -587,10 +661,8 @@ window.openIconPickerModal = function() {
                 showLoading(true, 'tab3');
 
                 try {
-                    // 1) Firebase là nguồn chính: lưu danh mục + đổi transactions nhiều năm qua secureFetch trước.
                     const finalKeywords = await saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws);
 
-                    // 2) Cập nhật map icon local để giao diện đổi ngay.
                     if (oldCat && oldCat !== newCat) {
                         delete window.customCategoryIcons[oldCat];
                         delete window.categoryIconMap[oldCat];
@@ -598,7 +670,6 @@ window.openIconPickerModal = function() {
                     window.customCategoryIcons[newCat] = selectedIcon;
                     window.categoryIconMap[newCat] = selectedIcon;
 
-                    // 3) Nếu đổi tên danh mục, cập nhật cache giao dịch đang hiển thị.
                     if (oldCat && oldCat !== newCat) {
                         [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
                             if (!arr) return;
@@ -613,7 +684,6 @@ window.openIconPickerModal = function() {
                     await window.initCategories(true);
                     window.loadKeywords(false);
 
-                    // 4) Backup Google Sheet ở nền. GAS chỉ cập nhật Sheet hiện tại, không ghi Firebase.
                     fetch(proxyUrl + encodeURIComponent(apiUrl), {
                         method: 'POST',
                         body: JSON.stringify({
@@ -625,20 +695,7 @@ window.openIconPickerModal = function() {
                             finalKeywords: finalKeywords,
                             sheetId: sheetId
                         })
-                    }).then(async res => {
-                        try {
-                            const result = await res.json();
-                            if (result && result.success === false) {
-                                triggerHapticNotification('warning');
-                                showToast('Đã lưu Firebase, nhưng backup Google Sheet lỗi: ' + (result.error || 'Không rõ lỗi'), 'warning');
-                            }
-                        } catch (e) {}
-                    }).catch(err => {
-                        console.log('Lỗi backup danh mục xuống Google Sheet:', err);
-                        triggerHapticNotification('warning');
-                        showToast('Đã lưu Firebase, nhưng backup Google Sheet đang lỗi.', 'warning');
-                    });
-
+                    }).catch(() => {});
                 } catch(e) {
                     showToast('Lỗi lưu danh mục: ' + e.message, 'error');
                 } finally {
@@ -684,7 +741,10 @@ window.openIconPickerModal = function() {
             );
         };
     }
-    
+
+    // NEW: thu gọn icon grid 2 hàng + nút Xem thêm/Thu gọn
+    setupIconGridCollapse();
+
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
     const uniqueCats = [...new Set(cats)]; 
@@ -725,7 +785,6 @@ window.openIconPickerModal = function() {
         });
 
         modal.removeAttribute('data-selected-icon');
-        
         if (!val) return;
 
         let currentIconVal = null;
@@ -739,19 +798,6 @@ window.openIconPickerModal = function() {
             let targetEmoji = currentIconVal.includes('fa-') ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()] : currentIconVal;
             if (targetEmoji) {
                 let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
-                if (!item) {
-                    const newDiv = document.createElement('div');
-                    newDiv.className = 'icon-item';
-                    newDiv.setAttribute('data-icon', targetEmoji);
-                    newDiv.innerHTML = targetEmoji;
-                    newDiv.onclick = function() {
-                        triggerHaptic('light');
-                        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
-                        this.classList.add('selected');
-                        modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
-                    };
-                    item = newDiv;
-                }
                 if (item) {
                     item.classList.add('selected');
                     item.classList.remove('disabled-icon');
@@ -763,9 +809,6 @@ window.openIconPickerModal = function() {
         }
     };
 
-    // =========================
-    // ĐÃ SỬA: onchange async để load keyword của danh mục vào pendingTags
-    // =========================
     catSelect.onchange = async (e) => {
         triggerHaptic('light');
         if (e.target.value === '__NEW__') {
@@ -788,10 +831,11 @@ window.openIconPickerModal = function() {
             if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
             else modal.removeAttribute('data-original-category');
 
-            // NEW: load keyword của danh mục vào tags
             await loadExistingKeywordsIntoTags(selectedCategory);
-
             updateIconState(selectedCategory);
+
+            // NEW: tự cuộn xuống vùng từ khoá + focus input
+            if (selectedCategory) scrollToTagInputAndFocus();
         }
     };
 
@@ -806,10 +850,11 @@ window.openIconPickerModal = function() {
         delBtn.style.display = 'flex';
         modal.setAttribute('data-original-category', currentSelected);
 
-        // NEW: nạp keyword ngay khi mở modal theo category đang chọn
         loadExistingKeywordsIntoTags(currentSelected);
-
         updateIconState(currentSelected);
+
+        // NEW: mở modal xong => cuộn xuống vùng từ khoá + focus
+        scrollToTagInputAndFocus();
     } else {
         catSelect.value = '';
         catInput.value = '';
@@ -822,10 +867,8 @@ window.openIconPickerModal = function() {
         if (window.renderTags) window.renderTags();
     }
 
-    // đảm bảo renderTags đã có (nếu modal chưa init thì nó sẽ được tạo ở block trên)
     if (window.renderTags) window.renderTags();
 
-    // NEW: khóa scroll nền
     lockBackgroundScrollForIconPicker();
 
     document.getElementById('modalOverlay').classList.add('show');
@@ -837,6 +880,5 @@ window.closeIconPickerModal = function() {
     if (modal) modal.classList.remove('show');
     setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 
-    // NEW: mở lại scroll nền + trả về vị trí cũ
     unlockBackgroundScrollForIconPicker();
 };
