@@ -187,11 +187,31 @@ body.privacy-on .stat-compare {
     display: none !important;
 }
 
-/* ---------- FIX UI ICON PICKER: BO CUON LONG NHAU ----------
-   Truoc day #iconGridContainer co scroll rieng (max-height 240px) NAM TRONG vung
-   scroll cua than modal => cuon long nhau, vuot chon icon rat "dinh"/kho tren dt.
-   Bo scroll rieng cua luoi icon => CA modal chi cuon 1 lop duy nhat, vuot muot. */
-.icon-grid.icon-grid-scrollable { max-height: none !important; min-height: 0 !important; overflow-y: visible !important; }
+/* ---------- FIX UI ICON PICKER: BO CUON LONG NHAU + HET CAT COT BEN TRAI ----------
+   Truoc day #iconGridContainer co scroll rieng (max-height 40vh trong styles.css)
+   NAM TRONG vung scroll cua than modal => cuon long nhau, vuot chon icon rat "dinh".
+   LOI CAT BEN TRAI: rule cu viet .icon-grid.icon-grid-scrollable nhung phan tu that
+   chi co class .icon-grid => rule KHONG khop => luoi van con overflow-y:auto. Theo
+   chuan CSS, overflow-y:auto lam truc NGANG tu thanh auto => luoi cuon ngang duoc;
+   updateIconState() lai chen o dang chon (transform: scale(1.1)) len DAU luoi nen
+   trinh duyet tu cuon ngang toi no => COT DAU BI CAT.
+   Cach sua: bat theo ID cho chac chan, bo HAN vung cuon (ca doc va ngang), va doi
+   repeat(5,1fr) -> repeat(5,minmax(0,1fr)) de cot co duoc, khong tran ngang. */
+#iconGridContainer,
+.icon-grid,
+.icon-grid.icon-grid-scrollable {
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 3px !important;               /* chua cho cho o dang chon scale(1.1) */
+}
+/* O icon phai co duoc theo cot, neu khong cot se rong hon khung modal */
+#iconGridContainer .icon-item,
+.icon-grid .icon-item { box-sizing: border-box !important; min-width: 0 !important; width: 100% !important; }
 /* O nhap ten danh muc & vung nhap tu khoa: chua vao giua khi ban phim hien len */
 #iconPickerCategory, #tagInputArea, #tagInputField { scroll-margin-top: 20px; scroll-margin-bottom: 140px; }
 
@@ -208,6 +228,13 @@ body.privacy-on .stat-compare {
    An placeholder ngay khi tagsWrapper da co it nhat 1 the (.tag-badge). */
 .tag-input-container:has(.tag-badge) .tag-input-field::placeholder { color: transparent; }
 
+/* ---------- NUT XOA DANH MUC: CHI HIEN KHI DANG SUA DANH MUC CO SAN ----------
+   Tranh bam nham khi dang tao danh muc moi hoac chua chon gi. JS se them/bo class
+   .editing-existing tren #iconPickerModal (xem app-crud.js: setDeleteBtnVisibility). */
+#deleteCategoryBtn { display: none !important; }
+#iconPickerModal.editing-existing #deleteCategoryBtn { display: flex !important; }
+/* Khi nut xoa an, 2 nut con lai tu gian ra chiem het chieu ngang (flex:1 co san) */
+
 /* ---------- LICH THANG TAB 2: to nen pill cho cac ngay thuoc TUAN HIEN TAI ----------
    Tuan chua hom nay se co mau nen khac (amber nhat) de noi bat so voi cac ngay con lai.
    Van giu nguyen kieu o "hom nay" (cyan) va o "dang chon" bang selector uu tien cao hon. */
@@ -221,125 +248,3 @@ body.privacy-on .stat-compare {
 .calendar-day { position: relative; }
 .calendar-lunar { position: absolute; top: 2px; right: 3px; font-size: 0.5rem; font-weight: 600; line-height: 1; color: var(--text-3); pointer-events: none; }
 .calendar-lunar.lunar-special { color: #A855F7; font-weight: 800; }
-/* ============================================================================
-   FIX ICON PICKER (v3) — 09/08
-   Nguyên nhân đã xác định trong styles.css:
-   1) .icon-item.selected có transform: scale(1.1) NHƯNG .icon-grid là vùng cuộn
-      (overflow-y:auto) và updateIconState() chèn ô đang chọn lên ĐẦU lưới
-      => ô nở ra ngoài mép trái và BỊ CẮT.
-   2) overflow-y:auto khiến trục ngang tự thành auto => lưới cuộn ngang được,
-      code chỉ reset scrollTop mà không reset scrollLeft.
-   3) repeat(5, 1fr) = minmax(auto,1fr) => cột không co được => tràn ngang.
-   4) .modal-sheet là bottom-sheet có padding-bottom: 40px => thanh nút sticky
-      để lộ 40px nền phía dưới (dải trắng), và màu nền thanh nút lệch với modal.
-   5) #deleteCategoryBtn không dùng chung hệ .btn-cancel/.btn-save nên lệch cỡ.
-   ============================================================================ */
-
-/* ---------- 1. LƯỚI ICON: KHÔNG CUỘN, KHÔNG CẮT ---------- */
-.icon-grid,
-.icon-grid.icon-grid-scrollable {
-  grid-template-columns: repeat(5, minmax(0, 1fr)) !important; /* cho cột co lại */
-  gap: 10px !important;
-  max-height: none !important;
-  min-height: 0 !important;
-  overflow: visible !important;          /* bỏ HẲN vùng cuộn -> hết bị cắt */
-  overflow-x: hidden !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  padding: 4px !important;               /* chừa chỗ cho viền ô đang chọn */
-  margin-bottom: 16px !important;
-}
-
-/* ---------- 2. Ô ICON: vuông đều, co được, KHÔNG phóng to gây cắt ---------- */
-.icon-grid .icon-item {
-  box-sizing: border-box !important;
-  min-width: 0 !important;               /* mấu chốt: cho ô co theo cột */
-  width: 100% !important;
-  padding: 0 !important;
-  aspect-ratio: 1 / 1;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-size: 1.45rem !important;
-  overflow: hidden;
-}
-/* Thay hiệu ứng "phóng to" bằng viền sáng -> không lấn ra ngoài lưới nữa */
-.icon-grid .icon-item.selected {
-  transform: none !important;
-  box-shadow: 0 0 0 2px var(--primary) !important;
-}
-.icon-grid .icon-item:hover:not(.selected) { transform: none !important; }
-.icon-grid .icon-item:active { transform: scale(0.94) !important; }
-
-/* ---------- 3. MODAL QUẢN LÝ DANH MỤC: LUÔN NEO Ở ĐẦU TRANG ---------- */
-#iconPickerModal {
-  top: 0 !important;
-  bottom: auto !important;
-  left: 0 !important;
-  right: 0 !important;
-  margin: 0 auto !important;
-  height: auto !important;
-  max-height: 100dvh !important;                 /* iOS: dvh mới đúng chiều cao thật */
-  display: flex !important;
-  flex-direction: column !important;
-  border-radius: 0 0 24px 24px !important;       /* bo góc dưới vì dán vào đỉnh */
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch;
-  /* Bỏ padding-bottom 40px của .modal-sheet -> hết dải trắng dưới nút Lưu/Đóng.
-     Khoảng cách đáy do chính thanh nút đảm nhiệm (xem mục 4). */
-  padding: max(14px, env(safe-area-inset-top)) 20px 0 !important;
-  transform: translateY(-100%) !important;        /* ẩn: nằm phía trên màn hình */
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-}
-#iconPickerModal.show { transform: translateY(0) !important; }   /* trượt xuống từ đỉnh */
-#iconPickerModal .modal-handle { display: none !important; }     /* gạch kéo không còn ý nghĩa */
-#iconPickerModal .modal-title { margin-bottom: 16px !important; }
-
-/* ---------- 4. THANH NÚT ĐÁY: liền mạch, KHÔNG còn dải trắng ---------- */
-#iconPickerModal .modal-actions {
-  position: sticky;
-  bottom: 0;
-  z-index: 3;
-  display: flex !important;
-  align-items: stretch !important;                 /* mọi nút cao bằng nhau */
-  gap: 10px !important;
-  /* Kéo tràn hết bề ngang (bù padding 20px hai bên của .modal-sheet) */
-  margin: 12px -20px 0 !important;
-  /* Tự lo khoảng cách đáy + vùng an toàn iPhone */
-  padding: 12px 20px max(14px, env(safe-area-inset-bottom)) !important;
-  /* Dùng ĐÚNG màu nền của .modal-sheet -> không còn khối trắng nổi lên */
-  background: var(--bg-surface);
-  backdrop-filter: var(--glass-effect);
-  -webkit-backdrop-filter: var(--glass-effect);
-  border-top: 1px solid var(--border-color);
-  border-radius: 0 0 24px 24px;
-}
-
-/* ---------- 5. ĐỒNG BỘ KÍCH THƯỚC 3 NÚT: Xóa / Đóng / Lưu ---------- */
-#iconPickerModal .modal-actions > button {
-  height: 52px !important;
-  min-height: 52px !important;
-  margin: 0 !important;
-  box-sizing: border-box !important;
-  border-radius: var(--radius-md) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  font-weight: 800 !important;
-  white-space: nowrap !important;
-}
-/* Nút Xóa: ô vuông 52x52, cùng chiều cao & bo góc với 2 nút còn lại */
-#iconPickerModal #deleteCategoryBtn {
-  flex: 0 0 52px !important;
-  width: 52px !important;
-  min-width: 52px !important;
-  padding: 0 !important;
-  font-size: 1.05rem !important;
-}
-#iconPickerModal #deleteCategoryBtn i { margin: 0 !important; }
-/* Nút Đóng và Lưu chia phần còn lại (Lưu rộng hơn một chút cho cân mắt) */
-#iconPickerModal .modal-actions .btn-cancel { flex: 1 1 0 !important; padding: 0 10px !important; }
-#iconPickerModal .modal-actions .btn-save   { flex: 1.35 1 0 !important; padding: 0 10px !important; }
