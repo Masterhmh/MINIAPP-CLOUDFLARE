@@ -268,14 +268,52 @@ window.deleteTransaction = function(id) {
 
 // ==========================================
 // TÍNH NĂNG CỬA SỔ "ICON PICKER"
-// ==========================================
+// ============================================================================
+// CỬA SỔ "QUẢN LÝ DANH MỤC" (ICON PICKER) — bản tối ưu 09/08
+// - Chọn danh mục có sẵn -> hiện luôn danh sách từ khóa để sửa/xóa.
+// - Modal LUÔN mở ở đầu trang; lưới icon không còn bị cắt mép trái.
+// ============================================================================
 let pendingTags = [];
 
-// [B] Trạng thái đang sửa danh mục CÓ SẴN + bản gốc danh sách từ khóa
+// Trạng thái đang sửa danh mục CÓ SẴN + bản gốc danh sách từ khóa (để tính phần bị xoá)
 window.__editingExistingCat = null;
 window.__originalTags = [];
 
-// [B] Nạp danh sách từ khóa hiện có của 1 danh mục vào khu thẻ để sửa/xóa trực tiếp
+// ---- Danh sách emoji dùng cho lưới icon (khai báo 1 lần, tránh tạo lại mỗi lần mở) ----
+const ICON_PICKER_EMOJIS = [
+    '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
+    '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
+    '🏠', '🏢', '👗', '👟', '👓', '💻', '📺', '🎮', '🎧',
+    '💡', '💧', '🔥', '📶', '🩺', '🦷', '💪', '🎓', '🧸',
+    '📈', '💳', '🪙', '👛', '🎂', '🥂', '🐶', '🐱',
+    '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
+    '📦', '🏷️', '✨', '❤️'
+];
+
+// Chuẩn hóa 1 giá trị icon (emoji HOẶC tên Font Awesome cũ) về emoji
+function iconValueToEmoji(raw) {
+    if (!raw) return null;
+    const val = String(raw).trim();
+    if (!val.includes('fa-')) return val;                       // đã là emoji
+    let faClass = val.replace('fas ', '').trim();
+    if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+    return FA_TO_EMOJI_MAP[faClass] || null;
+}
+
+// Đưa modal + trang + lưới icon về vị trí ĐẦU (cả trục dọc VÀ trục ngang)
+function scrollIconPickerToTop() {
+    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
+    [
+        document.documentElement,
+        document.body,
+        document.getElementById('tab3'),
+        document.querySelector('.app-container') || document.querySelector('.container'),
+        document.getElementById('iconPickerModal'),
+        document.getElementById('iconGridContainer')
+    ].forEach(el => { if (el) { el.scrollTop = 0; el.scrollLeft = 0; } });
+}
+
+// Nạp danh sách từ khóa hiện có của 1 danh mục vào khu thẻ để sửa/xóa trực tiếp
 window.loadTagsForCategory = async function (cat) {
     pendingTags = [];
     if (window.renderTags) window.renderTags();
@@ -284,131 +322,139 @@ window.loadTagsForCategory = async function (cat) {
     try {
         const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
         pendingTags = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
-    } catch (e) { /* không đọc được -> coi như chưa có từ khóa */ }
-    window.__originalTags = pendingTags.slice();   // bản gốc, để tính từ khóa bị xoá khi đồng bộ Sheet
+    } catch (e) { /* chưa có từ khóa -> để trống */ }
+    window.__originalTags = pendingTags.slice();
     if (window.renderTags) window.renderTags();
 };
 
-window.openIconPickerModal = function() {
+window.openIconPickerModal = function () {
     triggerHaptic('light');
-    const modal = document.getElementById('iconPickerModal');
-    const container = document.getElementById('iconGridContainer');
-    
-    const catSelect = document.getElementById('iconPickerSelect');
-    const catInputGroup = document.getElementById('newCategoryInputGroup');
-    const catInput = document.getElementById('iconPickerCategory');
-    const tagArea = document.getElementById('tagInputArea');
-    const tagInputField = document.getElementById('tagInputField');
-    const tagsWrapper = document.getElementById('tagsWrapper');
+    const modal          = document.getElementById('iconPickerModal');
+    const container      = document.getElementById('iconGridContainer');
+    const catSelect      = document.getElementById('iconPickerSelect');
+    const catInputGroup  = document.getElementById('newCategoryInputGroup');
+    const catInput       = document.getElementById('iconPickerCategory');
+    const tagArea        = document.getElementById('tagInputArea');
+    const tagInputField  = document.getElementById('tagInputField');
+    const tagsWrapper    = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
-    const delBtn = document.getElementById('deleteCategoryBtn');
-    
-    if (container.innerHTML === '') {
-        const flatEmojis = [
-            '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
-            '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
-            '🏠', '🏢', '👗', '👟', '👓', '💻', '📺', '🎮', '🎧',
-            '💡', '💧', '🔥', '📶', '🩺', '🦷', '💪', '🎓', '🧸',
-            '📈', '💳', '🪙', '👛', '🎂', '🥂', '🐶', '🐱',
-            '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
-            '📦', '🏷️', '✨', '❤️'
-        ];
-        container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}">${emoji}</div>`).join('');
-        
-        const bindIconClick = (item) => {
-            item.onclick = function() {
-                triggerHaptic('light');
-                modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
-                this.classList.add('selected');
-                modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
-            };
-        };
-        modal.querySelectorAll('.icon-item').forEach(bindIconClick);
+    const delBtn         = document.getElementById('deleteCategoryBtn');
 
-        window.renderTags = function() {
+    // ---------- KHỞI TẠO 1 LẦN DUY NHẤT ----------
+    if (container.innerHTML === '') {
+        // Dựng lưới icon bằng DocumentFragment (1 lần reflow thay vì 68 lần)
+        const frag = document.createDocumentFragment();
+        ICON_PICKER_EMOJIS.forEach(emoji => {
+            const div = document.createElement('div');
+            div.className = 'icon-item';
+            div.dataset.icon = emoji;
+            div.textContent = emoji;
+            frag.appendChild(div);
+        });
+        container.appendChild(frag);
+
+        // MỘT listener cho cả lưới (event delegation) -> icon tạo động cũng tự hoạt động
+        container.addEventListener('click', (e) => {
+            const item = e.target.closest('.icon-item');
+            if (!item || item.classList.contains('disabled-icon')) return;
+            triggerHaptic('light');
+            container.querySelectorAll('.icon-item.selected').forEach(i => i.classList.remove('selected'));
+            item.classList.add('selected');
+            modal.setAttribute('data-selected-icon', item.dataset.icon);
+        });
+
+        // ---------- THẺ TỪ KHÓA ----------
+        window.renderTags = function () {
             tagsWrapper.innerHTML = '';
+            const frag2 = document.createDocumentFragment();
             pendingTags.forEach((tag, idx) => {
                 const span = document.createElement('span');
                 span.className = 'tag-badge';
-                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" onclick="removeTag(${idx})"></i>`;
-                tagsWrapper.appendChild(span);
+                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" data-idx="${idx}"></i>`;
+                frag2.appendChild(span);
             });
+            tagsWrapper.appendChild(frag2);
             hiddenKeywords.value = pendingTags.join(', ');
-        }
-        window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
+        };
+        // Xóa thẻ: cũng dùng 1 listener chung
+        tagsWrapper.addEventListener('click', (e) => {
+            const x = e.target.closest('.tag-badge i');
+            if (!x) return;
+            e.stopPropagation();
+            triggerHaptic('light');
+            pendingTags.splice(parseInt(x.dataset.idx, 10), 1);
+            window.renderTags();
+        });
+        window.removeTag = function (idx) { pendingTags.splice(idx, 1); window.renderTags(); }; // giữ để tương thích
 
-        // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
-        window.commitTagInput = function() {
+        // Chốt chữ đang gõ dở thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc)
+        window.commitTagInput = function () {
             if (!tagInputField) return;
             const rawVal = tagInputField.value.trim();
             if (!rawVal) return;
-            rawVal.split(',').map(k => k.trim()).filter(k => k).forEach(val => { if (!pendingTags.includes(val)) pendingTags.push(val); });
+            rawVal.split(',').map(k => k.trim()).filter(k => k)
+                  .forEach(val => { if (!pendingTags.includes(val)) pendingTags.push(val); });
             tagInputField.value = '';
             window.renderTags();
         };
 
         if (tagInputField) {
             tagInputField.addEventListener('keydown', (e) => {
-                if (e.key === ',' || e.key === 'Enter') {
-                    e.preventDefault();
-                    window.commitTagInput();
-                } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
-                    pendingTags.pop(); window.renderTags();
-                }
+                if (e.key === ',' || e.key === 'Enter') { e.preventDefault(); window.commitTagInput(); }
+                else if (e.key === 'Backspace' && !tagInputField.value && pendingTags.length) { pendingTags.pop(); window.renderTags(); }
             });
-            // Rời ô -> tự chốt chữ đang gõ dở, tránh mất từ khóa
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // iOS/Telegram: cham vao CA vung o roi ep focus vao input
+            // iOS/Telegram: chạm vào CẢ vùng ô là focus được ngay
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
                 tagBoxEl.addEventListener('click', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bam X xoa tag thi bo qua
+                    if (e.target.closest('.tag-badge')) return;
                     tagInputField.focus();
                 });
             }
-
             const tagLabel = document.querySelector('#tagInputArea .field-label');
             if (tagLabel) tagLabel.textContent = 'Từ khóa của danh mục (chạm vào ô để thêm; bấm ✕ trên thẻ để xoá)';
             tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
         }
-        
+
+        // ---------- LƯU ----------
         document.getElementById('saveIconPickerBtn').onclick = async () => {
-            if (window.commitTagInput) window.commitTagInput(); // chốt nốt từ khóa đang gõ dở trước khi lưu
+            if (window.commitTagInput) window.commitTagInput();
             const cat = catInput.value.trim();
             const selectedIcon = modal.getAttribute('data-selected-icon');
-            
             if (!cat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
             if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
-            
+
             triggerHaptic('medium'); showLoading(true, 'tab3');
             try {
-                // 1) Ghi icon thẳng vào node gộp /categories/<tên>/icon (qua cổng bảo mật)
+                // 1) ICON
                 await secureFetch(`/categories/${encodeURIComponent(cat)}/icon.json`, 'PUT', selectedIcon);
-                window.customCategoryIcons[cat] = selectedIcon; 
+                window.customCategoryIcons[cat] = selectedIcon;
                 window.categoryIconMap[cat] = selectedIcon;
 
-                // 2) [B] TỪ KHÓA
+                // 2) TỪ KHÓA
                 const newList = pendingTags.map(k => String(k).trim()).filter(k => k);
                 const editingExisting = (window.__editingExistingCat === cat);
                 let finalStr;
                 if (editingExisting) {
-                    // Danh mục CÓ SẴN: danh sách đang hiện LÀ danh sách cuối cùng -> xoá thẻ = xoá từ khóa
+                    // Danh mục CÓ SẴN: danh sách đang hiện LÀ danh sách cuối cùng (xoá thẻ = xoá từ khóa)
                     finalStr = window.normalizeKeywordList(newList);
                 } else {
-                    // Danh mục MỚI: gộp thêm với danh sách hiện có (như trước)
+                    // Danh mục MỚI: gộp thêm với danh sách hiện có
                     let existing = [];
                     try {
                         const raw = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`);
                         existing = String(raw || '').split(',').map(k => k.trim()).filter(k => k);
-                    } catch (err) { /* chưa có -> bỏ qua */ }
+                    } catch (err) {}
                     finalStr = window.normalizeKeywordList(existing.concat(newList));
                 }
                 await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', finalStr);
 
                 // 3) Cập nhật giao diện NGAY (không chờ Google Sheet)
-                showToast('Đã lưu cấu hình danh mục!', 'success'); closeIconPickerModal();
+                showToast('Đã lưu cấu hình danh mục!', 'success');
+                closeIconPickerModal();
                 await window.initCategories(true);
                 await window.loadKeywords(false);
                 await window.refreshAllData();
@@ -426,14 +472,15 @@ window.openIconPickerModal = function() {
                         if (added.length) await post({ action: 'addKeyword', category: cat, keywords: added.join(', '), sheetId: sheetId });
                     } catch (err) { console.log('Lỗi đồng bộ Sheet (nền):', err); }
                 })();
-            } catch(e) { showToast('Lỗi cập nhật danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+            } catch (e) { showToast('Lỗi cập nhật danh mục: ' + e.message, 'error'); }
+            finally { showLoading(false, 'tab3'); }
         };
 
-        document.getElementById('deleteCategoryBtn').onclick = () => {
+        // ---------- XÓA DANH MỤC ----------
+        delBtn.onclick = () => {
             const cat = catInput.value.trim();
             if (!cat) return;
             triggerHaptic('medium');
-            
             showCustomConfirm(
                 'Xóa danh mục',
                 `Bạn có chắc chắn muốn xóa hoàn toàn danh mục <strong>${escapeHTML(cat)}</strong> và tất cả từ khóa của nó không?`,
@@ -445,99 +492,72 @@ window.openIconPickerModal = function() {
                         delete window.customCategoryIcons[cat];
                         delete window.categoryIconMap[cat];
                         await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
-                        
-                        showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+
+                        showToast('Đã xóa danh mục thành công!', 'success');
+                        closeIconPickerModal();
                         await window.initCategories(false);
                         await window.loadKeywords(false);
                         await window.refreshAllData();
-                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+                    } catch (e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); }
+                    finally { showLoading(false, 'tab3'); }
                 }
             );
         };
+
+        // Gõ tên danh mục -> cập nhật trạng thái lưới icon (gắn 1 lần)
+        catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
     }
-    
+
+    // ---------- DỰNG DANH SÁCH DANH MỤC TRONG DROPDOWN ----------
+    const uniqueCats = [...new Set(
+        Array.from(document.getElementById('keywordCategory').options).map(o => o.value).filter(v => v)
+    )];
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
-    const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
-    const uniqueCats = [...new Set(cats)]; 
-    uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
-    
-    const newOpt = document.createElement('option');
-    newOpt.value = "__NEW__";
-    newOpt.innerHTML = "Tạo danh mục mới...";
-    newOpt.style.fontWeight = "bold";
+    uniqueCats.forEach(c => catSelect.appendChild(new Option(c, c)));
+    const newOpt = new Option('Tạo danh mục mới...', '__NEW__');
+    newOpt.style.fontWeight = 'bold';
     catSelect.appendChild(newOpt);
 
-    const updateIconState = (val) => {
-        let usedEmojis = [];
+    // ---------- CẬP NHẬT TRẠNG THÁI LƯỚI ICON (viết lại gọn) ----------
+    function updateIconState(val) {
+        // Icon đã bị danh mục KHÁC chiếm -> làm mờ, không cho chọn
+        const used = new Set();
         uniqueCats.forEach(c => {
-            if (c !== val) {
-                let iconStr = window.customCategoryIcons[c] || window.categoryIconMap[c];
-                if (iconStr) {
-                    iconStr = iconStr.trim();
-                    let emoji = iconStr;
-                    if (iconStr.includes('fa-')) {
-                        let faClass = iconStr.replace('fas ', '').trim();
-                        if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
-                        emoji = FA_TO_EMOJI_MAP[faClass];
-                    }
-                    if (emoji) usedEmojis.push(emoji);
-                }
-            }
-        });
-
-        modal.querySelectorAll('.icon-item').forEach(item => {
-            item.classList.remove('selected');
-            const itemEmoji = item.getAttribute('data-icon');
-            if (usedEmojis.includes(itemEmoji)) {
-                item.classList.add('disabled-icon');
-            } else {
-                item.classList.remove('disabled-icon');
-            }
+            if (c === val) return;
+            const emoji = iconValueToEmoji(window.customCategoryIcons[c] || window.categoryIconMap[c]);
+            if (emoji) used.add(emoji);
         });
 
         modal.removeAttribute('data-selected-icon');
-        
+        container.querySelectorAll('.icon-item').forEach(item => {
+            item.classList.remove('selected');
+            item.classList.toggle('disabled-icon', used.has(item.dataset.icon));
+        });
         if (!val) return;
 
-        let currentIconVal = null;
-        if (window.customCategoryIcons && window.customCategoryIcons[val]) {
-            currentIconVal = window.customCategoryIcons[val].trim();
-        } else if (window.categoryIconMap && window.categoryIconMap[val]) {
-            currentIconVal = window.categoryIconMap[val].trim();
+        // Đánh dấu icon hiện tại của danh mục đang chọn
+        const target = iconValueToEmoji(window.customCategoryIcons[val] || window.categoryIconMap[val]);
+        if (!target) return;
+        let item = container.querySelector(`.icon-item[data-icon="${CSS.escape(target)}"]`);
+        if (!item) {                                   // icon cũ (Font Awesome) không có trong lưới -> tạo thêm
+            item = document.createElement('div');
+            item.className = 'icon-item';
+            item.dataset.icon = target;
+            item.textContent = target;
         }
+        item.classList.add('selected');
+        item.classList.remove('disabled-icon');
+        modal.setAttribute('data-selected-icon', target);
+        if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
+        container.scrollTop = 0;
+        container.scrollLeft = 0;                      // chặn trình duyệt tự cuộn ngang -> hết cắt mép trái
+    }
 
-        if (currentIconVal) {
-            let targetEmoji = currentIconVal.includes('fa-') ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()] : currentIconVal;
-            if (targetEmoji) {
-                let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
-                if (!item) {
-                    const newDiv = document.createElement('div');
-                    newDiv.className = 'icon-item';
-                    newDiv.setAttribute('data-icon', targetEmoji);
-                    newDiv.innerHTML = targetEmoji;
-                    newDiv.onclick = function() {
-                        triggerHaptic('light');
-                        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
-                        this.classList.add('selected');
-                        modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
-                    };
-                    item = newDiv;
-                }
-                if (item) {
-                    item.classList.add('selected');
-                    item.classList.remove('disabled-icon');
-                    modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
-                    if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
-                    container.scrollTop = 0;
-                }
-            }
-        }
-    };
-
-    // [B] Chọn danh mục có sẵn -> hiện luôn danh sách từ khóa của nó để sửa/xóa
+    // ---------- CHỌN DANH MỤC ----------
     catSelect.onchange = async (e) => {
         triggerHaptic('light');
-        if (e.target.value === '__NEW__') {
+        const val = e.target.value;
+        if (val === '__NEW__') {
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
             delBtn.style.display = 'none';
@@ -548,31 +568,31 @@ window.openIconPickerModal = function() {
             pendingTags = []; window.renderTags();
         } else {
             catInputGroup.style.display = 'none';
-            delBtn.style.display = e.target.value ? 'flex' : 'none';
-            catInput.value = e.target.value;
-            updateIconState(e.target.value);
-            if (e.target.value) {
+            delBtn.style.display = val ? 'flex' : 'none';
+            catInput.value = val;
+            updateIconState(val);
+            if (val) {
                 tagArea.style.display = 'block';
-                await window.loadTagsForCategory(e.target.value);
+                await window.loadTagsForCategory(val);   // hiện luôn từ khóa của danh mục
             } else {
                 tagArea.style.display = 'none';
                 window.__editingExistingCat = null; window.__originalTags = [];
                 pendingTags = []; window.renderTags();
             }
         }
+        scrollIconPickerToTop();
     };
 
-    catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
-
+    // ---------- TRẠNG THÁI BAN ĐẦU KHI MỞ ----------
     const currentSelected = document.getElementById('keywordCategory').value;
-    if(currentSelected) {
+    if (currentSelected) {
         catSelect.value = currentSelected;
         catInput.value = currentSelected;
         catInputGroup.style.display = 'none';
-        tagArea.style.display = 'block';            // [B] hiện danh sách từ khóa
+        tagArea.style.display = 'block';
         delBtn.style.display = 'flex';
         updateIconState(currentSelected);
-        window.loadTagsForCategory(currentSelected); // [B] nạp từ khóa hiện có
+        window.loadTagsForCategory(currentSelected);
     } else {
         catSelect.value = '';
         catInput.value = '';
@@ -584,11 +604,20 @@ window.openIconPickerModal = function() {
         pendingTags = []; if (window.renderTags) window.renderTags();
     }
 
+    // ---------- HIỆN MODAL: LUÔN Ở ĐẦU TRANG ----------
+    scrollIconPickerToTop();
+    try { if (window.Telegram && Telegram.WebApp && Telegram.WebApp.expand) Telegram.WebApp.expand(); } catch (e) {}
     document.getElementById('modalOverlay').classList.add('show');
-    setTimeout(() => modal.classList.add('show'), 10);
+
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+        scrollIconPickerToTop();
+        // Chốt lại sau khi animation kết thúc (iOS đôi khi tự cuộn lại)
+        setTimeout(scrollIconPickerToTop, 340);
+    });
 };
 
-window.closeIconPickerModal = function() {
+window.closeIconPickerModal = function () {
     const modal = document.getElementById('iconPickerModal');
     if (modal) modal.classList.remove('show');
     setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
