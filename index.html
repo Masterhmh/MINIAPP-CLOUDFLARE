@@ -572,7 +572,14 @@
       </div>
 
       <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0; align-items: stretch;">
-          <button class="btn-danger-outline flex-shrink-0 m-0" id="deleteCategoryBtn" style="display: none; padding: 14px 0; border-radius: 12px; flex-basis: 44px;"><i class="fas fa-trash"></i></button>
+          <!-- ĐÃ SỬA: nút có icon + chữ -->
+          <button
+            class="btn-danger-outline flex-shrink-0 m-0"
+            id="deleteCategoryBtn"
+            style="display:none; padding:14px 14px; border-radius:12px; flex-basis:auto; white-space:nowrap;"
+          >
+            <i class="fas fa-trash" style="margin-right:8px;"></i> Xoá danh mục
+          </button>
           <button class="btn-cancel m-0 flex-1" onclick="closeIconPickerModal()"><i class="fas fa-times"></i> Đóng</button>
           <button class="btn-save m-0 flex-1" id="saveIconPickerBtn"><i class="fas fa-save"></i> Lưu thay đổi</button>
       </div>
