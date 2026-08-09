@@ -204,14 +204,37 @@
       </div>
     </div>
 
+    <!-- =========================
+         TAB 3 (ĐÃ SỬA)
+         - Có vùng hiển thị từ khóa theo danh mục ngay bên dưới select
+         ========================= -->
     <div id="tab3" class="tab-content">
       <div class="section-header">
         <span class="section-title">Quản Lý Từ Khóa</span>
       </div>
+
       <div class="field-group">
         <div class="field-label">Phân loại chi tiết</div>
         <select id="keywordCategory" class="field-input"><option value="">Chọn phân loại</option></select>
       </div>
+
+      <!-- NEW: danh sách từ khóa theo danh mục đang chọn -->
+      <div id="keywordsByCategoryBox" class="tx-card keyword-group-card" style="display:none; padding:14px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+            <div class="tx-icon-wrap expense" id="kwCatIcon"></div>
+            <div class="tx-body" style="min-width:0;">
+              <div class="tx-title" id="kwCatTitle">—</div>
+              <div class="tx-id-row" id="kwCatCount">—</div>
+            </div>
+          </div>
+          <button id="kwCatRefreshBtn" class="tx-btn" type="button" title="Làm mới từ khóa" style="width:34px;height:34px;">
+            <i class="fas fa-rotate"></i>
+          </button>
+        </div>
+        <div id="keywordsByCategoryTags" class="accordion-body" style="display:flex; padding:14px 0 0; border-top:1px solid var(--border-color); margin-top:12px;"></div>
+      </div>
+
       <div class="field-group">
         <div class="field-label">Từ khóa</div>
         <input type="text" id="keywordInput" class="field-input" placeholder="Nhập từ khóa (VD: đổ dầu, đổ xăng)">
@@ -516,11 +539,17 @@
       </div>
     </div>
 
+   <!-- =========================
+        ICON PICKER MODAL
+        (ĐÃ SỬA: thêm id="iconPickerBody" để CSS fix không cắt icon)
+        ========================= -->
    <div id="iconPickerModal" class="modal-sheet" style="display: flex; flex-direction: column;">
       <div class="modal-handle" onclick="closeIconPickerModal()"></div>
       <div class="modal-title"><i class="fas fa-shapes" style="color: var(--primary); margin-right: 8px;"></i> Quản lý danh mục</div>
       <div class="field-helper" style="margin-top: -4px; margin-bottom: 12px; color: var(--text-3); font-size: 0.85rem; line-height: 1.4;">Đổi tên, icon và từ khóa của danh mục. Nếu đổi tên, các giao dịch liên quan cũng sẽ được cập nhật.</div>
-      <div style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
+
+      <!-- CHỖ NÀY ĐÃ SỬA: thêm id="iconPickerBody" -->
+      <div id="iconPickerBody" style="flex: 1; overflow-y: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">
           <div class="field-group flex-shrink-0">
               <div class="field-label">Chọn hoặc tạo danh mục</div>
               <select id="iconPickerSelect" class="field-input"><option value="">-- Chọn hoặc tạo danh mục --</option></select>
@@ -531,6 +560,7 @@
           </div>
           <div class="field-label flex-shrink-0">Icon danh mục</div>
           <div id="iconGridContainer" class="icon-grid icon-grid-scrollable"></div>
+
           <div class="field-group flex-shrink-0" id="tagInputArea" style="margin-top: 10px; display: none; animation: fadeIn 0.3s ease;">
               <div class="field-label">Từ khóa nhận diện (gõ phẩy hoặc Enter để thêm)</div>
               <div class="field-input tag-input-container">
@@ -540,6 +570,7 @@
               <input type="hidden" id="iconPickerNewKeywords">
           </div>
       </div>
+
       <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0; align-items: stretch;">
           <button class="btn-danger-outline flex-shrink-0 m-0" id="deleteCategoryBtn" style="display: none; padding: 14px 0; border-radius: 12px; flex-basis: 44px;"><i class="fas fa-trash"></i></button>
           <button class="btn-cancel m-0 flex-1" onclick="closeIconPickerModal()"><i class="fas fa-times"></i> Đóng</button>
