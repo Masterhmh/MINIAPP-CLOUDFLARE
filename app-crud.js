@@ -1,815 +1,689 @@
-/* =========================================================================
-   app-crud.js — Tu khoa, danh muc, CRUD giao dich, Icon Picker
-   Nap sau app-reports.js, truoc app-export.js / app-init.js
-   -------------------------------------------------------------------------
-   [A] LAM MOI DU LIEU SAU MOI THAY DOI
-       Truoc day submitTx tu tay va lai cac mang cache (cachedTransactions.data,
-       cachedChartData.txs, cachedSearchResults) roi goi displayTransactions()
-       => ve lai chinh mang CU (vi du van hien 9/8 sau khi doi sang 8/8).
-       Nay: xoa SACH cache roi goi refreshAllData() de tai lai tu nguon.
+// ============================================================================
+// app-crud.js — TỪ KHÓA, DANH MỤC, CRUD GIAO DỊCH & ICON PICKER
+// ----------------------------------------------------------------------------
+// Vai trò: Tab 3 (quản lý từ khóa: tải, hiển thị, sửa/hủy), nạp danh mục,
+//   thêm/sửa/xóa giao dịch (modal Add/Edit), sinh mã giao dịch, ghi/đọc
+//   Firebase + đồng bộ Google Sheet (GAS), và cửa sổ ICON PICKER (cấu hình
+//   danh mục + icon + từ khóa).
+// Phụ thuộc: app-core.js (tiện ích, fetchMonthData, secureFetch...) và
+//   currency.js (formatNumberWithCommas dùng ở app-core). Tương tác với
+//   displayTransactions/updateTimeNavUI/displaySearchResults (app-reports.js).
+// Thứ tự nạp: sau app-reports.js.
+// ============================================================================
 
-   [B] TAB 3 — QUAN LY DANH MUC
-       Chon danh muc co san => hien luon danh sach tu khoa cua danh muc do
-       de sua truc tiep trong modal.
-
-   [C] NUT XOA DANH MUC
-       index.html da co inline style="display:none" cho #deleteCategoryBtn,
-       nen dieu khien bang btn.style.display la dung co che goc.
-       TUYET DOI khong dat rule CSS `#deleteCategoryBtn { display:none !important }`
-       vi !important se chan JS => nut khong bao gio hien.
-
-   [D] LUOI ICON KHONG BI CAT
-       Vung cat that la #iconPickerBody (div boc co overflow-y:auto, khong padding
-       ngang) — xem upgrade.css. O day: khong doi o dang chon len dau luoi nua,
-       va reset scroll cua dung #iconPickerBody.
-   ========================================================================= */
-
-/* =========================================================================
-   PHAN 0 — CACHE & LAM MOI DU LIEU
-   ========================================================================= */
-
-function __wipeObj(obj) {
-    try { if (obj && typeof obj === 'object') Object.keys(obj).forEach(k => delete obj[k]); } catch (e) {}
-}
-
-/** Xoa sach moi tang cache de lan doc tiep theo luon lay du lieu moi. */
-function clearAllDataCaches() {
-    try { if (typeof dayTxCache !== 'undefined') __wipeObj(dayTxCache); } catch (e) {}
-    try { if (typeof monthDataCache !== 'undefined') __wipeObj(monthDataCache); } catch (e) {}
-    try { if (typeof apiTxCache !== 'undefined') __wipeObj(apiTxCache); } catch (e) {}
-    try { if (typeof __yearHasDataCache !== 'undefined') __wipeObj(__yearHasDataCache); } catch (e) {}
-    try { if (typeof __yearFetchInFlight !== 'undefined') __wipeObj(__yearFetchInFlight); } catch (e) {}
-    try { if (typeof cachedTransactions !== 'undefined') cachedTransactions = null; } catch (e) {}
-    try { if (typeof cachedChartData !== 'undefined') cachedChartData = null; } catch (e) {}
-    try { if (typeof cachedSearchResults !== 'undefined') cachedSearchResults = null; } catch (e) {}
-    try { if (typeof __navBoundsPromise !== 'undefined') __navBoundsPromise = null; } catch (e) {}
-    try { if (typeof tab2NeedsReload !== 'undefined') tab2NeedsReload = true; } catch (e) {}
-    window.__navBoundsPromise = null;
-}
-window.clearAllDataCaches = clearAllDataCaches;
-
-/**
- * [A] Lam moi TOAN BO du lieu dang hien tren man hinh.
- * Goi sau MOI thao tac them / sua / xoa giao dich hoac danh muc.
- */
-window.refreshAllData = async function refreshAllData() {
-    clearAllDataCaches();
+// ---------------- TAB TỪ KHÓA ----------------
+window.loadKeywords = async function(isInit = false) {
+    if(!isInit) showLoading(true, 'tab3');
+    if(!isInit) document.getElementById('keywordsContainer').innerHTML = '';
     try {
-        if (typeof fetchTransactions === 'function') await fetchTransactions(true);
-    } catch (e) {}
-    try {
-        if (typeof updateTimeNavUI === 'function') updateTimeNavUI();
-    } catch (e) {}
-    // Neu Tab 2 dang mo thi ve lai bao cao ngay
-    try {
-        const tab2 = document.getElementById('tab2');
-        if (tab2 && tab2.classList.contains('active') && typeof loadReportData === 'function') {
-            await loadReportData(true);
+        // Đọc 1 node /categories duy nhất (object keyed theo tên danh mục) qua cổng bảo mật
+        let raw = await secureFetch('/categories.json');
+        if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getKeywords&sheetId=${sheetId}`)); raw = await gasRes.json(); }
+
+        // Chuẩn hóa -> mảng [{category, icon, keywords}] (hỗ trợ cả cấu trúc cũ là mảng)
+        let data = [];
+        if (Array.isArray(raw)) {
+            data = raw.filter(item => item !== null);
+        } else if (raw && typeof raw === 'object') {
+            data = Object.entries(raw).map(([category, v]) => ({
+                category,
+                icon: (v && v.icon) || '❗',
+                keywords: (v && v.keywords) || ''
+            }));
         }
-    } catch (e) {}
-    // Neu dang mo ket qua tim kiem thi chay lai truy van
-    try {
-        if (typeof window.rerunSearch === 'function') await window.rerunSearch();
-    } catch (e) {}
-};
 
-/** Chay lai tim kiem hien tai (neu co) de ket qua khong con la du lieu cu. */
-window.rerunSearch = async function rerunSearch() {
-    const modal = document.getElementById('searchModal');
-    const q = document.getElementById('searchQuery');
-    if (!modal || !q || !q.value.trim()) return;
-    if (!modal.classList.contains('show')) return;
-    const btn = document.getElementById('searchTransactionsBtn');
-    if (btn && typeof btn.onclick === 'function') { await btn.onclick(); return; }
-    if (typeof searchTransactions === 'function') await searchTransactions();
-};
-
-/* =========================================================================
-   PHAN 1 — TU KHOA (TAB 3)
-   ========================================================================= */
-
-/** Chuan hoa danh sach tu khoa: bo trang, bo rong, bo trung (khong phan biet hoa/thuong). */
-function normalizeKeywordList(list) {
-    const out = [];
-    const seen = new Set();
-    (Array.isArray(list) ? list : []).forEach(k => {
-        const s = String(k == null ? '' : k).trim();
-        if (!s) return;
-        const key = s.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(s);
-    });
-    return out;
-}
-window.normalizeKeywordList = normalizeKeywordList;
-
-/** Doc tu khoa cua 1 danh muc tu Firebase. */
-async function fetchCategoryKeywords(cat) {
-    if (!cat) return [];
-    try {
-        const res = await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'GET');
-        if (!res) return [];
-        if (Array.isArray(res)) return normalizeKeywordList(res);
-        if (typeof res === 'object') return normalizeKeywordList(Object.values(res));
-        if (typeof res === 'string') return normalizeKeywordList(res.split(','));
-    } catch (e) {}
-    return [];
-}
-window.fetchCategoryKeywords = fetchCategoryKeywords;
-
-/** Ghi de toan bo tu khoa cua 1 danh muc len Firebase. */
-async function putCategoryKeywords(cat, list) {
-    if (!cat) return false;
-    try {
-        await secureFetch(`/categories/${encodeURIComponent(cat)}/keywords.json`, 'PUT', normalizeKeywordList(list));
-        return true;
-    } catch (e) { return false; }
-}
-window.putCategoryKeywords = putCategoryKeywords;
-
-/** Tai toan bo tu khoa va ve ra Tab 3. */
-window.loadKeywords = async function loadKeywords(isInit) {
-    const box = document.getElementById('keywordsContainer');
-    const ph = document.getElementById('placeholderTab3');
-    const sp = document.getElementById('loadingTab3');
-    if (sp) sp.style.display = 'block';
-    if (ph) ph.style.display = 'none';
-    try {
-        const data = await secureFetch('/categories.json', 'GET') || {};
-        window.cachedKeywords = data;
-        displayKeywords(data);
-    } catch (e) {
-        if (box) box.innerHTML = '';
-        if (ph) { ph.textContent = 'Không tải được dữ liệu từ khóa'; ph.style.display = 'block'; }
-    } finally {
-        if (sp) sp.style.display = 'none';
-    }
-};
-
-/** Ve danh sach tu khoa theo tung danh muc (accordion). */
-window.displayKeywords = function displayKeywords(data) {
-    const box = document.getElementById('keywordsContainer');
-    const ph = document.getElementById('placeholderTab3');
-    if (!box) return;
-    const cats = Object.keys(data || {}).sort((a, b) => a.localeCompare(b, 'vi'));
-    if (!cats.length) {
-        box.innerHTML = '';
-        if (ph) { ph.textContent = 'Chưa có từ khóa nào'; ph.style.display = 'block'; }
-        return;
-    }
-    if (ph) ph.style.display = 'none';
-
-    const html = cats.map(cat => {
-        const node = data[cat] || {};
-        let kws = node.keywords;
-        if (kws && !Array.isArray(kws) && typeof kws === 'object') kws = Object.values(kws);
-        kws = normalizeKeywordList(kws);
-        const tags = kws.length
-            ? kws.map(k => `<span class="keyword-tag" onclick="startEditKeyword('${escapeHTML(cat).replace(/'/g, "\\'")}','${escapeHTML(k).replace(/'/g, "\\'")}')">${escapeHTML(k)}</span>`).join('')
-            : '<span class="empty-state" style="padding:6px 0;">Chưa có từ khóa</span>';
-        return `
-        <div class="keyword-group-card">
-          <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
-            <span class="acc-icon">${getCategoryIcon(cat)}</span>
-            <span class="acc-title">${escapeHTML(cat)}</span>
-            <span class="acc-count">${kws.length}</span>
-            <i class="fas fa-chevron-down acc-caret"></i>
-          </div>
-          <div class="accordion-body"><div class="keyword-tags">${tags}</div></div>
-        </div>`;
-    }).join('');
-    box.innerHTML = html;
-};
-
-/** Bat dau sua 1 tu khoa: dua len o nhap va doi nut sang che do sua. */
-window.startEditKeyword = function startEditKeyword(cat, kw) {
-    triggerHaptic('light');
-    window.currentEditKeyword = { cat: cat, kw: kw };
-    const kCat = document.getElementById('keywordCategory');
-    const kInp = document.getElementById('keywordInput');
-    if (kCat) kCat.value = cat;
-    if (kInp) { kInp.value = kw; kInp.focus(); }
-    const add = document.getElementById('addKeywordBtn');
-    if (add) add.innerHTML = '<i class="fas fa-save"></i> Cập nhật';
-    let cancel = document.getElementById('cancelKeywordBtn');
-    const wrap = document.getElementById('keywordActionContainer');
-    if (!cancel && wrap) {
-        cancel = document.createElement('button');
-        cancel.id = 'cancelKeywordBtn';
-        cancel.type = 'button';
-        cancel.className = 'btn-cancel flex-1 m-0';
-        cancel.innerHTML = '<i class="fas fa-times"></i> Hủy';
-        cancel.onclick = window.cancelEditKeyword;
-        wrap.appendChild(cancel);
-    }
-    if (cancel) cancel.style.display = 'flex';
-    let del = document.getElementById('deleteEditKeywordBtn');
-    if (!del && wrap) {
-        del = document.createElement('button');
-        del.id = 'deleteEditKeywordBtn';
-        del.type = 'button';
-        del.className = 'btn-danger-outline flex-1 m-0';
-        del.innerHTML = '<i class="fas fa-trash"></i> Xóa';
-        del.onclick = () => window.deleteKeyword(window.currentEditKeyword);
-        wrap.appendChild(del);
-    }
-    if (del) del.style.display = 'flex';
-    try { document.getElementById('tab3').scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}
-};
-
-/** Thoat che do sua tu khoa. */
-window.cancelEditKeyword = function cancelEditKeyword() {
-    window.currentEditKeyword = null;
-    const kInp = document.getElementById('keywordInput');
-    if (kInp) kInp.value = '';
-    const add = document.getElementById('addKeywordBtn');
-    if (add) add.innerHTML = '<i class="fas fa-plus"></i> Thêm';
-    ['cancelKeywordBtn', 'deleteEditKeywordBtn'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
-};
-
-/** Them moi hoac cap nhat 1 tu khoa. */
-window.submitKeyword = async function submitKeyword() {
-    const cat = (document.getElementById('keywordCategory') || {}).value || '';
-    const kw = ((document.getElementById('keywordInput') || {}).value || '').trim();
-    if (!cat) return showToast('Hãy chọn phân loại', 'warning');
-    if (!kw) return showToast('Hãy nhập từ khóa', 'warning');
-
-    showLoading(true);
-    try {
-        const editing = window.currentEditKeyword;
-        if (editing && editing.cat === cat) {
-            const list = await fetchCategoryKeywords(cat);
-            const idx = list.findIndex(k => k.toLowerCase() === String(editing.kw).toLowerCase());
-            if (idx >= 0) list[idx] = kw; else list.push(kw);
-            await putCategoryKeywords(cat, list);
-        } else if (editing) {
-            // Doi sang danh muc khac: bo o danh muc cu, them vao danh muc moi
-            const oldList = (await fetchCategoryKeywords(editing.cat))
-                .filter(k => k.toLowerCase() !== String(editing.kw).toLowerCase());
-            await putCategoryKeywords(editing.cat, oldList);
-            const newList = await fetchCategoryKeywords(cat);
-            newList.push(kw);
-            await putCategoryKeywords(cat, newList);
-        } else {
-            const list = await fetchCategoryKeywords(cat);
-            if (list.some(k => k.toLowerCase() === kw.toLowerCase())) {
-                showLoading(false);
-                return showToast('Từ khóa này đã tồn tại', 'warning');
+        cachedKeywords = data || [];
+        // Dựng đồng thời 2 map icon từ cùng 1 nguồn -> không còn lệch icon
+        window.categoryIconMap = {};
+        window.customCategoryIcons = {};
+        cachedKeywords.forEach(kw => {
+            if (kw && kw.category && kw.icon) {
+                window.categoryIconMap[kw.category.trim()] = kw.icon.trim();
+                window.customCategoryIcons[kw.category.trim()] = kw.icon.trim();
             }
-            list.push(kw);
-            await putCategoryKeywords(cat, list);
-        }
-        try { await postToSheetWithRetry({ action: 'addKeyword', category: cat, keyword: kw }); } catch (e) {}
-        window.cancelEditKeyword();
-        await window.loadKeywords();
-        triggerHapticNotification('success');
-        showToast('Đã lưu từ khóa', 'success');
-    } catch (e) {
-        showToast('Lỗi khi lưu từ khóa', 'error');
-    } finally {
-        showLoading(false);
-    }
-};
-
-/** Xoa 1 tu khoa. */
-window.deleteKeyword = async function deleteKeyword(target) {
-    if (!target || !target.cat || !target.kw) return;
-    const ok = await showCustomConfirm(`Xóa từ khóa "${target.kw}"?`);
-    if (!ok) return;
-    showLoading(true);
-    try {
-        const list = (await fetchCategoryKeywords(target.cat))
-            .filter(k => k.toLowerCase() !== String(target.kw).toLowerCase());
-        await putCategoryKeywords(target.cat, list);
-        try { await postToSheetWithRetry({ action: 'deleteKeyword', category: target.cat, keyword: target.kw }); } catch (e) {}
-        window.cancelEditKeyword();
-        await window.loadKeywords();
-        triggerHapticNotification('success');
-        showToast('Đã xóa từ khóa', 'success');
-    } catch (e) {
-        showToast('Lỗi khi xóa từ khóa', 'error');
-    } finally {
-        showLoading(false);
-    }
-};
-
-/* =========================================================================
-   PHAN 2 — CRUD GIAO DICH
-   ========================================================================= */
-
-/** Sinh ma giao dich ke tiep trong thang: GD001, GD002, ... */
-window.getNextTransactionId = async function getNextTransactionId(month, year) {
-    let max = 0;
-    try {
-        const data = await secureFetch(`/transactions/${year}/month_${month}.json`, 'GET') || {};
-        Object.keys(data).forEach(id => {
-            const m = /^GD(\d+)$/i.exec(id);
-            if (m) max = Math.max(max, parseInt(m[1], 10));
         });
-    } catch (e) {}
-    return 'GD' + String(max + 1).padStart(3, '0');
+        if(!isInit) displayKeywords();
+    } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab3'); }
 };
 
-/**
- * Them (mode='add') hoac sua (mode='edit') mot giao dich.
- * [A] Ket thuc bang refreshAllData() — KHONG va cache bang tay nua.
- */
-window.submitTx = async function submitTx(mode) {
-    const p = mode === 'edit' ? 'edit' : 'add';
-    const g = id => document.getElementById(p + id);
-    const dateStr = (g('Date') || {}).value || '';                     // yyyy-mm-dd
-    const content = ((g('Content') || {}).value || '').trim();
-    const amount = parseNumber((g('Amount') || {}).value || '');
-    const note = ((g('Note') || {}).value || '').trim();
-    const category = (g('Category') || {}).value || '';
-    const type = (g('Type') || {}).value || 'Chi tiêu';
+window.startEditKeyword = function(kw, category) { 
+    triggerHaptic('light'); document.getElementById('keywordInput').value = kw; document.getElementById('keywordCategory').value = category; currentEditKeyword = kw; 
+    const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-save"></i> Lưu sửa'; btnAdd.classList.add('btn-edit-kw'); 
+    document.getElementById('cancelKeywordBtn').style.display = 'flex'; document.getElementById('deleteEditKeywordBtn').style.display = 'flex'; document.getElementById('fetchKeywordsBtn').style.display = 'none';
+};
 
-    if (!dateStr) return showToast('Hãy chọn ngày', 'warning');
-    if (!content) return showToast('Hãy nhập nội dung', 'warning');
-    if (!amount || amount <= 0) return showToast('Số tiền không hợp lệ', 'warning');
-    if (!category) return showToast('Hãy chọn phân loại chi tiết', 'warning');
+window.cancelEditKeyword = function() { 
+    triggerHaptic('light'); document.getElementById('keywordInput').value = ''; currentEditKeyword = null; 
+    const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-plus"></i> Thêm'; btnAdd.classList.remove('btn-edit-kw'); 
+    document.getElementById('cancelKeywordBtn').style.display = 'none'; document.getElementById('deleteEditKeywordBtn').style.display = 'none'; document.getElementById('fetchKeywordsBtn').style.display = 'flex';
+};
 
-    const [y, m, d] = dateStr.split('-').map(n => parseInt(n, 10));
-    const year = y, month = m;
-    const viDate = `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
+function displayKeywords() {
+   const container = document.getElementById('keywordsContainer'); container.innerHTML = '';
+   if(!cachedKeywords || cachedKeywords.length === 0) { document.getElementById('placeholderTab3').style.display = 'block'; return; }
+   document.getElementById('placeholderTab3').style.display = 'none';
+   const groupedKeywords = {}; cachedKeywords.forEach(item => { const category = item.category || 'Khác'; if (!groupedKeywords[category]) groupedKeywords[category] = { keywords: [] }; if (item.keywords && typeof item.keywords === 'string') { const kwsArray = item.keywords.split(',').map(k => k.trim()).filter(k => k !== ''); kwsArray.forEach(kw => { if (!groupedKeywords[category].keywords.includes(kw)) groupedKeywords[category].keywords.push(kw); }); } });
+   
+   Object.keys(groupedKeywords).sort((a,b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); }).forEach(category => { 
+       const group = groupedKeywords[category]; let tagsHTML = ''; 
+       // Chống XSS: KHÔNG nhúng tên từ khóa vào onclick nữa; lưu vào data-* rồi gắn sự kiện sau.
+       group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => { tagsHTML += `<span class="keyword-tag" data-kw="${escapeHTML(kw)}" data-cat="${escapeHTML(category)}">${escapeHTML(kw)}</span>`; }); 
+       const div = document.createElement('div'); div.className = 'tx-card keyword-group-card'; 
+       div.innerHTML = `<div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';"><div class="flex-row-gap-10" style="align-items:center;"><div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title">${escapeHTML(category)}</div><div class="tx-id-row">${group.keywords.length} từ khóa</div></div></div><i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i></div><div class="accordion-body" style="display:none;">${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}</div>`; 
+       container.appendChild(div); 
+       // Gắn sự kiện click cho từng thẻ từ khóa (đọc lại giá trị gốc từ dataset)
+       div.querySelectorAll('.keyword-tag').forEach(tag => { tag.addEventListener('click', () => startEditKeyword(tag.dataset.kw, tag.dataset.cat)); });
+   });
+}
 
-    showLoading(true);
+// ---------------- MODALS & CRUD ----------------
+async function fetchCategories() { 
+    try { 
+        let raw = await secureFetch('/categories.json'); 
+        if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); raw = await gasRes.json(); } 
+        let cats = [];
+        if (Array.isArray(raw)) {
+            cats = raw.filter(c => c);            // tương thích ngược: mảng tên
+        } else if (raw && typeof raw === 'object') {
+            cats = Object.keys(raw);              // cấu trúc mới: lấy tên danh mục
+        }
+        cats.sort((a, b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); });
+        return cats; 
+    } catch(e) { return []; } 
+}
+
+window.selectType = function(formId, type, el) { triggerHaptic('light'); document.getElementById(formId + 'Type').value = type; const pills = el.parentElement.querySelectorAll('.type-pill'); pills.forEach(p => p.classList.remove('income-active', 'expense-active')); if(type === 'Chi tiêu') el.classList.add('expense-active'); else el.classList.add('income-active'); };
+window.openAddForm = async function() { triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('addModal').classList.add('show'), 10); document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('addDate').value = formatDateToYYYYMMDD(new Date()); document.getElementById('addContent').value = ''; document.getElementById('addAmount').value = ''; document.getElementById('addNote').value = ''; document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('addCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => catSel.appendChild(new Option(c, c))); };
+window.closeAddForm = function() { document.getElementById('addModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
+window.openEditForm = async function(tx) { if(!tx) return; triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('editModal').classList.add('show'), 10); const pills = document.querySelectorAll('#editModal .type-pill'); pills.forEach(p => { if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập'; else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu'; }); document.getElementById('editTransactionId').value = tx.id; document.getElementById('editContent').value = tx.content; document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString()); document.getElementById('editNote').value = tx.note || ''; const [d,m,y] = tx.date.split('/'); document.getElementById('editDate').value = `${y}-${m}-${d}`; pills.forEach(p => { if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click(); if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click(); }); const catSel = document.getElementById('editCategory'); catSel.innerHTML = ''; const cats = await fetchCategories(); cats.forEach(c => { const opt = new Option(c, c); if(c === tx.category) opt.selected = true; catSel.appendChild(opt); }); };
+window.closeEditForm = function() { document.getElementById('editModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
+window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
+
+// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
+// /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
+// Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
+// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
+async function getNextTransactionId(month, year) {
+    let maxInMonth = 0;
+    const consider = (id, dateStr) => {
+        if (!String(id).startsWith('GD') || String(id).includes('_')) return;
+        if (year != null && dateStr) {
+            const p = String(dateStr).split('/');
+            if (p.length === 3 && parseInt(p[2], 10) !== parseInt(year, 10)) return; // chỉ tính giao dịch cùng năm
+        }
+        const n = parseInt(String(id).replace('GD', ''), 10);
+        if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
+    };
+    // Đọc đúng nhánh năm/tháng đó trên Firebase (qua cổng bảo mật)
     try {
-        let txId;
-        let oldMonth = null, oldYear = null;
-        if (mode === 'edit') {
-            txId = (document.getElementById('editTransactionId') || {}).value || '';
-            if (!txId) throw new Error('missing id');
-            const meta = (window.__editingTxMeta || {});
-            oldMonth = meta.month || null;
-            oldYear = meta.year || null;
-        } else {
-            txId = await window.getNextTransactionId(month, year);
+        const data = await secureFetch(`/transactions/${year}/month_${month}.json`);
+        if (data && typeof data === 'object') Object.keys(data).forEach(id => { const t = data[id]; consider(id, t && t.date); });
+    } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
+
+    // Dự phòng: quét dữ liệu đang load trên máy nhưng CHỈ tính các giao dịch cùng tháng (và cùng năm)
+    [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])].forEach(item => {
+        if (!item || !item.id || !item.date) return;
+        const m = parseInt(String(item.date).split('/')[1], 10);
+        if (m !== month) return;
+        consider(item.id, item.date);
+    });
+
+    const nextNum = maxInMonth + 1;
+    return "GD" + String(nextNum).padStart(3, '0');
+}
+
+// Gửi POST sang Google Sheet (GAS) CÓ KIỂM TRA + THỬ LẠI; trả về true nếu thành công, false nếu thất bại.
+// Tránh "nuốt" lỗi đồng bộ sheet một cách im lặng (chống lệch dữ liệu Firebase <-> Google Sheet).
+async function postToSheetWithRetry(payload, retries = 2) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify(payload) });
+            if (res.ok) {
+                try {
+                    const data = await res.clone().json();
+                    if (!data || data.success !== false) return true; // GAS trả {success:false} mới coi là lỗi
+                } catch (e) { return true; } // 200 nhưng không phải JSON -> vẫn coi là OK
+            }
+        } catch (e) { console.log("Lỗi đồng bộ Sheet (lần " + (attempt + 1) + "):", e); }
+        if (attempt < retries) await new Promise(r => setTimeout(r, 500));
+    }
+    return false;
+}
+
+async function submitTx(tx) {
+  try {
+    showToast("Đang lưu giao dịch...", "info");
+    const month = parseInt(tx.date.split('/')[1], 10);
+    const year = parseInt(tx.date.split('/')[2], 10);
+    if (tx.action === 'addTransaction') { tx.id = await getNextTransactionId(month, year); }
+    const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
+
+    // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới cập nhật giao diện
+    await secureFetch(`/transactions/${year}/month_${month}/${tx.id}.json`, 'PUT', fbTx);
+
+    // Ghi thành công -> mới đụng vào cache + render
+    if (tx.action === 'addTransaction') { if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx); }
+    else { [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(tx.id)); if (idx !== -1) arr[idx] = { ...arr[idx], ...fbTx }; }); }
+    if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+    triggerHapticNotification('success'); showToast("Đã lưu giao dịch!", "success"); tab2NeedsReload = true;
+    window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
+    window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
+    window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+
+    // Bắn tín hiệu về Bot
+    if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
+
+    // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại thay vì nuốt lỗi im lặng
+    postToSheetWithRetry(tx).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning'); } });
+    return true;
+  } catch(e) {
+    triggerHapticNotification('error');
+    showToast(navigator.onLine ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!') : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!', "error");
+    return false;
+  }
+}
+
+window.deleteTransaction = function(id, opts = {}) {
+  if (!opts.fromSearch) closeEditForm(); // Xoá từ modal Tìm kiếm thì KHÔNG đụng modalOverlay (dùng chung) để không làm mất nền modal
+  triggerHaptic('medium'); 
+  
+  showCustomConfirm(
+    'Xóa giao dịch',
+    `Bạn có chắc chắn muốn xóa giao dịch #${escapeHTML(id)} này không?`,
+    'Xóa',
+    async () => {
+      // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
+      let tx = null;
+      if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
+      if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
+      if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
+
+      // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
+      if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
+        triggerHapticNotification('error');
+        showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
+        return;
+      }
+      const monthToUpdate = parseInt(tx.date.split('/')[1], 10);
+      const yearToUpdate = parseInt(tx.date.split('/')[2], 10);
+
+      showToast("Đang xóa giao dịch...", "info");
+      try {
+        // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
+        await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
+
+        // Xóa thành công -> giờ mới gỡ khỏi cache
+        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => { if (!arr) return; const idx = arr.findIndex(i => String(i.id) === String(id)); if (idx !== -1) arr.splice(idx, 1); });
+
+        // Nếu modal Tìm kiếm đang mở -> GIỮ NGUYÊN modal, chỉ cập nhật lại danh sách kết quả (vd 14 -> 13)
+        const searchModalEl = document.getElementById('searchModal');
+        const searchOpen = opts.fromSearch || (searchModalEl && searchModalEl.classList.contains('show'));
+        if (searchOpen) {
+          const totalPages = Math.max(1, Math.ceil((cachedSearchResults?.length || 0) / itemsPerPage));
+          if (currentPageSearch > totalPages) currentPageSearch = totalPages; // tránh đứng ở trang trống sau khi xoá
+          displaySearchResults();
         }
 
-        const tx = {
-            id: txId,
-            date: viDate,
-            content: content,
-            amount: amount,
-            note: note,
-            category: category,
-            type: type
+        // Cập nhật lại tab nền đang mở để dữ liệu vẫn đồng bộ khi đóng modal
+        if(document.getElementById('tab1').classList.contains('active')) displayTransactions(); else if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI(); else if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+        triggerHapticNotification('success'); showToast("Đã xóa giao dịch!", "success"); tab2NeedsReload = true;
+        window.dayTxCache = {}; // Xoá cache nhiều ngày Tab 1 để lần sau tải lại dữ liệu mới
+        window.apiTxCache = {}; // Xoá cache theo khoảng ngày của báo cáo Tab 2 (nếu không sẽ hiển thị số cũ)
+        window.monthDataCache = {}; // Xoá cache dữ liệu theo năm_tháng để báo cáo & tìm kiếm dựng lại từ số liệu mới
+
+        // Bắn tín hiệu về Bot
+        if (tx) notifyTelegram('delete', tx);
+
+        // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
+        postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => { if (!ok) { triggerHapticNotification('warning'); showToast('Đã xóa khỏi hệ thống, nhưng đồng bộ xóa trên Google Sheet đang lỗi. Vui lòng mở lại app kiểm tra sheet sau.', 'warning'); } });
+      } catch(e) {
+        triggerHapticNotification('error');
+        showToast(navigator.onLine ? ('Xóa thất bại: ' + e.message + '. Giao dịch vẫn còn, thử lại nhé!') : 'Mất kết nối mạng. Giao dịch CHƯA bị xóa, thử lại nhé!', "error");
+      }
+    }
+  );
+};
+
+// ==========================================
+// TÍNH NĂNG CỪA SỔ "ICON PICKER"
+// ==========================================
+let pendingTags = [];
+
+// Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
+// Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
+async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
+    if (!oldCat || !newCat || oldCat === newCat) return;
+
+    let allData = null;
+    try {
+        allData = await secureFetch('/transactions.json');
+    } catch (e) {
+        console.log('Không đọc được toàn bộ transactions để đổi danh mục:', e);
+        throw new Error('Không đọc được dữ liệu giao dịch Firebase để đổi tên danh mục');
+    }
+
+    if (!allData || typeof allData !== 'object') return;
+
+    for (const year of Object.keys(allData)) {
+        const yearData = allData[year];
+        if (!yearData || typeof yearData !== 'object') continue;
+
+        for (const monthKey of Object.keys(yearData)) {
+            const monthData = yearData[monthKey];
+            if (!monthData || typeof monthData !== 'object') continue;
+
+            let changed = false;
+            Object.keys(monthData).forEach(id => {
+                const tx = monthData[id];
+                if (tx && tx.category === oldCat) {
+                    tx.category = newCat;
+                    changed = true;
+                }
+            });
+
+            if (changed) {
+                await secureFetch(`/transactions/${year}/${monthKey}.json`, 'PUT', monthData);
+            }
+        }
+    }
+}
+
+// Lưu cấu hình danh mục lên Firebase trước, sau đó GAS chỉ backup Google Sheet.
+async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws) {
+    let existingKeywords = [];
+    let oldData = null;
+
+    if (oldCat) {
+        try {
+            oldData = await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`);
+        } catch (e) {
+            oldData = null;
+        }
+    }
+
+    if (oldData && oldData.keywords) {
+        existingKeywords = String(oldData.keywords).split(',').map(k => k.trim()).filter(k => k);
+    }
+
+    if (newKws && newKws.trim()) {
+        newKws.split(',').forEach(k => {
+            const clean = k.trim();
+            if (clean) existingKeywords.push(clean);
+        });
+    }
+
+    const finalKeywords = window.normalizeKeywordList
+        ? window.normalizeKeywordList(existingKeywords)
+        : [...new Set(existingKeywords.map(k => k.toLowerCase()))].sort((a, b) => a.localeCompare(b, 'vi')).join(', ');
+
+    await secureFetch(`/categories/${encodeURIComponent(newCat)}.json`, 'PUT', {
+        icon: selectedIcon,
+        keywords: finalKeywords || ''
+    });
+
+    if (oldCat && oldCat !== newCat) {
+        await renameCategoryInFirebaseTransactions(oldCat, newCat);
+        await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`, 'DELETE');
+    }
+
+    return finalKeywords;
+}
+
+window.openIconPickerModal = function() {
+    triggerHaptic('light');
+    const modal = document.getElementById('iconPickerModal');
+    const container = document.getElementById('iconGridContainer');
+    
+    const catSelect = document.getElementById('iconPickerSelect');
+    const catInputGroup = document.getElementById('newCategoryInputGroup');
+    const catInput = document.getElementById('iconPickerCategory');
+    const tagArea = document.getElementById('tagInputArea');
+    const tagInputField = document.getElementById('tagInputField');
+    const tagsWrapper = document.getElementById('tagsWrapper');
+    const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
+    const delBtn = document.getElementById('deleteCategoryBtn');
+    
+    if (container.innerHTML === '') {
+        const flatEmojis = [
+            '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
+            '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
+            '🏠', '🏢', '👗', '👟', '👓', '💻', '📺', '🎮', '🎧',
+            '💡', '💧', '🔥', '📶', '🩺', '🦷', '💪', '🎓', '🧸',
+            '📈', '💳', '🪙', '👛', '🎂', '🥂', '🐶', '🐱',
+            '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
+            '📦', '🏷️', '✨', '❤️'
+        ];
+        container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}">${emoji}</div>`).join('');
+        
+        const bindIconClick = (item) => {
+            item.onclick = function() {
+                triggerHaptic('light');
+                modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+                this.classList.add('selected');
+                modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
+            };
+        };
+        modal.querySelectorAll('.icon-item').forEach(bindIconClick);
+
+        window.renderTags = function() {
+            tagsWrapper.innerHTML = '';
+            pendingTags.forEach((tag, idx) => {
+                const span = document.createElement('span');
+                span.className = 'tag-badge';
+                span.innerHTML = `${escapeHTML(tag)} <i class="fas fa-times" onclick="removeTag(${idx})"></i>`;
+                tagsWrapper.appendChild(span);
+            });
+            hiddenKeywords.value = pendingTags.join(', ');
+        }
+        window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
+
+        // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
+        // Dùng chung cho: bấm Enter/phẩy, rời ô, và ngay trước khi Áp dụng -> KHÔNG mất từ khóa.
+        window.commitTagInput = function() {
+            if (!tagInputField) return;
+            const rawVal = tagInputField.value.trim();
+            if (!rawVal) return;
+            rawVal.split(',').map(k => k.trim()).filter(k => k).forEach(val => { if (!pendingTags.includes(val)) pendingTags.push(val); });
+            tagInputField.value = '';
+            window.renderTags();
         };
 
-        // Neu sua ma doi sang thang/nam khac thi xoa ban ghi o thang cu
-        if (mode === 'edit' && oldMonth && oldYear && (oldMonth !== month || oldYear !== year)) {
-            try { await secureFetch(`/transactions/${oldYear}/month_${oldMonth}/${txId}.json`, 'DELETE'); } catch (e) {}
-        }
-
-        await secureFetch(`/transactions/${year}/month_${month}/${txId}.json`, 'PUT', tx);
-
-        // Dong bo Google Sheet + thong bao Telegram (khong chan luong UI)
-        try {
-            postToSheetWithRetry({
-                action: mode === 'edit' ? 'updateTransaction' : 'addTransaction',
-                id: txId, date: viDate, content: content, amount: amount,
-                note: note, category: category, type: type
+        if (tagInputField) {
+            tagInputField.addEventListener('keydown', (e) => {
+                if (e.key === ',' || e.key === 'Enter') {
+                    e.preventDefault();
+                    window.commitTagInput();
+                } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
+                    pendingTags.pop(); window.renderTags();
+                }
             });
-        } catch (e) {}
-        try { notifyTelegram(mode === 'edit' ? 'Đã sửa giao dịch' : 'Đã thêm giao dịch', tx); } catch (e) {}
+            // Rời ô (bấm ra ngoài / bấm nút Áp dụng) -> tự chốt chữ đang gõ dở, tránh mất từ khóa
+            tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-        if (mode === 'edit') { if (typeof closeEditForm === 'function') closeEditForm(); }
-        else { if (typeof closeAddForm === 'function') closeAddForm(); }
+            // iOS/Telegram: cham thang vao <input> doi khi khong tu bat ban phim.
+            // Vi vay bat su kien cham vao CA vung o (.tag-input-container) roi ep focus vao input
+            // => cham vao o la go duoc ngay, khong can nut + nua.
+            const tagBoxEl = tagInputField.parentElement; // .tag-input-container
+            if (tagBoxEl) {
+                tagBoxEl.style.cursor = 'text';
+                tagBoxEl.addEventListener('click', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return; // bam X xoa tag thi bo qua
+                    tagInputField.focus();
+                });
+            }
 
-        // [A] Bat buoc: xoa sach cache va tai lai tu nguon
-        await window.refreshAllData();
-
-        triggerHapticNotification('success');
-        showToast(mode === 'edit' ? 'Đã cập nhật giao dịch' : 'Đã thêm giao dịch', 'success');
-    } catch (e) {
-        triggerHapticNotification('error');
-        showToast('Lỗi khi lưu giao dịch', 'error');
-    } finally {
-        showLoading(false);
-    }
-};
-
-/** Xoa 1 giao dich theo ma. */
-window.deleteTransaction = async function deleteTransaction(txId) {
-    if (!txId) return;
-    const ok = await showCustomConfirm('Bạn có chắc chắn muốn xóa giao dịch này? Hành động này không thể hoàn tác.');
-    if (!ok) return;
-
-    let month = null, year = null;
-    const meta = window.__editingTxMeta || {};
-    if (meta.month && meta.year) { month = meta.month; year = meta.year; }
-    if (!month || !year) {
-        const dv = (document.getElementById('editDate') || {}).value || '';
-        if (dv) { const p = dv.split('-'); year = parseInt(p[0], 10); month = parseInt(p[1], 10); }
-    }
-    if (!month || !year) { const n = new Date(); year = n.getFullYear(); month = n.getMonth() + 1; }
-
-    showLoading(true);
-    try {
-        await secureFetch(`/transactions/${year}/month_${month}/${txId}.json`, 'DELETE');
-        try { postToSheetWithRetry({ action: 'deleteTransaction', id: txId }); } catch (e) {}
-        try { notifyTelegram('Đã xóa giao dịch', { id: txId }); } catch (e) {}
-        if (typeof closeEditForm === 'function') closeEditForm();
-        if (typeof closeAllModals === 'function') closeAllModals();
-
-        // [A] Xoa sach cache va tai lai
-        await window.refreshAllData();
-
-        triggerHapticNotification('success');
-        showToast('Đã xóa giao dịch', 'success');
-    } catch (e) {
-        triggerHapticNotification('error');
-        showToast('Lỗi khi xóa giao dịch', 'error');
-    } finally {
-        showLoading(false);
-    }
-};
-
-/* =========================================================================
-   PHAN 3 — ICON PICKER / QUAN LY DANH MUC
-   ========================================================================= */
-
-/** 68 emoji cho luoi chon icon. */
-const ICON_PICKER_EMOJIS = [
-    '🍚', '🍜', '🍔', '🍕', '☕', '🍺', '🍰', '🍎',
-    '🛒', '🏠', '💡', '💧', '🔥', '📱', '💻', '📺',
-    '🚗', '🏍️', '⛽', '🚌', '✈️', '🚕', '🅿️', '🛠️',
-    '👕', '👖', '👟', '👜', '💄', '✂️', '🧴', '🧼',
-    '💊', '🏥', '🩺', '🦷', '🏋️', '⚽', '🎮', '🎬',
-    '🎵', '📚', '🎓', '✏️', '🖨️', '🎁', '💐', '🎉',
-    '💰', '💳', '🏦', '📈', '🧾', '🪙', '💵', '🤝',
-    '👶', '🐶', '🐱', '🌱', '🧹', '🔧', '📦', '🧳',
-    '🛫', '🏖️', '⛰️', '❓'
-];
-window.ICON_PICKER_EMOJIS = ICON_PICKER_EMOJIS;
-
-/** Doi gia tri icon luu trong DB (emoji hoac ten Font Awesome) sang emoji. */
-function iconValueToEmoji(raw) {
-    if (!raw) return null;
-    let v = String(raw).trim();
-    if (!v) return null;
-    if (v.indexOf('fa-') === -1) return v;                      // da la emoji
-    v = v.replace('fas ', '').replace('far ', '').replace('fab ', '').trim();
-    if (!v.startsWith('fa-')) v = 'fa-' + v;
-    return (typeof FA_TO_EMOJI_MAP !== 'undefined' && FA_TO_EMOJI_MAP[v]) ? FA_TO_EMOJI_MAP[v] : null;
-}
-window.iconValueToEmoji = iconValueToEmoji;
-
-/** [D] Dua modal + vung cuon that (#iconPickerBody) ve dau. */
-function scrollIconPickerToTop() {
-    try { window.scrollTo({ top: 0, behavior: 'auto' }); } catch (e) { window.scrollTo(0, 0); }
-    [
-        document.documentElement,
-        document.body,
-        document.getElementById('tab3'),
-        document.querySelector('.content-wrapper'),
-        document.getElementById('iconPickerModal'),
-        document.getElementById('iconPickerBody'),      // vung cuon THAT cua modal
-        document.getElementById('iconGridContainer')
-    ].forEach(el => { if (el) { el.scrollTop = 0; el.scrollLeft = 0; } });
-}
-window.scrollIconPickerToTop = scrollIconPickerToTop;
-
-/**
- * [C] Nut xoa danh muc: CHI hien khi dang sua MOT danh muc CO SAN.
- * Dung style.display vi index.html da co inline style="display:none".
- * Khong dat rule CSS !important cho #deleteCategoryBtn (se chan ham nay).
- */
-function setDeleteBtnVisibility(isExisting) {
-    const btn = document.getElementById('deleteCategoryBtn');
-    if (!btn) return;
-    btn.style.display = isExisting ? 'flex' : 'none';
-    btn.disabled = !isExisting;
-}
-window.setDeleteBtnVisibility = setDeleteBtnVisibility;
-
-/* ---------- Quan ly the tu khoa trong modal ---------- */
-let pendingTags = [];
-window.pendingTags = pendingTags;
-
-function renderTags() {
-    const wrap = document.getElementById('tagsWrapper');
-    if (!wrap) return;
-    wrap.innerHTML = pendingTags.map((t, i) =>
-        `<span class="tag-badge"><span>${escapeHTML(t)}</span><i class="fas fa-times" data-tag-idx="${i}"></i></span>`
-    ).join('');
-    const hidden = document.getElementById('iconPickerNewKeywords');
-    if (hidden) hidden.value = pendingTags.join(', ');
-}
-window.renderTags = renderTags;
-
-function removeTag(i) {
-    if (i < 0 || i >= pendingTags.length) return;
-    pendingTags.splice(i, 1);
-    renderTags();
-}
-window.removeTag = removeTag;
-
-function commitTagInput() {
-    const inp = document.getElementById('tagInputField');
-    if (!inp) return;
-    const parts = String(inp.value || '').split(',');
-    let changed = false;
-    parts.forEach(p => {
-        const s = p.trim();
-        if (!s) return;
-        if (!pendingTags.some(t => t.toLowerCase() === s.toLowerCase())) { pendingTags.push(s); changed = true; }
-    });
-    inp.value = '';
-    if (changed) renderTags();
-}
-window.commitTagInput = commitTagInput;
-
-/** [B] Nap danh sach tu khoa cua danh muc dang chon vao modal. */
-async function loadTagsForCategory(cat) {
-    const area = document.getElementById('tagInputArea');
-    pendingTags = [];
-    window.pendingTags = pendingTags;
-    renderTags();
-    if (!cat) { if (area) area.style.display = 'none'; return; }
-    if (area) area.style.display = 'block';
-    const list = await fetchCategoryKeywords(cat);
-    pendingTags = list.slice();
-    window.pendingTags = pendingTags;
-    window.__originalTags = list.slice();
-    renderTags();
-}
-window.loadTagsForCategory = loadTagsForCategory;
-
-/** Ve lai luoi icon (1 lan duy nhat moi khi mo modal). */
-function buildIconGrid() {
-    const container = document.getElementById('iconGridContainer');
-    if (!container) return;
-    const frag = document.createDocumentFragment();
-    ICON_PICKER_EMOJIS.forEach((emo, idx) => {
-        const div = document.createElement('div');
-        div.className = 'icon-item';
-        div.setAttribute('data-icon', emo);
-        div.setAttribute('data-idx', String(idx));
-        div.textContent = emo;
-        frag.appendChild(div);
-    });
-    container.innerHTML = '';
-    container.appendChild(frag);
-}
-
-/**
- * Cap nhat trang thai luoi icon theo danh muc dang chon.
- * [D] KHONG doi o dang chon len dau luoi nua (chinh viec do lam no bi cat mep trai).
- */
-function updateIconState(val) {
-    const modal = document.getElementById('iconPickerModal');
-    const container = document.getElementById('iconGridContainer');
-    if (!modal || !container) return;
-
-    // Thu thap icon da duoc danh muc KHAC su dung => khoa lai
-    const used = [];
-    const maps = [window.customCategoryIcons || {}, window.categoryIconMap || {}];
-    maps.forEach(map => {
-        Object.keys(map).forEach(c => {
-            if (c === val) return;
-            const emo = iconValueToEmoji(map[c]);
-            if (emo && used.indexOf(emo) === -1) used.push(emo);
-        });
-    });
-
-    container.querySelectorAll('.icon-item').forEach(item => {
-        item.classList.remove('selected');
-        const emo = item.getAttribute('data-icon');
-        item.classList.toggle('disabled-icon', used.indexOf(emo) !== -1);
-    });
-    modal.removeAttribute('data-selected-icon');
-    if (!val) return;
-
-    const raw = (window.customCategoryIcons && window.customCategoryIcons[val])
-        || (window.categoryIconMap && window.categoryIconMap[val])
-        || null;
-    const target = iconValueToEmoji(raw);
-    if (!target) return;
-
-    let item = container.querySelector(`.icon-item[data-icon="${CSS.escape(target)}"]`);
-    if (!item) {
-        item = document.createElement('div');
-        item.className = 'icon-item';
-        item.setAttribute('data-icon', target);
-        item.textContent = target;
-    }
-    item.classList.add('selected');
-    item.classList.remove('disabled-icon');
-    modal.setAttribute('data-selected-icon', target);
-    // Icon cu chua co trong luoi thi them vao CUOI, khong chen len dau
-    if (!item.parentNode) container.appendChild(item);
-    const body = document.getElementById('iconPickerBody');
-    if (body) { body.scrollTop = 0; body.scrollLeft = 0; }
-}
-window.updateIconState = updateIconState;
-
-/** Mo modal Quan ly danh muc. */
-window.openIconPickerModal = async function openIconPickerModal() {
-    triggerHaptic('light');
-    const modal = document.getElementById('iconPickerModal');
-    const overlay = document.getElementById('modalOverlay');
-    const catSelect = document.getElementById('iconPickerSelect');
-    const newGroup = document.getElementById('newCategoryInputGroup');
-    const catInput = document.getElementById('iconPickerCategory');
-    const delBtn = document.getElementById('deleteCategoryBtn');
-    const saveBtn = document.getElementById('saveIconPickerBtn');
-    if (!modal || !catSelect) return;
-
-    buildIconGrid();
-
-    // Nap danh sach danh muc
-    let cats = [];
-    try {
-        const data = await secureFetch('/categories.json', 'GET') || {};
-        cats = Object.keys(data).sort((a, b) => a.localeCompare(b, 'vi'));
-    } catch (e) {}
-    catSelect.innerHTML = '<option value="">-- Chọn hoặc tạo danh mục --</option>';
-    cats.forEach(c => catSelect.appendChild(new Option(c, c)));
-    catSelect.appendChild(new Option('➕ Tạo danh mục mới…', '__NEW__'));
-
-    // Trang thai ban dau: lay theo danh muc dang chon o Tab 3 (neu co)
-    const kCatVal = ((document.getElementById('keywordCategory') || {}).value || '').trim();
-    if (kCatVal && cats.indexOf(kCatVal) !== -1) {
-        catSelect.value = kCatVal;
-        window.__editingExistingCat = kCatVal;
-        if (newGroup) newGroup.style.display = 'block';
-        if (catInput) catInput.value = kCatVal;
-        setDeleteBtnVisibility(true);                       // [C]
-        updateIconState(kCatVal);
-        await loadTagsForCategory(kCatVal);
-    } else {
-        catSelect.value = '';
-        window.__editingExistingCat = null;
-        if (newGroup) newGroup.style.display = 'none';
-        if (catInput) catInput.value = '';
-        setDeleteBtnVisibility(false);                      // [C]
-        updateIconState('');
-        await loadTagsForCategory('');
-    }
-
-    /* ----- Su kien (gan 1 lan, dung delegation cho luoi icon) ----- */
-    const container = document.getElementById('iconGridContainer');
-    if (container && !container.__bound) {
-        container.__bound = true;
-        container.addEventListener('click', (e) => {
-            const item = e.target.closest('.icon-item');
-            if (!item || item.classList.contains('disabled-icon')) return;
-            triggerHaptic('light');
-            container.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
-            item.classList.add('selected');
-            modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
-        });
-    }
-    const tagsWrap = document.getElementById('tagsWrapper');
-    if (tagsWrap && !tagsWrap.__bound) {
-        tagsWrap.__bound = true;
-        tagsWrap.addEventListener('click', (e) => {
-            const x = e.target.closest('[data-tag-idx]');
-            if (!x) return;
-            triggerHaptic('light');
-            removeTag(parseInt(x.getAttribute('data-tag-idx'), 10));
-        });
-    }
-    const tagField = document.getElementById('tagInputField');
-    if (tagField && !tagField.__bound) {
-        tagField.__bound = true;
-        tagField.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commitTagInput(); }
-            else if (e.key === 'Backspace' && !tagField.value && pendingTags.length) { removeTag(pendingTags.length - 1); }
-        });
-        tagField.addEventListener('blur', commitTagInput);
-        const cont = document.querySelector('.tag-input-container');
-        if (cont) cont.addEventListener('click', () => tagField.focus());
-    }
-
-    catSelect.onchange = async () => {
-        const val = catSelect.value;
-        if (val === '__NEW__') {
-            window.__editingExistingCat = null;
-            if (newGroup) newGroup.style.display = 'block';
-            if (catInput) { catInput.value = ''; catInput.focus(); }
-            setDeleteBtnVisibility(false);                  // [C]
-            updateIconState('');
-            const area = document.getElementById('tagInputArea');
-            if (area) area.style.display = 'block';
-            pendingTags = []; window.pendingTags = pendingTags; window.__originalTags = [];
-            renderTags();
-            return;
+            // Nhãn hướng dẫn (chạm vào ô là gõ được; xong bấm Enter hoặc dấu phẩy)
+            const tagLabel = document.querySelector('#tagInputArea .field-label');
+            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
+            // Cum chu vi du trong o nhap tu khoa
+            tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
         }
-        window.__editingExistingCat = val || null;
-        if (newGroup) newGroup.style.display = val ? 'block' : 'none';
-        if (catInput) catInput.value = val || '';
-        setDeleteBtnVisibility(!!val);                      // [C]
-        updateIconState(val);
-        await loadTagsForCategory(val);
+        
+        document.getElementById('saveIconPickerBtn').onclick = async () => {
+            if (window.commitTagInput) window.commitTagInput();
+
+            const oldCat = (modal.getAttribute('data-original-category') || '').trim();
+            const newCat = catInput.value.trim();
+            const selectedIcon = modal.getAttribute('data-selected-icon');
+            const newKws = hiddenKeywords ? hiddenKeywords.value : "";
+
+            if (!newCat) return showToast('Vui lòng nhập tên danh mục!', 'warning');
+            if (!selectedIcon) return showToast('Vui lòng chọn 1 icon!', 'warning');
+
+            const existingCats = Array.from(document.getElementById('keywordCategory').options)
+                .map(opt => opt.value)
+                .filter(v => v);
+
+            const isDuplicate = existingCats.some(c =>
+                c.toLowerCase() === newCat.toLowerCase() &&
+                c.toLowerCase() !== oldCat.toLowerCase()
+            );
+
+            if (isDuplicate) return showToast('Tên danh mục này đã tồn tại!', 'warning');
+
+            const doSaveCategory = async () => {
+                triggerHaptic('medium');
+                showLoading(true, 'tab3');
+
+                try {
+                    // 1) Firebase là nguồn chính: lưu danh mục + đổi transactions nhiều năm qua secureFetch trước.
+                    const finalKeywords = await saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws);
+
+                    // 2) Cập nhật map icon local để giao diện đổi ngay.
+                    if (oldCat && oldCat !== newCat) {
+                        delete window.customCategoryIcons[oldCat];
+                        delete window.categoryIconMap[oldCat];
+                    }
+                    window.customCategoryIcons[newCat] = selectedIcon;
+                    window.categoryIconMap[newCat] = selectedIcon;
+
+                    // 3) Nếu đổi tên danh mục, cập nhật cache giao dịch đang hiển thị.
+                    if (oldCat && oldCat !== newCat) {
+                        [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
+                            if (!arr) return;
+                            arr.forEach(tx => { if (tx.category === oldCat) tx.category = newCat; });
+                        });
+                    }
+
+                    window.dayTxCache = {};
+                    window.apiTxCache = {};
+                    window.monthDataCache = {};
+                    tab2NeedsReload = true;
+
+                    showToast('Đã lưu thay đổi danh mục!', 'success');
+                    closeIconPickerModal();
+                    await window.initCategories(true);
+                    window.loadKeywords(false);
+
+                    if(document.getElementById('tab1').classList.contains('active')) displayTransactions();
+                    if(document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
+                    if(document.getElementById('tab3').classList.contains('active')) displaySearchResults();
+
+                    // 4) Backup Google Sheet ở nền. GAS chỉ cập nhật Sheet hiện tại, không ghi Firebase.
+                    fetch(proxyUrl + encodeURIComponent(apiUrl), {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            action: 'saveCategory',
+                            oldCategory: oldCat,
+                            newCategory: newCat,
+                            icon: selectedIcon,
+                            keywords: newKws,
+                            finalKeywords: finalKeywords,
+                            sheetId: sheetId
+                        })
+                    }).then(async res => {
+                        try {
+                            const result = await res.json();
+                            if (result && result.success === false) {
+                                triggerHapticNotification('warning');
+                                showToast('Đã lưu Firebase, nhưng backup Google Sheet lỗi: ' + (result.error || 'Không rõ lỗi'), 'warning');
+                            }
+                        } catch (e) {}
+                    }).catch(err => {
+                        console.log('Lỗi backup danh mục xuống Google Sheet:', err);
+                        triggerHapticNotification('warning');
+                        showToast('Đã lưu Firebase, nhưng backup Google Sheet đang lỗi.', 'warning');
+                    });
+
+                } catch(e) {
+                    showToast('Lỗi lưu danh mục: ' + e.message, 'error');
+                } finally {
+                    showLoading(false, 'tab3');
+                }
+            };
+
+            if (oldCat && oldCat !== newCat) {
+                showCustomConfirm(
+                    'Đổi tên danh mục',
+                    `Bạn có chắc muốn đổi danh mục <b>${escapeHTML(oldCat)}</b> thành <b>${escapeHTML(newCat)}</b>?<br><br>Tất cả giao dịch trên Firebase thuộc danh mục cũ ở mọi năm cũng sẽ được cập nhật. Google Sheet hiện tại sẽ được backup sau.`,
+                    'Đổi tên',
+                    doSaveCategory
+                );
+            } else {
+                await doSaveCategory();
+            }
+        };
+
+        document.getElementById('deleteCategoryBtn').onclick = () => {
+            const cat = catInput.value.trim();
+            if (!cat) return;
+            triggerHaptic('medium');
+            
+            showCustomConfirm(
+                'Xóa danh mục',
+                `Bạn có chắc chắn muốn xóa hoàn toàn danh mục <strong>${escapeHTML(cat)}</strong> và tất cả từ khóa của nó không?`,
+                'Xóa',
+                async () => {
+                    showLoading(true, 'tab3');
+                    try {
+                        await secureFetch(`/categories/${encodeURIComponent(cat)}.json`, 'DELETE');
+                        delete window.customCategoryIcons[cat];
+                        delete window.categoryIconMap[cat];
+                        await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
+                        
+                        showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+                        await window.initCategories(false); window.loadKeywords(false);
+                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+                }
+            );
+        };
+    }
+    
+    catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
+    const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
+    const uniqueCats = [...new Set(cats)]; 
+    uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
+    
+    const newOpt = document.createElement('option');
+    newOpt.value = "__NEW__";
+    newOpt.innerHTML = "Tạo danh mục mới...";
+    newOpt.style.fontWeight = "bold";
+    catSelect.appendChild(newOpt);
+
+    const updateIconState = (val) => {
+        let usedEmojis = [];
+        uniqueCats.forEach(c => {
+            if (c !== val) {
+                let iconStr = window.customCategoryIcons[c] || window.categoryIconMap[c];
+                if (iconStr) {
+                    iconStr = iconStr.trim();
+                    let emoji = iconStr;
+                    if (iconStr.includes('fa-')) {
+                        let faClass = iconStr.replace('fas ', '').trim();
+                        if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+                        emoji = FA_TO_EMOJI_MAP[faClass];
+                    }
+                    if (emoji) usedEmojis.push(emoji);
+                }
+            }
+        });
+
+        modal.querySelectorAll('.icon-item').forEach(item => {
+            item.classList.remove('selected');
+            const itemEmoji = item.getAttribute('data-icon');
+            if (usedEmojis.includes(itemEmoji)) {
+                item.classList.add('disabled-icon');
+            } else {
+                item.classList.remove('disabled-icon');
+            }
+        });
+
+        modal.removeAttribute('data-selected-icon');
+        
+        if (!val) return;
+
+        let currentIconVal = null;
+        if (window.customCategoryIcons && window.customCategoryIcons[val]) {
+            currentIconVal = window.customCategoryIcons[val].trim();
+        } else if (window.categoryIconMap && window.categoryIconMap[val]) {
+            currentIconVal = window.categoryIconMap[val].trim();
+        }
+
+        if (currentIconVal) {
+            let targetEmoji = currentIconVal.includes('fa-') ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()] : currentIconVal;
+            if (targetEmoji) {
+                let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
+                if (!item) {
+                    const newDiv = document.createElement('div');
+                    newDiv.className = 'icon-item';
+                    newDiv.setAttribute('data-icon', targetEmoji);
+                    newDiv.innerHTML = targetEmoji;
+                    newDiv.onclick = function() {
+                        triggerHaptic('light');
+                        modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+                        this.classList.add('selected');
+                        modal.setAttribute('data-selected-icon', this.getAttribute('data-icon'));
+                    };
+                    item = newDiv;
+                }
+                if (item) {
+                    item.classList.add('selected');
+                    item.classList.remove('disabled-icon');
+                    modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
+                    if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
+                    container.scrollTop = 0;
+                }
+            }
+        }
     };
 
-    if (delBtn) {
-        delBtn.onclick = async () => {
-            const cat = window.__editingExistingCat;
-            // Chot an toan: chi xoa duoc danh muc CO SAN dang duoc chon
-            if (!cat) return showToast('Chỉ xóa được danh mục đã có. Hãy chọn danh mục từ danh sách.', 'warning');
-            if (catSelect.value !== cat) return showToast('Chỉ xóa được danh mục đã có. Hãy chọn danh mục từ danh sách.', 'warning');
-            const ok = await showCustomConfirm(`Xóa danh mục "${cat}" cùng toàn bộ từ khóa của nó?`);
-            if (!ok) return;
-            showLoading(true);
-            try {
-                await secureFetch(`/categories/${encodeURIComponent(cat)}.json`, 'DELETE');
-                try { postToSheetWithRetry({ action: 'deleteCategory', category: cat }); } catch (e) {}
-                window.closeIconPickerModal();
-                if (typeof initCategories === 'function') await initCategories(false);
-                await window.loadKeywords();
-                triggerHapticNotification('success');
-                showToast('Đã xóa danh mục', 'success');
-            } catch (e) {
-                showToast('Lỗi khi xóa danh mục', 'error');
-            } finally { showLoading(false); }
-        };
-    }
-
-    if (saveBtn) saveBtn.onclick = window.saveIconPicker;
-
-    // Mo modal
-    if (overlay) { overlay.style.display = 'flex'; overlay.classList.add('show'); }
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => {
-        modal.classList.add('show');
-        scrollIconPickerToTop();                            // luon hien thi tu dau trang
-    });
-};
-
-/** Luu thay doi: ten (neu tao moi), icon, va danh sach tu khoa. */
-window.saveIconPicker = async function saveIconPicker() {
-    commitTagInput();
-    const modal = document.getElementById('iconPickerModal');
-    const catSelect = document.getElementById('iconPickerSelect');
-    const catInput = document.getElementById('iconPickerCategory');
-    if (!modal || !catSelect) return;
-
-    const isNew = catSelect.value === '__NEW__';
-    const existing = window.__editingExistingCat;
-    const name = ((catInput || {}).value || '').trim();
-    const icon = modal.getAttribute('data-selected-icon') || '';
-
-    if (isNew && !name) return showToast('Hãy nhập tên danh mục', 'warning');
-    if (!isNew && !existing) return showToast('Hãy chọn hoặc tạo danh mục', 'warning');
-    // Doi TEN danh muc co san: tam thoi chua ho tro dong bo (se lam sau)
-    const cat = isNew ? name : existing;
-
-    showLoading(true);
-    try {
-        if (icon) {
-            await secureFetch(`/categories/${encodeURIComponent(cat)}/icon.json`, 'PUT', icon);
-            try { postToSheetWithRetry({ action: 'updateCategoryIcon', category: cat, icon: icon }); } catch (e) {}
-            if (window.customCategoryIcons) window.customCategoryIcons[cat] = icon;
+    catSelect.onchange = (e) => {
+        triggerHaptic('light');
+        if (e.target.value === '__NEW__') {
+            catInputGroup.style.display = 'block';
+            tagArea.style.display = 'block';
+            delBtn.style.display = 'none';
+            catInput.value = '';
+            modal.removeAttribute('data-original-category');
+            pendingTags = [];
+            if (window.renderTags) window.renderTags();
+            catInput.focus();
+            updateIconState(''); 
+        } else {
+            const selectedCategory = e.target.value || '';
+            catInputGroup.style.display = selectedCategory ? 'block' : 'none';
+            tagArea.style.display = selectedCategory ? 'block' : 'none';
+            delBtn.style.display = selectedCategory ? 'flex' : 'none';
+            catInput.value = selectedCategory;
+            if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
+            else modal.removeAttribute('data-original-category');
+            pendingTags = [];
+            if (window.renderTags) window.renderTags();
+            updateIconState(selectedCategory);
         }
-        // Ghi de toan bo tu khoa theo danh sach dang hien trong modal
-        await putCategoryKeywords(cat, pendingTags);
+    };
 
-        // Dong bo them/bot tu khoa sang Google Sheet (chay nen, khong chan UI)
-        try {
-            const before = normalizeKeywordList(window.__originalTags || []);
-            const after = normalizeKeywordList(pendingTags);
-            const lower = arr => arr.map(s => s.toLowerCase());
-            after.filter(k => lower(before).indexOf(k.toLowerCase()) === -1)
-                 .forEach(k => postToSheetWithRetry({ action: 'addKeyword', category: cat, keyword: k }));
-            before.filter(k => lower(after).indexOf(k.toLowerCase()) === -1)
-                  .forEach(k => postToSheetWithRetry({ action: 'deleteKeyword', category: cat, keyword: k }));
-        } catch (e) {}
+    catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
 
-        window.closeIconPickerModal();
-        if (typeof initCategories === 'function') await initCategories(true);
-        await window.loadKeywords();
-        triggerHapticNotification('success');
-        showToast('Đã lưu thay đổi', 'success');
-    } catch (e) {
-        triggerHapticNotification('error');
-        showToast('Lỗi khi lưu danh mục', 'error');
-    } finally {
-        showLoading(false);
+    const currentSelected = document.getElementById('keywordCategory').value;
+    if(currentSelected) {
+        catSelect.value = currentSelected;
+        catInput.value = currentSelected;
+        catInputGroup.style.display = 'block';
+        tagArea.style.display = 'block';
+        delBtn.style.display = 'flex';
+        modal.setAttribute('data-original-category', currentSelected);
+        updateIconState(currentSelected);
+    } else {
+        catSelect.value = '';
+        catInput.value = '';
+        catInputGroup.style.display = 'none';
+        tagArea.style.display = 'none';
+        delBtn.style.display = 'none';
+        modal.removeAttribute('data-original-category');
+        updateIconState('');
     }
+    
+    pendingTags = []; window.renderTags();
+
+    document.getElementById('modalOverlay').classList.add('show');
+    setTimeout(() => modal.classList.add('show'), 10);
 };
 
-/** Dong modal + dua moi trang thai ve mac dinh. */
-window.closeIconPickerModal = function closeIconPickerModal() {
-    triggerHaptic('light');
+window.closeIconPickerModal = function() {
     const modal = document.getElementById('iconPickerModal');
-    const overlay = document.getElementById('modalOverlay');
-    if (modal) {
-        modal.classList.remove('show');
-        modal.removeAttribute('data-selected-icon');
-        setTimeout(() => { modal.style.display = 'none'; }, 300);
-    }
-    if (overlay) { overlay.classList.remove('show'); overlay.style.display = 'none'; }
-    window.__editingExistingCat = null;
-    window.__originalTags = [];
-    pendingTags = []; window.pendingTags = pendingTags;
-    renderTags();
-    setDeleteBtnVisibility(false);                          // [C] tranh trang thai sot lai
+    if (modal) modal.classList.remove('show');
+    setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
