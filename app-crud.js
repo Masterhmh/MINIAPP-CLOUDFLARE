@@ -132,6 +132,7 @@ async function invalidateCachesAndRefreshUI(options = {}) {
 // /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
 // Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
 // Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
+// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
 async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
     const consider = (id, dateStr) => {
@@ -178,7 +179,6 @@ async function postToSheetWithRetry(payload, retries = 2) {
     }
     return false;
 }
-
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -371,6 +371,7 @@ async function loadExistingKeywordsIntoTags(categoryName) {
 
 // =========================
 // UX: tự cuộn xuống vùng từ khoá + focus ô nhập (khi chọn danh mục)
+// (Giữ hàm, nhưng KHÔNG auto gọi nữa. Chỉ dùng nếu sau này bạn muốn gọi thủ công.)
 // =========================
 function scrollToTagInputAndFocus() {
     const body = document.getElementById('iconPickerBody');
@@ -448,6 +449,7 @@ function setupIconGridCollapse() {
     grid.parentElement.insertBefore(btn, grid);
     apply();
 }
+
 // Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
 // Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
@@ -527,7 +529,6 @@ async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws)
 
     return finalKeywords;
 }
-
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -834,8 +835,9 @@ window.openIconPickerModal = function() {
             await loadExistingKeywordsIntoTags(selectedCategory);
             updateIconState(selectedCategory);
 
-            // NEW: tự cuộn xuống vùng từ khoá + focus input
-            if (selectedCategory) scrollToTagInputAndFocus();
+            // (ĐÃ SỬA THEO YÊU CẦU):
+            // KHÔNG tự cuộn + KHÔNG tự focus khi chọn danh mục có sẵn.
+            // Người dùng chạm vùng tag-input-container thì mới focus (đã có handler ở trên).
         }
     };
 
@@ -853,8 +855,8 @@ window.openIconPickerModal = function() {
         loadExistingKeywordsIntoTags(currentSelected);
         updateIconState(currentSelected);
 
-        // NEW: mở modal xong => cuộn xuống vùng từ khoá + focus
-        scrollToTagInputAndFocus();
+        // (ĐÃ SỬA THEO YÊU CẦU):
+        // KHÔNG tự cuộn + KHÔNG tự focus khi mở modal có sẵn danh mục.
     } else {
         catSelect.value = '';
         catInput.value = '';
