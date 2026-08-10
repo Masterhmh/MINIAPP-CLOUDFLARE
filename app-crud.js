@@ -132,7 +132,6 @@ async function invalidateCachesAndRefreshUI(options = {}) {
 // /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
 // Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
 // Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
-// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
 async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
     const consider = (id, dateStr) => {
@@ -371,7 +370,7 @@ async function loadExistingKeywordsIntoTags(categoryName) {
 
 // =========================
 // UX: tự cuộn xuống vùng từ khoá + focus ô nhập (khi chọn danh mục)
-// (Giữ hàm, nhưng KHÔNG auto gọi nữa. Chỉ dùng nếu sau này bạn muốn gọi thủ công.)
+// (giữ lại nhưng hiện KHÔNG dùng auto)
 // =========================
 function scrollToTagInputAndFocus() {
     const body = document.getElementById('iconPickerBody');
@@ -835,9 +834,10 @@ window.openIconPickerModal = function() {
             await loadExistingKeywordsIntoTags(selectedCategory);
             updateIconState(selectedCategory);
 
-            // (ĐÃ SỬA THEO YÊU CẦU):
-            // KHÔNG tự cuộn + KHÔNG tự focus khi chọn danh mục có sẵn.
-            // Người dùng chạm vùng tag-input-container thì mới focus (đã có handler ở trên).
+            // NEW (đúng yêu cầu của bạn):
+            // Không auto cuộn, không auto focus.
+            // Nhưng blur select ngay để người dùng chạm vùng "Thêm từ khóa" ăn ngay (không cần click thêm).
+            try { catSelect.blur(); } catch(e2) {}
         }
     };
 
@@ -854,9 +854,6 @@ window.openIconPickerModal = function() {
 
         loadExistingKeywordsIntoTags(currentSelected);
         updateIconState(currentSelected);
-
-        // (ĐÃ SỬA THEO YÊU CẦU):
-        // KHÔNG tự cuộn + KHÔNG tự focus khi mở modal có sẵn danh mục.
     } else {
         catSelect.value = '';
         catInput.value = '';
