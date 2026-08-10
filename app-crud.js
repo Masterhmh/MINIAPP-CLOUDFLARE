@@ -134,6 +134,7 @@ window.selectType = function(formId, type, el) {
   if(type === 'Chi tiêu') el.classList.add('expense-active');
   else el.classList.add('income-active');
 };
+
 window.openAddForm = async function() {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
@@ -205,7 +206,6 @@ window.closeAllModals = function() {
   if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show');
   if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show');
 };
-
 // ---------------- TAB 1: CHIẾN LƯỢC CẬP NHẬT DỮ LIỆU "LUÔN MỚI NHẤT" ----------------
 async function invalidateCachesAndRefreshUI(options = {}) {
     window.dayTxCache = {};
@@ -270,6 +270,7 @@ async function postToSheetWithRetry(payload, retries = 2) {
     }
     return false;
 }
+
 async function submitTx(tx) {
   try {
     showToast("Đang lưu giao dịch...", "info");
@@ -386,7 +387,6 @@ window.deleteTransaction = function(id, opts = {}) {
     }
   );
 };
-
 // ==========================================
 // ICON PICKER
 // ==========================================
@@ -502,6 +502,7 @@ function setupIconGridCollapse() {
     grid.parentElement.insertBefore(btn, grid);
     apply();
 }
+
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
     if (!oldCat || !newCat || oldCat === newCat) return;
 
@@ -575,7 +576,6 @@ async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws)
 
     return finalKeywords;
 }
-
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -593,16 +593,21 @@ window.openIconPickerModal = function() {
     // Hook visualViewport resize 1 lần (để cuộn đúng lúc bàn phím iOS bật)
     if (window.visualViewport && !window.__vvHookedForIconPicker) {
         window.__vvHookedForIconPicker = true;
-        window.visualViewport.addEventListener('resize', () => {
+        const onVV = () => {
             try {
                 const active = document.activeElement;
                 if (active && active.id === 'tagInputField') {
+                    requestAnimationFrame(() => {
+                        try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
+                    });
                     setTimeout(() => {
                         try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                    }, 0);
+                    }, 120);
                 }
             } catch (_) {}
-        });
+        };
+        window.visualViewport.addEventListener('resize', onVV);
+        window.visualViewport.addEventListener('scroll', onVV);
     }
 
     if (container.innerHTML === '') {
@@ -658,7 +663,10 @@ window.openIconPickerModal = function() {
         });
         tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-        // Helper: đảm bảo input nằm trong view của #iconPickerBody (scroll tối thiểu)
+        // ===================== FIX A =====================
+        // Tính vùng nhìn THỰC = giao của #iconPickerBody với visualViewport
+        // (bàn phím bật -> visualViewport.height co lại). Ưu tiên xử lý TRÀN ĐÁY
+        // trước, nên luôn cuộn XUỐNG khi ô nhập bị bàn phím che.
         window.__ensureTagInputVisible = function() {
             try {
                 const body = document.getElementById('iconPickerBody');
@@ -668,28 +676,35 @@ window.openIconPickerModal = function() {
                 const bodyRect = body.getBoundingClientRect();
                 const inputRect = input.getBoundingClientRect();
 
-                const topPad = 12;
-                const bottomPad = 180;
+                const vv = window.visualViewport;
+                const vvTop = vv ? vv.offsetTop : 0;
+                const vvBottom = vv ? (vv.offsetTop + vv.height) : window.innerHeight;
 
-                const topLimit = bodyRect.top + topPad;
-                const bottomLimit = bodyRect.bottom - bottomPad;
+                const viewTop = Math.max(bodyRect.top, vvTop);
+                const viewBottom = Math.min(bodyRect.bottom, vvBottom);
+                const viewH = viewBottom - viewTop;
 
-                if (inputRect.top < topLimit) {
-                    body.scrollTop -= (topLimit - inputRect.top);
-                } else if (inputRect.bottom > bottomLimit) {
-                    body.scrollTop += (inputRect.bottom - bottomLimit);
+                if (viewH < 60) return; // vùng nhìn quá nhỏ -> bỏ qua, tránh cuộn loạn
+
+                const pad = Math.min(16, viewH / 8);
+
+                if (inputRect.bottom > viewBottom - pad) {
+                    body.scrollTop += (inputRect.bottom - (viewBottom - pad));
+                } else if (inputRect.top < viewTop + pad) {
+                    body.scrollTop -= ((viewTop + pad) - inputRect.top);
                 }
             } catch (_) {}
         };
 
-        // Tap vùng tag -> focus + cuộn đúng sau khi keyboard bật
+        // ===================== FIX B =====================
+        // Tap vùng tag -> focus + retry nhiều mốc thời gian (bàn phím iOS/Telegram
+        // có thể bật muộn tới ~800ms).
         const tagBoxEl = tagInputField.parentElement; // .tag-input-container
         if (tagBoxEl) {
             tagBoxEl.style.cursor = 'text';
 
             const focusTagInput = (e) => {
-                const isTouch = e && (e.type === 'touchend'); // CHỈ dùng touchend để tránh gọi 2 lần
-                if (isTouch) {
+                if (e && e.type === 'touchend') {
                     try { e.preventDefault(); } catch (_) {}
                     try { e.stopPropagation(); } catch (_) {}
                 }
@@ -698,15 +713,12 @@ window.openIconPickerModal = function() {
                 try { tagInputField.focus({ preventScroll: true }); }
                 catch (_) { try { tagInputField.focus(); } catch (__) {} }
 
-                requestAnimationFrame(() => {
+                const run = () => {
                     try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                    try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
-                });
+                };
 
-                setTimeout(() => {
-                    try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                    try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
-                }, 220);
+                requestAnimationFrame(run);
+                [60, 150, 300, 500, 800].forEach(t => setTimeout(run, t));
             };
 
             tagBoxEl.addEventListener('pointerup', (e) => {
@@ -714,7 +726,7 @@ window.openIconPickerModal = function() {
                 focusTagInput(e);
             });
 
-            // FIX CHÍNH: BỎ touchstart, CHỈ GIỮ touchend
+            // CHỈ giữ touchend (bỏ touchstart) để tránh double-trigger trên iOS
             tagBoxEl.addEventListener('touchend', (e) => {
                 if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                 focusTagInput(e);
@@ -731,7 +743,7 @@ window.openIconPickerModal = function() {
             });
         }
 
-        // Save/Delete handlers giữ như repo bạn
+        // Save/Delete handlers
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             if (window.commitTagInput) window.commitTagInput();
 
@@ -852,6 +864,16 @@ window.openIconPickerModal = function() {
     }
 
     setupIconGridCollapse();
+
+    // ===================== FIX C =====================
+    // Đưa khu vực TỪ KHÓA lên ngay dưới ô "Tên danh mục", TRƯỚC lưới icon.
+    // Nhờ vậy khi bàn phím bật, ô nhập từ khóa luôn nằm trong tầm nhìn.
+    try {
+        if (tagArea && catInputGroup && catInputGroup.parentElement &&
+            tagArea.previousElementSibling !== catInputGroup) {
+            catInputGroup.parentElement.insertBefore(tagArea, catInputGroup.nextSibling);
+        }
+    } catch (_) {}
 
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
