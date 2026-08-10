@@ -47,21 +47,39 @@ window.loadKeywords = async function(isInit = false) {
 };
 
 window.startEditKeyword = function(kw, category) { 
-    triggerHaptic('light'); document.getElementById('keywordInput').value = kw; document.getElementById('keywordCategory').value = category; currentEditKeyword = kw; 
-    const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-save"></i> Lưu sửa'; btnAdd.classList.add('btn-edit-kw'); 
-    document.getElementById('cancelKeywordBtn').style.display = 'flex'; document.getElementById('deleteEditKeywordBtn').style.display = 'flex'; document.getElementById('fetchKeywordsBtn').style.display = 'none';
+    triggerHaptic('light');
+    document.getElementById('keywordInput').value = kw;
+    document.getElementById('keywordCategory').value = category;
+    currentEditKeyword = kw; 
+    const btnAdd = document.getElementById('addKeywordBtn');
+    btnAdd.innerHTML = '<i class="fas fa-save"></i> Lưu sửa';
+    btnAdd.classList.add('btn-edit-kw'); 
+    document.getElementById('cancelKeywordBtn').style.display = 'flex';
+    document.getElementById('deleteEditKeywordBtn').style.display = 'flex';
+    document.getElementById('fetchKeywordsBtn').style.display = 'none';
 };
 
 window.cancelEditKeyword = function() { 
-    triggerHaptic('light'); document.getElementById('keywordInput').value = ''; currentEditKeyword = null; 
-    const btnAdd = document.getElementById('addKeywordBtn'); btnAdd.innerHTML = '<i class="fas fa-plus"></i> Thêm'; btnAdd.classList.remove('btn-edit-kw'); 
-    document.getElementById('cancelKeywordBtn').style.display = 'none'; document.getElementById('deleteEditKeywordBtn').style.display = 'none'; document.getElementById('fetchKeywordsBtn').style.display = 'flex';
+    triggerHaptic('light');
+    document.getElementById('keywordInput').value = '';
+    currentEditKeyword = null; 
+    const btnAdd = document.getElementById('addKeywordBtn');
+    btnAdd.innerHTML = '<i class="fas fa-plus"></i> Thêm';
+    btnAdd.classList.remove('btn-edit-kw'); 
+    document.getElementById('cancelKeywordBtn').style.display = 'none';
+    document.getElementById('deleteEditKeywordBtn').style.display = 'none';
+    document.getElementById('fetchKeywordsBtn').style.display = 'flex';
 };
 
 function displayKeywords() {
-   const container = document.getElementById('keywordsContainer'); container.innerHTML = '';
-   if(!cachedKeywords || cachedKeywords.length === 0) { document.getElementById('placeholderTab3').style.display = 'block'; return; }
+   const container = document.getElementById('keywordsContainer');
+   container.innerHTML = '';
+   if(!cachedKeywords || cachedKeywords.length === 0) {
+     document.getElementById('placeholderTab3').style.display = 'block';
+     return;
+   }
    document.getElementById('placeholderTab3').style.display = 'none';
+
    const groupedKeywords = {};
    cachedKeywords.forEach(item => {
         const category = item.category || 'Khác';
@@ -73,18 +91,22 @@ function displayKeywords() {
             });
         }
    });
-   
+
    Object.keys(groupedKeywords)
     .sort((a,b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); })
     .forEach(category => { 
-       const group = groupedKeywords[category]; let tagsHTML = ''; 
+       const group = groupedKeywords[category];
+       let tagsHTML = '';
        group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => {
             tagsHTML += `<span class="keyword-tag" data-kw="${escapeHTML(kw)}" data-cat="${escapeHTML(category)}">${escapeHTML(kw)}</span>`;
        }); 
-       const div = document.createElement('div'); div.className = 'tx-card keyword-group-card'; 
-       div.innerHTML = `<div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';"><div class="flex-row-gap-10" style="align-items:center;"><div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title">${escapeHTML(category)}</div><div class="tx-id-row">${group.keywords.length} từ khóa</div></div></div><i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i></div><div class="accordion-body" style="display:none;">${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}</div>`; 
-       container.appendChild(div); 
-       div.querySelectorAll('.keyword-tag').forEach(tag => { tag.addEventListener('click', () => startEditKeyword(tag.dataset.kw, tag.dataset.cat)); });
+       const div = document.createElement('div');
+       div.className = 'tx-card keyword-group-card';
+       div.innerHTML = `<div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';"><div class="flex-row-gap-10" style="align-items:center;"><div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title">${escapeHTML(category)}</div><div class="tx-id-row">${group.keywords.length} từ khóa</div></div></div><i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i></div><div class="accordion-body" style="display:none;">${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}</div>`;
+       container.appendChild(div);
+       div.querySelectorAll('.keyword-tag').forEach(tag => {
+          tag.addEventListener('click', () => startEditKeyword(tag.dataset.kw, tag.dataset.cat));
+       });
    });
 }
 
@@ -92,7 +114,10 @@ function displayKeywords() {
 async function fetchCategories() { 
     try { 
         let raw = await secureFetch('/categories.json'); 
-        if(!raw) { const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`)); raw = await gasRes.json(); } 
+        if(!raw) {
+          const gasRes = await fetch(proxyUrl + encodeURIComponent(`${apiUrl}?action=getCategories&sheetId=${sheetId}`));
+          raw = await gasRes.json();
+        }
         let cats = [];
         if (Array.isArray(raw)) cats = raw.filter(c => c);
         else if (raw && typeof raw === 'object') cats = Object.keys(raw);
@@ -109,20 +134,22 @@ window.selectType = function(formId, type, el) {
   if(type === 'Chi tiêu') el.classList.add('expense-active');
   else el.classList.add('income-active');
 };
-
 window.openAddForm = async function() {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('addModal').classList.add('show'), 10);
+
   document.querySelectorAll('#addModal .type-pill').forEach(p => {
     if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
     else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu';
   });
+
   document.getElementById('addDate').value = formatDateToYYYYMMDD(new Date());
   document.getElementById('addContent').value = '';
   document.getElementById('addAmount').value = '';
   document.getElementById('addNote').value = '';
   document.querySelectorAll('#addModal .type-pill').forEach(p => { if(p.textContent.includes('Chi tiêu')) p.click(); });
+
   const catSel = document.getElementById('addCategory');
   catSel.innerHTML = '';
   const cats = await fetchCategories();
@@ -139,21 +166,25 @@ window.openEditForm = async function(tx) {
   triggerHaptic('light');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => document.getElementById('editModal').classList.add('show'), 10);
+
   const pills = document.querySelectorAll('#editModal .type-pill');
   pills.forEach(p => {
     if(p.textContent.includes('Thu nhập')) p.innerHTML = '<i class="fas fa-hand-holding-dollar" style="margin-right: 5px;"></i>Thu nhập';
     else if(p.textContent.includes('Chi tiêu')) p.innerHTML = '<i class="fas fa-money-bill-transfer" style="margin-right: 5px;"></i>Chi tiêu';
   });
+
   document.getElementById('editTransactionId').value = tx.id;
   document.getElementById('editContent').value = tx.content;
   document.getElementById('editAmount').value = formatNumberWithCommas(tx.amount.toString());
   document.getElementById('editNote').value = tx.note || '';
   const [d,m,y] = tx.date.split('/');
   document.getElementById('editDate').value = `${y}-${m}-${d}`;
+
   pills.forEach(p => {
     if(tx.type === 'Thu nhập' && p.textContent.includes('Thu nhập')) p.click();
     if(tx.type === 'Chi tiêu' && p.textContent.includes('Chi tiêu')) p.click();
   });
+
   const catSel = document.getElementById('editCategory');
   catSel.innerHTML = '';
   const cats = await fetchCategories();
@@ -266,7 +297,8 @@ async function submitTx(tx) {
 
     await invalidateCachesAndRefreshUI({ reason: 'submitTx' });
 
-    if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
+    if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); }
+    else { notifyTelegram('update', fbTx); }
 
     postToSheetWithRetry(tx).then(ok => {
         if (!ok) {
@@ -356,13 +388,10 @@ window.deleteTransaction = function(id, opts = {}) {
 };
 
 // ==========================================
-// TÍNH NĂNG CỪA SỔ "ICON PICKER"
+// ICON PICKER
 // ==========================================
 let pendingTags = [];
 
-/* =========================
-   LOCK SCROLL NỀN KHI MỞ ICON PICKER
-   ========================= */
 let __iconPickerScrollY = 0;
 function lockBackgroundScrollForIconPicker() {
     try {
@@ -410,7 +439,6 @@ async function loadExistingKeywordsIntoTags(categoryName) {
     }
 }
 
-// (giữ lại, hiện không auto gọi)
 function scrollToTagInputAndFocus() {
     const body = document.getElementById('iconPickerBody');
     const area = document.getElementById('tagInputArea');
@@ -426,7 +454,6 @@ function scrollToTagInputAndFocus() {
 function setupIconGridCollapse() {
     const grid = document.getElementById('iconGridContainer');
     if (!grid) return;
-
     if (document.getElementById('toggleIconGridBtn')) return;
 
     const btn = document.createElement('button');
@@ -446,7 +473,6 @@ function setupIconGridCollapse() {
 
     const apply = () => {
         const collapsed = grid.dataset.collapsed === '1';
-
         const firstItem = grid.querySelector('.icon-item');
         let twoRowsHeight = 128;
         if (firstItem) {
@@ -476,7 +502,6 @@ function setupIconGridCollapse() {
     grid.parentElement.insertBefore(btn, grid);
     apply();
 }
-
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
     if (!oldCat || !newCat || oldCat === newCat) return;
 
@@ -519,11 +544,8 @@ async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws)
     let oldData = null;
 
     if (oldCat) {
-        try {
-            oldData = await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`);
-        } catch (e) {
-            oldData = null;
-        }
+        try { oldData = await secureFetch(`/categories/${encodeURIComponent(oldCat)}.json`); }
+        catch (e) { oldData = null; }
     }
 
     if (oldData && oldData.keywords) {
@@ -553,11 +575,12 @@ async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws)
 
     return finalKeywords;
 }
+
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
     const container = document.getElementById('iconGridContainer');
-    
+
     const catSelect = document.getElementById('iconPickerSelect');
     const catInputGroup = document.getElementById('newCategoryInputGroup');
     const catInput = document.getElementById('iconPickerCategory');
@@ -566,19 +589,34 @@ window.openIconPickerModal = function() {
     const tagsWrapper = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     const delBtn = document.getElementById('deleteCategoryBtn');
-    
+
+    // Hook visualViewport resize 1 lần (để cuộn đúng lúc bàn phím iOS bật)
+    if (window.visualViewport && !window.__vvHookedForIconPicker) {
+        window.__vvHookedForIconPicker = true;
+        window.visualViewport.addEventListener('resize', () => {
+            try {
+                const active = document.activeElement;
+                if (active && active.id === 'tagInputField') {
+                    setTimeout(() => {
+                        try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
+                    }, 0);
+                }
+            } catch (_) {}
+        });
+    }
+
     if (container.innerHTML === '') {
         const flatEmojis = [
-            '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
-            '☕', '🍔', '🍕', '🍜', '🥩', '🛒', '🛵', '🚌', '🚆', '✈️', '⛽',
-            '🏠', '🏢', '👗', '👟', '👓', '💻', '📺', '🎮', '🎧',
-            '💡', '💧', '🔥', '📶', '🩺', '🦷', '💪', '🎓', '🧸',
-            '📈', '💳', '🪙', '👛', '🎂', '🥂', '🐶', '🐱',
-            '👶', '👥', '🔧', '🔨', '✂️', '🎬', '🎫', '🎵',
-            '📦', '🏷️', '✨', '❤️'
+            '🍽️','🛡️','💄','📱','💼','👕','🛠️','🚗','👨‍👩‍👧‍👦','🎉','📚','🧾','🛍️','🎁','🌱','💰','💊','❗',
+            '☕','🍔','🍕','🍜','🥩','🛒','🛵','🚌','🚆','✈️','⛽',
+            '🏠','🏢','👗','👟','👓','💻','📺','🎮','🎧',
+            '💡','💧','🔥','📶','🩺','🦷','💪','🎓','🧸',
+            '📈','💳','🪙','👛','🎂','🥂','🐶','🐱',
+            '👶','👥','🔧','🔨','✂️','🎬','🎫','🎵',
+            '📦','🏷️','✨','❤️'
         ];
         container.innerHTML = flatEmojis.map(emoji => `<div class="icon-item" data-icon="${emoji}">${emoji}</div>`).join('');
-        
+
         const bindIconClick = (item) => {
             item.onclick = function() {
                 triggerHaptic('light');
@@ -598,8 +636,8 @@ window.openIconPickerModal = function() {
                 tagsWrapper.appendChild(span);
             });
             hiddenKeywords.value = pendingTags.join(', ');
-        }
-        window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
+        };
+        window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); };
 
         window.commitTagInput = function() {
             if (!tagInputField) return;
@@ -610,96 +648,90 @@ window.openIconPickerModal = function() {
             window.renderTags();
         };
 
-        if (tagInputField) {
-            tagInputField.addEventListener('keydown', (e) => {
-                if (e.key === ',' || e.key === 'Enter') {
-                    e.preventDefault();
-                    window.commitTagInput();
-                } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
-                    pendingTags.pop(); window.renderTags();
-                }
-            });
-            tagInputField.addEventListener('blur', () => window.commitTagInput());
-
-            // FOCUS + SCROLL TỐI THIỂU (chỉ khi input chưa nằm trong view)
-            const tagBoxEl = tagInputField.parentElement; // .tag-input-container
-            if (tagBoxEl) {
-                tagBoxEl.style.cursor = 'text';
-
-                const focusTagInput = (e) => {
-                    const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
-                    if (isTouch) {
-                        try { e.preventDefault(); } catch (_) {}
-                        try { e.stopPropagation(); } catch (_) {}
-                    }
-
-                    const body = document.getElementById('iconPickerBody');
-                    const input = tagInputField;
-
-                    // 1) Scroll TỐI THIỂU nếu input chưa nằm trong khung nhìn của body
-                    try {
-                        if (body && input) {
-                            const bodyRect = body.getBoundingClientRect();
-                            const inputRect = input.getBoundingClientRect();
-
-                            const paddingTop = 16;
-                            const paddingBottom = 140;
-
-                            const inputTopVisible = inputRect.top >= bodyRect.top + paddingTop;
-                            const inputBottomVisible = inputRect.bottom <= bodyRect.bottom - paddingBottom;
-
-                            if (!inputTopVisible || !inputBottomVisible) {
-                                const delta =
-                                    inputRect.top < bodyRect.top + paddingTop
-                                        ? (inputRect.top - (bodyRect.top + paddingTop))
-                                        : (inputRect.bottom - (bodyRect.bottom - paddingBottom));
-                                body.scrollTop += delta;
-                            }
-                        }
-                    } catch (_) {}
-
-                    // 2) “Mồi” click + focus vào đúng input (không làm nhảy scroll)
-                    try { input.click(); } catch (_) {}
-
-                    try { input.focus({ preventScroll: true }); }
-                    catch (_) { try { input.focus(); } catch (__) {} }
-
-                    requestAnimationFrame(() => {
-                        try { input.focus({ preventScroll: true }); } catch (_) {}
-                    });
-                };
-
-                tagBoxEl.addEventListener('pointerup', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
-                    focusTagInput(e);
-                });
-
-                tagBoxEl.addEventListener('touchstart', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
-                    focusTagInput(e);
-                }, { passive: false });
-
-                tagBoxEl.addEventListener('touchend', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
-                    focusTagInput(e);
-                }, { passive: false });
-
-                tagBoxEl.addEventListener('mousedown', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
-                    focusTagInput(e);
-                });
-
-                tagBoxEl.addEventListener('click', (e) => {
-                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
-                    focusTagInput(e);
-                });
+        tagInputField.addEventListener('keydown', (e) => {
+            if (e.key === ',' || e.key === 'Enter') {
+                e.preventDefault();
+                window.commitTagInput();
+            } else if (e.key === 'Backspace' && tagInputField.value === '' && pendingTags.length > 0) {
+                pendingTags.pop(); window.renderTags();
             }
+        });
+        tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            const tagLabel = document.querySelector('#tagInputArea .field-label');
-            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
-            tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
+        // Helper: đảm bảo input nằm trong view của #iconPickerBody (scroll tối thiểu)
+        window.__ensureTagInputVisible = function() {
+            try {
+                const body = document.getElementById('iconPickerBody');
+                const input = document.getElementById('tagInputField');
+                if (!body || !input) return;
+
+                const bodyRect = body.getBoundingClientRect();
+                const inputRect = input.getBoundingClientRect();
+
+                const topPad = 12;
+                const bottomPad = 180;
+
+                const topLimit = bodyRect.top + topPad;
+                const bottomLimit = bodyRect.bottom - bottomPad;
+
+                if (inputRect.top < topLimit) {
+                    body.scrollTop -= (topLimit - inputRect.top);
+                } else if (inputRect.bottom > bottomLimit) {
+                    body.scrollTop += (inputRect.bottom - bottomLimit);
+                }
+            } catch (_) {}
+        };
+
+        // Tap vùng tag -> focus + cuộn đúng sau khi keyboard bật
+        const tagBoxEl = tagInputField.parentElement; // .tag-input-container
+        if (tagBoxEl) {
+            tagBoxEl.style.cursor = 'text';
+
+            const focusTagInput = (e) => {
+                const isTouch = e && (e.type === 'touchend'); // CHỈ dùng touchend để tránh gọi 2 lần
+                if (isTouch) {
+                    try { e.preventDefault(); } catch (_) {}
+                    try { e.stopPropagation(); } catch (_) {}
+                }
+
+                try { tagInputField.click(); } catch (_) {}
+                try { tagInputField.focus({ preventScroll: true }); }
+                catch (_) { try { tagInputField.focus(); } catch (__) {} }
+
+                requestAnimationFrame(() => {
+                    try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
+                    try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
+                });
+
+                setTimeout(() => {
+                    try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
+                    try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
+                }, 220);
+            };
+
+            tagBoxEl.addEventListener('pointerup', (e) => {
+                if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                focusTagInput(e);
+            });
+
+            // FIX CHÍNH: BỎ touchstart, CHỈ GIỮ touchend
+            tagBoxEl.addEventListener('touchend', (e) => {
+                if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                focusTagInput(e);
+            }, { passive: false });
+
+            tagBoxEl.addEventListener('mousedown', (e) => {
+                if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                focusTagInput(e);
+            });
+
+            tagBoxEl.addEventListener('click', (e) => {
+                if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                focusTagInput(e);
+            });
         }
-        
+
+        // Save/Delete handlers giữ như repo bạn
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             if (window.commitTagInput) window.commitTagInput();
 
@@ -785,7 +817,7 @@ window.openIconPickerModal = function() {
             const cat = catInput.value.trim();
             if (!cat) return;
             triggerHaptic('medium');
-            
+
             showCustomConfirm(
                 'Xóa danh mục',
                 `Bạn có chắc chắn muốn xóa hoàn toàn danh mục <strong>${escapeHTML(cat)}</strong> và tất cả từ khóa của nó không?`,
@@ -796,13 +828,24 @@ window.openIconPickerModal = function() {
                         await secureFetch(`/categories/${encodeURIComponent(cat)}.json`, 'DELETE');
                         delete window.customCategoryIcons[cat];
                         delete window.categoryIconMap[cat];
-                        await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
-                        
-                        showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
-                        await window.initCategories(false); window.loadKeywords(false);
+
+                        await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+                            method: 'POST',
+                            body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId })
+                        });
+
+                        showToast('Đã xóa danh mục thành công!', 'success');
+                        closeIconPickerModal();
+
+                        await window.initCategories(false);
+                        window.loadKeywords(false);
 
                         await invalidateCachesAndRefreshUI({ reason: 'deleteCategory' });
-                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
+                    } catch(e) {
+                        showToast('Lỗi xóa danh mục: ' + e.message, 'error');
+                    } finally {
+                        showLoading(false, 'tab3');
+                    }
                 }
             );
         };
@@ -812,9 +855,9 @@ window.openIconPickerModal = function() {
 
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
-    const uniqueCats = [...new Set(cats)]; 
+    const uniqueCats = [...new Set(cats)];
     uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
-    
+
     const newOpt = document.createElement('option');
     newOpt.value = "__NEW__";
     newOpt.innerHTML = "Tạo danh mục mới...";
@@ -854,9 +897,12 @@ window.openIconPickerModal = function() {
         else if (window.categoryIconMap && window.categoryIconMap[val]) currentIconVal = window.categoryIconMap[val].trim();
 
         if (currentIconVal) {
-            let targetEmoji = currentIconVal.includes('fa-')
-              ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()]
-              : currentIconVal;
+            let targetEmoji = currentIconVal;
+            if (currentIconVal.includes('fa-')) {
+                let faClass = currentIconVal.replace('fas ', '').trim();
+                if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
+                targetEmoji = FA_TO_EMOJI_MAP[faClass];
+            }
 
             if (targetEmoji) {
                 let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
@@ -873,15 +919,18 @@ window.openIconPickerModal = function() {
 
     catSelect.onchange = async (e) => {
         triggerHaptic('light');
+
         if (e.target.value === '__NEW__') {
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
             delBtn.style.display = 'none';
+
             catInput.value = '';
             modal.removeAttribute('data-original-category');
 
             pendingTags = [];
             if (window.renderTags) window.renderTags();
+
             catInput.focus();
             updateIconState('');
         } else {
@@ -889,6 +938,7 @@ window.openIconPickerModal = function() {
             catInputGroup.style.display = selectedCategory ? 'block' : 'none';
             tagArea.style.display = selectedCategory ? 'block' : 'none';
             delBtn.style.display = selectedCategory ? 'flex' : 'none';
+
             catInput.value = selectedCategory;
             if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
             else modal.removeAttribute('data-original-category');
@@ -896,7 +946,6 @@ window.openIconPickerModal = function() {
             await loadExistingKeywordsIntoTags(selectedCategory);
             updateIconState(selectedCategory);
 
-            // Blur select “cứng” hơn (2 nhịp)
             setTimeout(() => {
                 try { catSelect.blur(); } catch (_) {}
                 try { if (document.activeElement) document.activeElement.blur(); } catch (_) {}
@@ -914,9 +963,11 @@ window.openIconPickerModal = function() {
     if(currentSelected) {
         catSelect.value = currentSelected;
         catInput.value = currentSelected;
+
         catInputGroup.style.display = 'block';
         tagArea.style.display = 'block';
         delBtn.style.display = 'flex';
+
         modal.setAttribute('data-original-category', currentSelected);
 
         loadExistingKeywordsIntoTags(currentSelected);
@@ -924,11 +975,14 @@ window.openIconPickerModal = function() {
     } else {
         catSelect.value = '';
         catInput.value = '';
+
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'none';
         delBtn.style.display = 'none';
+
         modal.removeAttribute('data-original-category');
         updateIconState('');
+
         pendingTags = [];
         if (window.renderTags) window.renderTags();
     }
