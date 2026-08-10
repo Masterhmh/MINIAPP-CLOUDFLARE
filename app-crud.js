@@ -623,7 +623,7 @@ window.openIconPickerModal = function() {
             });
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Focus chắc vào ô nhập khi chạm vùng tag (FOCUS FIX)
+            // Focus chắc vào ô nhập khi chạm vùng tag (GIỮ NGUYÊN SCROLL)
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
@@ -635,29 +635,25 @@ window.openIconPickerModal = function() {
                         try { e.stopPropagation(); } catch (_) {}
                     }
 
-                    // Căn scroll NGAY (không smooth)
-                    try {
-                        const body = document.getElementById('iconPickerBody');
-                        const area = document.getElementById('tagInputArea');
-                        if (body && area) body.scrollTop = Math.max(0, area.offsetTop - 80);
-                        else if (area && area.scrollIntoView) area.scrollIntoView(true);
-                    } catch (_) {}
+                    // GIỮ nguyên vị trí scroll hiện tại của modal
+                    const body = document.getElementById('iconPickerBody');
+                    const prevScrollTop = body ? body.scrollTop : null;
 
                     // “Mồi” click vào input để WebView cho phép bật bàn phím
                     try { tagInputField.click(); } catch (_) {}
 
-                    // Focus ngay
+                    // Focus đúng input và KHÔNG làm nhảy scroll
                     try { tagInputField.focus({ preventScroll: true }); }
                     catch (_) { try { tagInputField.focus(); } catch (__) {} }
 
-                    // Dự phòng 1 nhịp
+                    // Dự phòng 1 nhịp + restore scroll (chống iOS tự nhảy)
                     requestAnimationFrame(() => {
-                        try { tagInputField.focus({ preventScroll: true }); }
-                        catch (_) { try { tagInputField.focus(); } catch (__) {} }
+                        try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
+                        if (body && prevScrollTop != null) body.scrollTop = prevScrollTop;
                     });
                 };
 
-                // Đổi pointerdown -> pointerup (focus ổn định hơn trên nhiều máy)
+                // pointerup ổn định hơn trên nhiều máy
                 tagBoxEl.addEventListener('pointerup', (e) => {
                     if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                     focusTagInput(e);
