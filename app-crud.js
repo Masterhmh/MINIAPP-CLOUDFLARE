@@ -476,6 +476,7 @@ function setupIconGridCollapse() {
     grid.parentElement.insertBefore(btn, grid);
     apply();
 }
+
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
     if (!oldCat || !newCat || oldCat === newCat) return;
 
@@ -552,7 +553,6 @@ async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws)
 
     return finalKeywords;
 }
-
 window.openIconPickerModal = function() {
     triggerHaptic('light');
     const modal = document.getElementById('iconPickerModal');
@@ -566,22 +566,7 @@ window.openIconPickerModal = function() {
     const tagsWrapper = document.getElementById('tagsWrapper');
     const hiddenKeywords = document.getElementById('iconPickerNewKeywords');
     const delBtn = document.getElementById('deleteCategoryBtn');
-
-    // Hook visualViewport resize 1 lần (để cuộn đúng lúc bàn phím iOS bật)
-    if (window.visualViewport && !window.__vvHookedForIconPicker) {
-        window.__vvHookedForIconPicker = true;
-        window.visualViewport.addEventListener('resize', () => {
-            try {
-                const active = document.activeElement;
-                if (active && active.id === 'tagInputField') {
-                    setTimeout(() => {
-                        try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                    }, 0);
-                }
-            } catch (_) {}
-        });
-    }
-
+    
     if (container.innerHTML === '') {
         const flatEmojis = [
             '🍽️', '🛡️', '💄', '📱', '💼', '👕', '🛠️', '🚗', '👨‍👩‍👧‍👦', '🎉', '📚', '🧾', '🛍️', '🎁', '🌱', '💰', '💊', '❗',
@@ -636,31 +621,7 @@ window.openIconPickerModal = function() {
             });
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Helper: đảm bảo input nằm trong view của #iconPickerBody (scroll tối thiểu)
-            window.__ensureTagInputVisible = function() {
-                try {
-                    const body = document.getElementById('iconPickerBody');
-                    const input = document.getElementById('tagInputField');
-                    if (!body || !input) return;
-
-                    const bodyRect = body.getBoundingClientRect();
-                    const inputRect = input.getBoundingClientRect();
-
-                    const topPad = 12;
-                    const bottomPad = 180; // chừa chỗ cho bàn phím + cụm nút dưới
-
-                    const topLimit = bodyRect.top + topPad;
-                    const bottomLimit = bodyRect.bottom - bottomPad;
-
-                    if (inputRect.top < topLimit) {
-                        body.scrollTop -= (topLimit - inputRect.top);
-                    } else if (inputRect.bottom > bottomLimit) {
-                        body.scrollTop += (inputRect.bottom - bottomLimit);
-                    }
-                } catch (_) {}
-            };
-
-            // Tap vùng tag -> focus + cuộn đúng sau khi keyboard bật
+            // FOCUS + SCROLL TỐI THIỂU (chỉ khi input chưa nằm trong view)
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
@@ -672,22 +633,40 @@ window.openIconPickerModal = function() {
                         try { e.stopPropagation(); } catch (_) {}
                     }
 
-                    // Focus ngay để bật bàn phím
-                    try { tagInputField.click(); } catch (_) {}
-                    try { tagInputField.focus({ preventScroll: true }); }
-                    catch (_) { try { tagInputField.focus(); } catch (__) {} }
+                    const body = document.getElementById('iconPickerBody');
+                    const input = tagInputField;
 
-                    // 1 nhịp sau
+                    // 1) Scroll TỐI THIỂU nếu input chưa nằm trong khung nhìn của body
+                    try {
+                        if (body && input) {
+                            const bodyRect = body.getBoundingClientRect();
+                            const inputRect = input.getBoundingClientRect();
+
+                            const paddingTop = 16;
+                            const paddingBottom = 140;
+
+                            const inputTopVisible = inputRect.top >= bodyRect.top + paddingTop;
+                            const inputBottomVisible = inputRect.bottom <= bodyRect.bottom - paddingBottom;
+
+                            if (!inputTopVisible || !inputBottomVisible) {
+                                const delta =
+                                    inputRect.top < bodyRect.top + paddingTop
+                                        ? (inputRect.top - (bodyRect.top + paddingTop))
+                                        : (inputRect.bottom - (bodyRect.bottom - paddingBottom));
+                                body.scrollTop += delta;
+                            }
+                        }
+                    } catch (_) {}
+
+                    // 2) “Mồi” click + focus vào đúng input (không làm nhảy scroll)
+                    try { input.click(); } catch (_) {}
+
+                    try { input.focus({ preventScroll: true }); }
+                    catch (_) { try { input.focus(); } catch (__) {} }
+
                     requestAnimationFrame(() => {
-                        try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                        try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
+                        try { input.focus({ preventScroll: true }); } catch (_) {}
                     });
-
-                    // Sau khi keyboard bật (iOS/Telegram thường cần timeout)
-                    setTimeout(() => {
-                        try { window.__ensureTagInputVisible && window.__ensureTagInputVisible(); } catch (_) {}
-                        try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
-                    }, 220);
                 };
 
                 tagBoxEl.addEventListener('pointerup', (e) => {
@@ -715,6 +694,12 @@ window.openIconPickerModal = function() {
                     focusTagInput(e);
                 });
             }
+
+            const tagLabel = document.querySelector('#tagInputArea .field-label');
+            if (tagLabel) tagLabel.textContent = 'Thêm từ khóa (chạm vào ô rồi gõ, xong bấm Enter hoặc dấu phẩy)';
+            tagInputField.placeholder = 'VD: Bảo hành, giao dịch';
+        }
+        
         document.getElementById('saveIconPickerBtn').onclick = async () => {
             if (window.commitTagInput) window.commitTagInput();
 
@@ -765,7 +750,6 @@ window.openIconPickerModal = function() {
                     await window.initCategories(true);
                     window.loadKeywords(false);
 
-                    // Backup Google Sheet (nền)
                     fetch(proxyUrl + encodeURIComponent(apiUrl), {
                         method: 'POST',
                         body: JSON.stringify({
@@ -812,38 +796,25 @@ window.openIconPickerModal = function() {
                         await secureFetch(`/categories/${encodeURIComponent(cat)}.json`, 'DELETE');
                         delete window.customCategoryIcons[cat];
                         delete window.categoryIconMap[cat];
-
-                        await fetch(proxyUrl + encodeURIComponent(apiUrl), {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId })
-                        });
-
-                        showToast('Đã xóa danh mục thành công!', 'success');
-                        closeIconPickerModal();
-
-                        await window.initCategories(false);
-                        window.loadKeywords(false);
+                        await fetch(proxyUrl + encodeURIComponent(apiUrl), { method: 'POST', body: JSON.stringify({ action: 'deleteCategory', category: cat, sheetId: sheetId }) });
+                        
+                        showToast('Đã xóa danh mục thành công!', 'success'); closeIconPickerModal();
+                        await window.initCategories(false); window.loadKeywords(false);
 
                         await invalidateCachesAndRefreshUI({ reason: 'deleteCategory' });
-                    } catch(e) {
-                        showToast('Lỗi xóa danh mục: ' + e.message, 'error');
-                    } finally {
-                        showLoading(false, 'tab3');
-                    }
+                    } catch(e) { showToast('Lỗi xóa danh mục: ' + e.message, 'error'); } finally { showLoading(false, 'tab3'); }
                 }
             );
         };
-    } // <-- kết thúc if (container.innerHTML === '')
+    }
 
-    // NEW: thu gọn icon grid 2 hàng + nút Xem thêm/Thu gọn
     setupIconGridCollapse();
 
-    // Nạp danh mục vào select
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
     const cats = Array.from(document.getElementById('keywordCategory').options).map(opt => opt.value).filter(v => v);
-    const uniqueCats = [...new Set(cats)];
+    const uniqueCats = [...new Set(cats)]; 
     uniqueCats.forEach(c => { catSelect.appendChild(new Option(c, c)); });
-
+    
     const newOpt = document.createElement('option');
     newOpt.value = "__NEW__";
     newOpt.innerHTML = "Tạo danh mục mới...";
@@ -879,19 +850,13 @@ window.openIconPickerModal = function() {
         if (!val) return;
 
         let currentIconVal = null;
-        if (window.customCategoryIcons && window.customCategoryIcons[val]) {
-            currentIconVal = window.customCategoryIcons[val].trim();
-        } else if (window.categoryIconMap && window.categoryIconMap[val]) {
-            currentIconVal = window.categoryIconMap[val].trim();
-        }
+        if (window.customCategoryIcons && window.customCategoryIcons[val]) currentIconVal = window.customCategoryIcons[val].trim();
+        else if (window.categoryIconMap && window.categoryIconMap[val]) currentIconVal = window.categoryIconMap[val].trim();
 
         if (currentIconVal) {
-            let targetEmoji = currentIconVal;
-            if (currentIconVal.includes('fa-')) {
-                let faClass = currentIconVal.replace('fas ', '').trim();
-                if (!faClass.startsWith('fa-')) faClass = 'fa-' + faClass;
-                targetEmoji = FA_TO_EMOJI_MAP[faClass];
-            }
+            let targetEmoji = currentIconVal.includes('fa-')
+              ? FA_TO_EMOJI_MAP[currentIconVal.replace('fas ', '').trim().startsWith('fa-') ? currentIconVal.replace('fas ', '').trim() : 'fa-' + currentIconVal.replace('fas ', '').trim()]
+              : currentIconVal;
 
             if (targetEmoji) {
                 let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
@@ -908,18 +873,15 @@ window.openIconPickerModal = function() {
 
     catSelect.onchange = async (e) => {
         triggerHaptic('light');
-
         if (e.target.value === '__NEW__') {
             catInputGroup.style.display = 'block';
             tagArea.style.display = 'block';
             delBtn.style.display = 'none';
-
             catInput.value = '';
             modal.removeAttribute('data-original-category');
 
             pendingTags = [];
             if (window.renderTags) window.renderTags();
-
             catInput.focus();
             updateIconState('');
         } else {
@@ -927,7 +889,6 @@ window.openIconPickerModal = function() {
             catInputGroup.style.display = selectedCategory ? 'block' : 'none';
             tagArea.style.display = selectedCategory ? 'block' : 'none';
             delBtn.style.display = selectedCategory ? 'flex' : 'none';
-
             catInput.value = selectedCategory;
             if (selectedCategory) modal.setAttribute('data-original-category', selectedCategory);
             else modal.removeAttribute('data-original-category');
@@ -935,7 +896,7 @@ window.openIconPickerModal = function() {
             await loadExistingKeywordsIntoTags(selectedCategory);
             updateIconState(selectedCategory);
 
-            // Blur select “cứng” hơn (2 nhịp) để tap tiếp theo không bị nuốt
+            // Blur select “cứng” hơn (2 nhịp)
             setTimeout(() => {
                 try { catSelect.blur(); } catch (_) {}
                 try { if (document.activeElement) document.activeElement.blur(); } catch (_) {}
@@ -947,19 +908,15 @@ window.openIconPickerModal = function() {
         }
     };
 
-    // Gõ đổi tên danh mục -> cập nhật icon state theo tên mới (nếu trùng tên cũ)
     catInput.addEventListener('input', (e) => updateIconState(e.target.value.trim()));
 
-    // Nếu đang có danh mục được chọn ở Tab 3 -> mở modal theo danh mục đó
     const currentSelected = document.getElementById('keywordCategory').value;
     if(currentSelected) {
         catSelect.value = currentSelected;
         catInput.value = currentSelected;
-
         catInputGroup.style.display = 'block';
         tagArea.style.display = 'block';
         delBtn.style.display = 'flex';
-
         modal.setAttribute('data-original-category', currentSelected);
 
         loadExistingKeywordsIntoTags(currentSelected);
@@ -967,14 +924,11 @@ window.openIconPickerModal = function() {
     } else {
         catSelect.value = '';
         catInput.value = '';
-
         catInputGroup.style.display = 'none';
         tagArea.style.display = 'none';
         delBtn.style.display = 'none';
-
         modal.removeAttribute('data-original-category');
         updateIconState('');
-
         pendingTags = [];
         if (window.renderTags) window.renderTags();
     }
