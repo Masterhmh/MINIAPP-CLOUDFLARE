@@ -100,56 +100,45 @@ window.closeEditForm = function() { document.getElementById('editModal').classLi
 window.closeAllModals = function() { closeAddForm(); closeEditForm(); closeSearchModal(); closeDetailModal(); if (document.getElementById('iconPickerModal')) document.getElementById('iconPickerModal').classList.remove('show'); if (document.getElementById('pdfPreviewModal')) document.getElementById('pdfPreviewModal').classList.remove('show'); };
 
 // ---------------- TAB 1: CHIẾN LƯỢC CẬP NHẬT DỮ LIỆU "LUÔN MỚI NHẤT" ----------------
-// Quy tắc theo yêu cầu:
-// - Hễ thêm/sửa/xóa giao dịch => XÓA cache cũ (Tab 1 / Tab 2 / tháng) và refetch lại.
-// - Tránh trường hợp "sửa đổi ngày 09 -> 08 nhưng list 09 vẫn còn" do cache ngày.
 async function invalidateCachesAndRefreshUI(options = {}) {
-    // Xóa toàn bộ cache liên quan dữ liệu giao dịch
     window.dayTxCache = {};
     window.apiTxCache = {};
     window.monthDataCache = {};
     tab2NeedsReload = true;
 
-    // Nếu đang ở Tab 1: luôn refetch cưỡng bức để list + hero đúng tuyệt đối
     if (document.getElementById('tab1') && document.getElementById('tab1').classList.contains('active')) {
         try { await window.fetchTransactions(true); } catch (e) {}
         return;
     }
 
-    // Tab 2: refresh UI (sẽ tự load theo mode)
     if (document.getElementById('tab2') && document.getElementById('tab2').classList.contains('active')) {
         updateTimeNavUI();
         return;
     }
 
-    // Tab 3: nếu đang mở search results thì render lại
     if (document.getElementById('tab3') && document.getElementById('tab3').classList.contains('active')) {
         if (typeof displaySearchResults === 'function') displaySearchResults();
         return;
     }
 }
-// Sinh mã GD THAM CHIẾU THEO ĐÚNG THÁNG + NĂM của giao dịch: đọc đúng nhánh
-// /transactions/{năm}/month_{tháng} trên Firebase, lấy mã GD lớn nhất ĐANG CÓ rồi +1.
-// Nhờ nhánh tách theo năm nên sang năm mới mã tự khởi động lại từ GD001.
-// Đọc trực tiếp dữ liệu nhánh năm/tháng (gồm cả mã do Bot tạo) nên không cấp trùng -> không ghi đè.
+
 async function getNextTransactionId(month, year) {
     let maxInMonth = 0;
     const consider = (id, dateStr) => {
         if (!String(id).startsWith('GD') || String(id).includes('_')) return;
         if (year != null && dateStr) {
             const p = String(dateStr).split('/');
-            if (p.length === 3 && parseInt(p[2], 10) !== parseInt(year, 10)) return; // chỉ tính giao dịch cùng năm
+            if (p.length === 3 && parseInt(p[2], 10) !== parseInt(year, 10)) return;
         }
         const n = parseInt(String(id).replace('GD', ''), 10);
         if (!isNaN(n) && n > maxInMonth) maxInMonth = n;
     };
-    // Đọc đúng nhánh năm/tháng đó trên Firebase (qua cổng bảo mật)
+
     try {
         const data = await secureFetch(`/transactions/${year}/month_${month}.json`);
         if (data && typeof data === 'object') Object.keys(data).forEach(id => { const t = data[id]; consider(id, t && t.date); });
-    } catch (e) { /* lỗi mạng -> dùng cache bên dưới làm dự phòng */ }
+    } catch (e) {}
 
-    // Dự phòng: quét dữ liệu đang load trên máy nhưng CHỈ tính các giao dịch cùng tháng (và cùng năm)
     [...(cachedTransactions?.data || []), ...(cachedChartData?.txs || []), ...(cachedSearchResults || [])].forEach(item => {
         if (!item || !item.id || !item.date) return;
         const m = parseInt(String(item.date).split('/')[1], 10);
@@ -161,8 +150,6 @@ async function getNextTransactionId(month, year) {
     return "GD" + String(nextNum).padStart(3, '0');
 }
 
-// Gửi POST sang Google Sheet (GAS) CÓ KIỂM TRA + THỬ LẠI; trả về true nếu thành công, false nếu thất bại.
-// Tránh "nuốt" lỗi đồng bộ sheet một cách im lặng (chống lệch dữ liệu Firebase <-> Google Sheet).
 async function postToSheetWithRetry(payload, retries = 2) {
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
@@ -170,8 +157,8 @@ async function postToSheetWithRetry(payload, retries = 2) {
             if (res.ok) {
                 try {
                     const data = await res.clone().json();
-                    if (!data || data.success !== false) return true; // GAS trả {success:false} mới coi là lỗi
-                } catch (e) { return true; } // 200 nhưng không phải JSON -> vẫn coi là OK
+                    if (!data || data.success !== false) return true;
+                } catch (e) { return true; }
             }
         } catch (e) { console.log("Lỗi đồng bộ Sheet (lần " + (attempt + 1) + "):", e); }
         if (attempt < retries) await new Promise(r => setTimeout(r, 500));
@@ -188,10 +175,8 @@ async function submitTx(tx) {
 
     const fbTx = { id: tx.id, date: tx.date, type: tx.type, content: tx.content, amount: tx.amount, category: tx.category, note: tx.note };
 
-    // GHI LÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới cập nhật giao diện
     await secureFetch(`/transactions/${year}/month_${month}/${tx.id}.json`, 'PUT', fbTx);
 
-    // Cập nhật cache in-memory tối thiểu (để các view khác không bị "trễ" nếu chưa kịp refetch)
     if (tx.action === 'addTransaction') {
         if (cachedTransactions?.data) cachedTransactions.data.unshift(fbTx);
     } else {
@@ -205,13 +190,10 @@ async function submitTx(tx) {
     triggerHapticNotification('success');
     showToast("Đã lưu giao dịch!", "success");
 
-    // Theo yêu cầu: HỄ có thay đổi => XÓA cache cũ + REFRESH dữ liệu mới nhất
     await invalidateCachesAndRefreshUI({ reason: 'submitTx' });
 
-    // Bắn tín hiệu về Bot
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); } else { notifyTelegram('update', fbTx); }
 
-    // Đồng bộ Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại thay vì nuốt lỗi im lặng
     postToSheetWithRetry(tx).then(ok => {
         if (!ok) {
             triggerHapticNotification('warning');
@@ -233,7 +215,7 @@ async function submitTx(tx) {
 }
 
 window.deleteTransaction = function(id, opts = {}) {
-  if (!opts.fromSearch) closeEditForm(); // Xoá từ modal Tìm kiếm thì KHÔNG đụng modalOverlay (dùng chung) để không làm mất nền modal
+  if (!opts.fromSearch) closeEditForm();
   triggerHaptic('medium'); 
   
   showCustomConfirm(
@@ -241,13 +223,11 @@ window.deleteTransaction = function(id, opts = {}) {
     `Bạn có chắc chắn muốn xóa giao dịch #${escapeHTML(id)} này không?`,
     'Xóa',
     async () => {
-      // Tìm giao dịch để lấy tháng + dữ liệu gửi Bot (CHƯA gỡ khỏi cache vội)
       let tx = null;
       if (cachedTransactions?.data) tx = cachedTransactions.data.find(i => String(i.id) === String(id));
       if (!tx && cachedSearchResults) tx = cachedSearchResults.find(i => String(i.id) === String(id));
       if (!tx && cachedChartData?.txs) tx = cachedChartData.txs.find(i => String(i.id) === String(id));
 
-      // An toàn dữ liệu: nếu không xác định chắc chắn được tháng thì DỪNG, tuyệt đối không mặc định tháng 1 (tránh xóa nhầm bản ghi tháng khác)
       if (!tx || !tx.date || String(tx.date).split('/').length !== 3) {
         triggerHapticNotification('error');
         showToast('Không xác định được tháng của giao dịch này. Vui lòng tải lại trang rồi thử lại để tránh xóa nhầm dữ liệu.', "error");
@@ -258,35 +238,29 @@ window.deleteTransaction = function(id, opts = {}) {
 
       showToast("Đang xóa giao dịch...", "info");
       try {
-        // XÓA TRÊN FIREBASE TRƯỚC (qua cổng bảo mật) — secureFetch tự ném lỗi nếu thất bại, xác nhận OK rồi mới đụng vào giao diện
         await secureFetch(`/transactions/${yearToUpdate}/month_${monthToUpdate}/${id}.json`, 'DELETE');
 
-        // Xóa thành công -> gỡ khỏi cache in-memory tối thiểu
         [cachedTransactions?.data, cachedChartData?.txs, cachedSearchResults].forEach(arr => {
             if (!arr) return;
             const idx = arr.findIndex(i => String(i.id) === String(id));
             if (idx !== -1) arr.splice(idx, 1);
         });
 
-        // Nếu modal Tìm kiếm đang mở -> GIỮ NGUYÊN modal, chỉ cập nhật lại danh sách kết quả (vd 14 -> 13)
         const searchModalEl = document.getElementById('searchModal');
         const searchOpen = opts.fromSearch || (searchModalEl && searchModalEl.classList.contains('show'));
         if (searchOpen) {
           const totalPages = Math.max(1, Math.ceil((cachedSearchResults?.length || 0) / itemsPerPage));
-          if (currentPageSearch > totalPages) currentPageSearch = totalPages; // tránh đứng ở trang trống sau khi xoá
+          if (currentPageSearch > totalPages) currentPageSearch = totalPages;
           displaySearchResults();
         }
 
         triggerHapticNotification('success');
         showToast("Đã xóa giao dịch!", "success");
 
-        // Theo yêu cầu: HỄ có thay đổi => XÓA cache cũ + REFRESH dữ liệu mới nhất
         await invalidateCachesAndRefreshUI({ reason: 'deleteTx' });
 
-        // Bắn tín hiệu về Bot
         if (tx) notifyTelegram('delete', tx);
 
-        // Đồng bộ xóa trên Google Sheet (nền): kiểm tra + thử lại, báo cảnh báo nếu thất bại
         postToSheetWithRetry({action: 'deleteTransaction', id, month: monthToUpdate, sheetId}).then(ok => {
             if (!ok) {
                 triggerHapticNotification('warning');
@@ -313,8 +287,7 @@ window.deleteTransaction = function(id, opts = {}) {
 let pendingTags = [];
 
 /* =========================
-   NEW: LOCK SCROLL NỀN KHI MỞ ICON PICKER
-   (dùng với body.iconpicker-open trong upgrade.css)
+   LOCK SCROLL NỀN KHI MỞ ICON PICKER
    ========================= */
 let __iconPickerScrollY = 0;
 function lockBackgroundScrollForIconPicker() {
@@ -334,9 +307,6 @@ function unlockBackgroundScrollForIconPicker() {
     } catch(e) {}
 }
 
-/* =========================
-   NEW: LOAD KEYWORDS CỦA DANH MỤC ĐANG CHỌN VÀO pendingTags (trong modal)
-   ========================= */
 async function loadExistingKeywordsIntoTags(categoryName) {
     if (!categoryName) {
         pendingTags = [];
@@ -350,7 +320,6 @@ async function loadExistingKeywordsIntoTags(categoryName) {
             .map(k => k.trim())
             .filter(k => k);
 
-        // Loại trùng case-insensitive để sạch
         const seen = new Set();
         pendingTags = [];
         list.forEach(k => {
@@ -362,16 +331,12 @@ async function loadExistingKeywordsIntoTags(categoryName) {
 
         if (window.renderTags) window.renderTags();
     } catch (e) {
-        // lỗi thì cứ để trống
         pendingTags = [];
         if (window.renderTags) window.renderTags();
     }
 }
 
-// =========================
-// UX: tự cuộn xuống vùng từ khoá + focus ô nhập (khi chọn danh mục)
-// (giữ lại nhưng hiện KHÔNG dùng auto)
-// =========================
+// (giữ lại, hiện không auto gọi)
 function scrollToTagInputAndFocus() {
     const body = document.getElementById('iconPickerBody');
     const area = document.getElementById('tagInputArea');
@@ -392,9 +357,6 @@ function scrollToTagInputAndFocus() {
     }, 50);
 }
 
-// =========================
-// UX: thu gọn icon grid 2 hàng + nút Xem thêm/Thu gọn
-// =========================
 function setupIconGridCollapse() {
     const grid = document.getElementById('iconGridContainer');
     if (!grid) return;
@@ -449,8 +411,6 @@ function setupIconGridCollapse() {
     apply();
 }
 
-// Đổi tên danh mục trong toàn bộ Firebase transactions nhiều năm.
-// Firebase đang khóa rules, nên thao tác này phải đi qua secureFetch của Mini App.
 async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
     if (!oldCat || !newCat || oldCat === newCat) return;
 
@@ -488,7 +448,6 @@ async function renameCategoryInFirebaseTransactions(oldCat, newCat) {
     }
 }
 
-// Lưu cấu hình danh mục lên Firebase trước, sau đó GAS chỉ backup Google Sheet.
 async function saveCategoryToFirebaseFirst(oldCat, newCat, selectedIcon, newKws) {
     let existingKeywords = [];
     let oldData = null;
@@ -576,7 +535,6 @@ window.openIconPickerModal = function() {
         }
         window.removeTag = function(idx) { triggerHaptic('light'); pendingTags.splice(idx, 1); window.renderTags(); }
 
-        // Chốt phần đang gõ dở trong ô thành từ khóa (tách theo dấu phẩy để dán nhiều từ một lúc).
         window.commitTagInput = function() {
             if (!tagInputField) return;
             const rawVal = tagInputField.value.trim();
@@ -597,7 +555,7 @@ window.openIconPickerModal = function() {
             });
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Focus chắc vào ô nhập khi chạm vùng tag
+            // Focus chắc vào ô nhập khi chạm vùng tag (FIX MOBILE)
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
@@ -607,13 +565,36 @@ window.openIconPickerModal = function() {
                         if (typeof e.preventDefault === 'function') e.preventDefault();
                         if (typeof e.stopPropagation === 'function') e.stopPropagation();
                     }
+
+                    // iOS/Telegram WebView: phải đảm bảo input nằm trong khung nhìn của vùng scroll thì mới bật bàn phím
+                    try {
+                        const body = document.getElementById('iconPickerBody');
+                        const area = document.getElementById('tagInputArea');
+
+                        if (body && area) {
+                            body.scrollTo({
+                                top: Math.max(0, area.offsetTop - 80),
+                                behavior: 'smooth'
+                            });
+                        } else if (area && area.scrollIntoView) {
+                            area.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    } catch (_) {}
+
+                    // Focus sau khi đã “căn” scroll
                     setTimeout(() => {
                         try { tagInputField.focus({ preventScroll: true }); }
                         catch (_) { try { tagInputField.focus(); } catch (__) {} }
-                    }, 0);
+                    }, 60);
                 };
 
                 tagBoxEl.addEventListener('touchstart', (e) => {
+                    if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
+                    focusTagInput(e);
+                }, { passive: false });
+
+                // NEW: touchend để bắt chắc tap đầu tiên trên iOS/WebView
+                tagBoxEl.addEventListener('touchend', (e) => {
                     if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                     focusTagInput(e);
                 }, { passive: false });
@@ -742,7 +723,6 @@ window.openIconPickerModal = function() {
         };
     }
 
-    // NEW: thu gọn icon grid 2 hàng + nút Xem thêm/Thu gọn
     setupIconGridCollapse();
 
     catSelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
@@ -834,10 +814,11 @@ window.openIconPickerModal = function() {
             await loadExistingKeywordsIntoTags(selectedCategory);
             updateIconState(selectedCategory);
 
-            // NEW (đúng yêu cầu của bạn):
-            // Không auto cuộn, không auto focus.
-            // Nhưng blur select ngay để người dùng chạm vùng "Thêm từ khóa" ăn ngay (không cần click thêm).
-            try { catSelect.blur(); } catch(e2) {}
+            // Không auto cuộn, không auto focus; chỉ blur select để tap tiếp theo không bị “nuốt”
+            setTimeout(() => {
+                try { catSelect.blur(); } catch (_) {}
+                try { if (document.activeElement) document.activeElement.blur(); } catch (_) {}
+            }, 0);
         }
     };
 
