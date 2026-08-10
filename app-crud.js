@@ -628,30 +628,51 @@ window.openIconPickerModal = function() {
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
 
-                const focusTagInput = (e) => {
-                    const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
-                    if (isTouch) {
-                        try { e.preventDefault(); } catch (_) {}
-                        try { e.stopPropagation(); } catch (_) {}
-                    }
+               const focusTagInput = (e) => {
+  const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
+  if (isTouch) {
+    try { e.preventDefault(); } catch (_) {}
+    try { e.stopPropagation(); } catch (_) {}
+  }
 
-                    // GIỮ nguyên vị trí scroll hiện tại của modal
-                    const body = document.getElementById('iconPickerBody');
-                    const prevScrollTop = body ? body.scrollTop : null;
+  const body = document.getElementById('iconPickerBody');
+  const input = tagInputField;
 
-                    // “Mồi” click vào input để WebView cho phép bật bàn phím
-                    try { tagInputField.click(); } catch (_) {}
+  // 1) Chỉ scroll khi input chưa nằm trong khung nhìn của body
+  try {
+    if (body && input) {
+      const bodyRect = body.getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
 
-                    // Focus đúng input và KHÔNG làm nhảy scroll
-                    try { tagInputField.focus({ preventScroll: true }); }
-                    catch (_) { try { tagInputField.focus(); } catch (__) {} }
+      const paddingTop = 16;
+      const paddingBottom = 140; // chừa chỗ cho bàn phím + nút dưới
 
-                    // Dự phòng 1 nhịp + restore scroll (chống iOS tự nhảy)
-                    requestAnimationFrame(() => {
-                        try { tagInputField.focus({ preventScroll: true }); } catch (_) {}
-                        if (body && prevScrollTop != null) body.scrollTop = prevScrollTop;
-                    });
-                };
+      const inputTopVisible = inputRect.top >= bodyRect.top + paddingTop;
+      const inputBottomVisible = inputRect.bottom <= bodyRect.bottom - paddingBottom;
+
+      if (!inputTopVisible || !inputBottomVisible) {
+        // Scroll tối thiểu để input lọt vào vùng nhìn thấy
+        const delta =
+          inputRect.top < bodyRect.top + paddingTop
+            ? (inputRect.top - (bodyRect.top + paddingTop))   // cần kéo lên
+            : (inputRect.bottom - (bodyRect.bottom - paddingBottom)); // cần kéo xuống
+
+        body.scrollTop += delta;
+      }
+    }
+  } catch (_) {}
+
+  // 2) Mồi click + focus (để iOS/WebView bật bàn phím)
+  try { input.click(); } catch (_) {}
+
+  try { input.focus({ preventScroll: true }); }
+  catch (_) { try { input.focus(); } catch (__) {} }
+
+  // 3) Dự phòng 1 nhịp
+  requestAnimationFrame(() => {
+    try { input.focus({ preventScroll: true }); } catch (_) {}
+  });
+};
 
                 // pointerup ổn định hơn trên nhiều máy
                 tagBoxEl.addEventListener('pointerup', (e) => {
