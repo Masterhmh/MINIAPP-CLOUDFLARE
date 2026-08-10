@@ -419,9 +419,7 @@ function scrollToTagInputAndFocus() {
     const input = document.getElementById('tagInputField');
     if (!body || !area || !input) return;
 
-    try {
-      body.scrollTop = Math.max(0, area.offsetTop - 80);
-    } catch (_) {}
+    try { body.scrollTop = Math.max(0, area.offsetTop - 80); } catch (_) {}
 
     try { input.focus({ preventScroll: true }); }
     catch (_) { try { input.focus(); } catch (__) {} }
@@ -625,41 +623,42 @@ window.openIconPickerModal = function() {
             });
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Focus chắc vào ô nhập khi chạm vùng tag (FIX MOBILE v2)
+            // Focus chắc vào ô nhập khi chạm vùng tag (FOCUS FIX)
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
 
                 const focusTagInput = (e) => {
-                    if (e) {
+                    const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
+                    if (isTouch) {
                         try { e.preventDefault(); } catch (_) {}
                         try { e.stopPropagation(); } catch (_) {}
                     }
 
-                    // 1) Căn scroll NGAY (không smooth)
+                    // Căn scroll NGAY (không smooth)
                     try {
                         const body = document.getElementById('iconPickerBody');
                         const area = document.getElementById('tagInputArea');
-                        if (body && area) {
-                            body.scrollTop = Math.max(0, area.offsetTop - 80);
-                        } else if (area && area.scrollIntoView) {
-                            area.scrollIntoView(true);
-                        }
+                        if (body && area) body.scrollTop = Math.max(0, area.offsetTop - 80);
+                        else if (area && area.scrollIntoView) area.scrollIntoView(true);
                     } catch (_) {}
 
-                    // 2) Focus NGAY trong user gesture
+                    // “Mồi” click vào input để WebView cho phép bật bàn phím
+                    try { tagInputField.click(); } catch (_) {}
+
+                    // Focus ngay
                     try { tagInputField.focus({ preventScroll: true }); }
                     catch (_) { try { tagInputField.focus(); } catch (__) {} }
 
-                    // 3) Dự phòng: iOS đôi khi cần thêm 1 nhịp
+                    // Dự phòng 1 nhịp
                     requestAnimationFrame(() => {
                         try { tagInputField.focus({ preventScroll: true }); }
                         catch (_) { try { tagInputField.focus(); } catch (__) {} }
                     });
                 };
 
-                // NEW: pointerdown
-                tagBoxEl.addEventListener('pointerdown', (e) => {
+                // Đổi pointerdown -> pointerup (focus ổn định hơn trên nhiều máy)
+                tagBoxEl.addEventListener('pointerup', (e) => {
                     if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                     focusTagInput(e);
                 });
