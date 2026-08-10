@@ -248,3 +248,31 @@ body.iconpicker-open {
   right: 0 !important;
   top: 0 !important;
 }
+/* ============================================================================
+   FIX: HANG PILL LOC THOI GIAN (TAB 2) BI CAT PILL CUOI "TUY CHON"
+   Nguyen nhan: .period-pill co flex:1 nhung thieu min-width:0 => khong co lai
+   duoc duoi be rong chu (white-space:nowrap). Tong be rong > khung 361px
+   => tran ngang, .period-pills co overflow-x:auto + an scrollbar => bi cat.
+   Cach sua: doi sang grid chia deu 4 cot + cho phep chu co lai.
+   ============================================================================ */
+.period-pills {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  overflow-x: visible !important;   /* bo vung cuon ngang an */
+  padding: 6px 2px !important;      /* chua mep de khong mat bo goc phai */
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+
+.period-pill {
+  min-width: 0 !important;                          /* MAU CHOT: cho phep co lai */
+  width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 12px 6px !important;                     /* giam padding ngang 14px -> 6px */
+  font-size: clamp(0.7rem, 3.1vw, 0.85rem) !important;  /* chu tu co theo be rong */
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
