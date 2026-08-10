@@ -78,14 +78,12 @@ function displayKeywords() {
     .sort((a,b) => { if (a.toLowerCase() === 'khác') return 1; if (b.toLowerCase() === 'khác') return -1; return a.localeCompare(b, 'vi'); })
     .forEach(category => { 
        const group = groupedKeywords[category]; let tagsHTML = ''; 
-       // Chống XSS: KHÔNG nhúng tên từ khóa vào onclick nữa; lưu vào data-* rồi gắn sự kiện sau.
        group.keywords.sort((a,b) => a.localeCompare(b, 'vi')).forEach(kw => {
             tagsHTML += `<span class="keyword-tag" data-kw="${escapeHTML(kw)}" data-cat="${escapeHTML(category)}">${escapeHTML(kw)}</span>`;
        }); 
        const div = document.createElement('div'); div.className = 'tx-card keyword-group-card'; 
        div.innerHTML = `<div class="accordion-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'flex':'none'; this.querySelector('.chevron').style.transform = this.nextElementSibling.style.display==='none'?'rotate(0deg)':'rotate(180deg)';"><div class="flex-row-gap-10" style="align-items:center;"><div class="tx-icon-wrap expense">${getCategoryIcon(category)}</div><div class="tx-body"><div class="tx-title">${escapeHTML(category)}</div><div class="tx-id-row">${group.keywords.length} từ khóa</div></div></div><i class="fas fa-chevron-down chevron" style="color: var(--text-3); transition: 0.3s;"></i></div><div class="accordion-body" style="display:none;">${tagsHTML || '<span class="tx-note">Chưa có từ khóa</span>'}</div>`; 
        container.appendChild(div); 
-       // Gắn sự kiện click cho từng thẻ từ khóa (đọc lại giá trị gốc từ dataset)
        div.querySelectorAll('.keyword-tag').forEach(tag => { tag.addEventListener('click', () => startEditKeyword(tag.dataset.kw, tag.dataset.cat)); });
    });
 }
@@ -623,58 +621,54 @@ window.openIconPickerModal = function() {
             });
             tagInputField.addEventListener('blur', () => window.commitTagInput());
 
-            // Focus chắc vào ô nhập khi chạm vùng tag (GIỮ NGUYÊN SCROLL)
+            // FOCUS + SCROLL TỐI THIỂU (chỉ khi input chưa nằm trong view)
             const tagBoxEl = tagInputField.parentElement; // .tag-input-container
             if (tagBoxEl) {
                 tagBoxEl.style.cursor = 'text';
 
-               const focusTagInput = (e) => {
-  const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
-  if (isTouch) {
-    try { e.preventDefault(); } catch (_) {}
-    try { e.stopPropagation(); } catch (_) {}
-  }
+                const focusTagInput = (e) => {
+                    const isTouch = e && (e.type === 'touchstart' || e.type === 'touchend');
+                    if (isTouch) {
+                        try { e.preventDefault(); } catch (_) {}
+                        try { e.stopPropagation(); } catch (_) {}
+                    }
 
-  const body = document.getElementById('iconPickerBody');
-  const input = tagInputField;
+                    const body = document.getElementById('iconPickerBody');
+                    const input = tagInputField;
 
-  // 1) Chỉ scroll khi input chưa nằm trong khung nhìn của body
-  try {
-    if (body && input) {
-      const bodyRect = body.getBoundingClientRect();
-      const inputRect = input.getBoundingClientRect();
+                    // 1) Scroll TỐI THIỂU nếu input chưa nằm trong khung nhìn của body
+                    try {
+                        if (body && input) {
+                            const bodyRect = body.getBoundingClientRect();
+                            const inputRect = input.getBoundingClientRect();
 
-      const paddingTop = 16;
-      const paddingBottom = 140; // chừa chỗ cho bàn phím + nút dưới
+                            const paddingTop = 16;
+                            const paddingBottom = 140;
 
-      const inputTopVisible = inputRect.top >= bodyRect.top + paddingTop;
-      const inputBottomVisible = inputRect.bottom <= bodyRect.bottom - paddingBottom;
+                            const inputTopVisible = inputRect.top >= bodyRect.top + paddingTop;
+                            const inputBottomVisible = inputRect.bottom <= bodyRect.bottom - paddingBottom;
 
-      if (!inputTopVisible || !inputBottomVisible) {
-        // Scroll tối thiểu để input lọt vào vùng nhìn thấy
-        const delta =
-          inputRect.top < bodyRect.top + paddingTop
-            ? (inputRect.top - (bodyRect.top + paddingTop))   // cần kéo lên
-            : (inputRect.bottom - (bodyRect.bottom - paddingBottom)); // cần kéo xuống
+                            if (!inputTopVisible || !inputBottomVisible) {
+                                const delta =
+                                    inputRect.top < bodyRect.top + paddingTop
+                                        ? (inputRect.top - (bodyRect.top + paddingTop))
+                                        : (inputRect.bottom - (bodyRect.bottom - paddingBottom));
+                                body.scrollTop += delta;
+                            }
+                        }
+                    } catch (_) {}
 
-        body.scrollTop += delta;
-      }
-    }
-  } catch (_) {}
+                    // 2) “Mồi” click + focus vào đúng input (không làm nhảy scroll)
+                    try { input.click(); } catch (_) {}
 
-  // 2) Mồi click + focus (để iOS/WebView bật bàn phím)
-  try { input.click(); } catch (_) {}
+                    try { input.focus({ preventScroll: true }); }
+                    catch (_) { try { input.focus(); } catch (__) {} }
 
-  try { input.focus({ preventScroll: true }); }
-  catch (_) { try { input.focus(); } catch (__) {} }
+                    requestAnimationFrame(() => {
+                        try { input.focus({ preventScroll: true }); } catch (_) {}
+                    });
+                };
 
-  // 3) Dự phòng 1 nhịp
-  requestAnimationFrame(() => {
-    try { input.focus({ preventScroll: true }); } catch (_) {}
-  });
-};
-
-                // pointerup ổn định hơn trên nhiều máy
                 tagBoxEl.addEventListener('pointerup', (e) => {
                     if (e.target && e.target.closest && e.target.closest('.tag-badge')) return;
                     focusTagInput(e);
