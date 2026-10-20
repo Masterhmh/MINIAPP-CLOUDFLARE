@@ -17,6 +17,52 @@ if (window.Telegram && window.Telegram.WebApp) {
     Telegram.WebApp.expand();
 }
 
+// ==== (personal-port) ROUND 3g: mở FULLSCREEN trong Telegram + safe-area ====
+// Main Mini App mở từ BotFather mặc định hiện full màn hình, còn app mở từ
+// nút trong khung chat thì không — phải tự xin qua requestFullscreen()
+// (Bot API 8.0+). Xin đúng 1 LẦN khi khởi động; người dùng tự thoát
+// fullscreen thì tôn trọng, KHÔNG xin lại. Client cũ / ngoài Telegram:
+// no-op hoàn toàn (mọi API đều kiểm tra tồn tại trước khi gọi).
+// Khi fullscreen, Telegram chèn nút nổi (đóng ⋯) ở mép trên màn hình: cộng
+// safeAreaInset.top + contentSafeAreaInset.top vào biến CSS --hmh-sat để
+// personal-compat.css §21 chừa khoảng trống trên cùng cho app. Không
+// fullscreen -> --hmh-sat = 0px -> bố cục y hệt như trước vòng này.
+(function hmhFullscreenSetup() {
+    try {
+        var tg = (window.Telegram && window.Telegram.WebApp) || null;
+        if (!tg) return;
+        function applySafeArea() {
+            var sat = 0;
+            try {
+                if (tg.isFullscreen) {
+                    var sa = tg.safeAreaInset || {}, ca = tg.contentSafeAreaInset || {};
+                    sat = (Number(sa.top) || 0) + (Number(ca.top) || 0);
+                }
+            } catch (e) {}
+            document.documentElement.style.setProperty('--hmh-sat', sat + 'px');
+        }
+        if (typeof tg.onEvent === 'function') {
+            tg.onEvent('safeAreaChanged', applySafeArea);
+            tg.onEvent('contentSafeAreaChanged', applySafeArea);
+            tg.onEvent('fullscreenChanged', applySafeArea);
+            // Xin fullscreen thất bại (thiết bị không hỗ trợ): giữ nguyên
+            // chế độ expand, im lặng — không báo lỗi, không thử lại.
+            tg.onEvent('fullscreenFailed', function () {});
+        }
+        // Màu thanh header Telegram = tím hero để vùng trên cùng liền mạch
+        if (typeof tg.setHeaderColor === 'function') {
+            try { tg.setHeaderColor('#7C3AED'); } catch (e) {}
+        }
+        applySafeArea();
+        var canFullscreen = typeof tg.requestFullscreen === 'function' &&
+            (typeof tg.isVersionAtLeast !== 'function' || tg.isVersionAtLeast('8.0'));
+        if (canFullscreen && !window.__hmhFsRequested) {
+            window.__hmhFsRequested = true;
+            tg.requestFullscreen();
+        }
+    } catch (e) { /* lỗi phía Telegram không được làm hỏng khởi động app */ }
+})();
+
 // Flag đánh dấu tab 2 cần reload khi có thay đổi giao dịch
 let tab2NeedsReload = false;
 
@@ -436,8 +482,20 @@ function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E
      Công nghệ #4086F2 / #2877F0 · Đi lại #F19E1E / #AD6D0B ·
      Mua sắm #DC32F1 / #D010E8 · Cà phê #E6EE20 / #7B800A ·
      Giáo dục #20EE63 / #0B8E36 · Sức khỏe #20EEBB / #0B8C6C ·
-     Nhà cửa #27CEF1 / #0A86A0 · Giải trí #F23665 / #F01B51. */
-const CATEGORY_PALETTE = ['#F23665', '#EC4722', '#F19E1E', '#E6EE20', '#8FEC22', '#37EC22', '#20EE63', '#20EEBB', '#27CEF1', '#4086F2', '#5550F2', '#9341F1', '#DC32F1', '#F22CB2'];
+     Nhà cửa #27CEF1 / #0A86A0 · Giải trí #F23665 / #F01B51.
+
+   PERSONAL ROUND 3f — Hùng khoanh ảnh thật: "Từ icon, đến thanh trượt đến
+   số tiền của từng danh mục phải ĐỒNG BỘ màu với nhau chứ". Việc tách 2
+   biến thể FILL/TEXT-VIVID khiến CÙNG một danh mục hiện 2 màu khác nhau
+   rõ rệt trên cùng một thẻ (đo thật: Ăn uống — icon/số/% #4F890B olive sẫm
+   trong khi thanh tiến trình + lát donut #8FEC22 lime neon). Nay HỢP NHẤT
+   về MỘT màu chuẩn duy nhất = bảng TEXT-VIVID (giữ nguyên hue/ô, S >= 85%,
+   tương phản chữ >= 4,2:1): CATEGORY_PALETTE chép đúng các hex TEXT-VIVID
+   nên getCategoryColor() === getCategoryTextColor() ở mọi danh mục — lát
+   donut (Tab2 + chi tiết ngày), thanh tiến trình, icon, số tiền, %, nền
+   chip (chuẩn ở ~14% alpha) và điểm nhấn PDF đều dùng đúng 1 hex. Bảng
+   FILL tươi của 3c bị thay thế hoàn toàn. */
+const CATEGORY_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F890B', '#198E0B', '#0B8E36', '#0B8C6C', '#0A86A0', '#2877F0', '#6E69F4', '#9D53F2', '#D010E8', '#E70EA1'];
 const CATEGORY_TEXT_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F890B', '#198E0B', '#0B8E36', '#0B8C6C', '#0A86A0', '#2877F0', '#6E69F4', '#9D53F2', '#D010E8', '#E70EA1'];
 /* PERSONAL ROUND 3d — màu NGỮ NGHĨA tươi cho số tiền + icon (tương phản
    trên trắng đo bằng script: #6366F1 = 4,47 · #E11D48 = 4,70 ·
@@ -510,7 +568,8 @@ function renderTxCard(item, stt) {
     const icon = getCategoryIcon(item.category);
     // PERSONAL ROUND 3d (Hùng: chip mọi danh mục đều hồng nhạt giống nhau):
     // chip icon + pill tên danh mục mang màu RIÊNG từng danh mục —
-    // nền = FILL ở 14% alpha, icon/pill chữ = TEXT-VIVID (cùng hue).
+    // nền = màu chuẩn ở 14% alpha, icon/pill chữ = đúng màu chuẩn đó
+    // (ROUND 3f: chỉ còn MỘT màu chuẩn duy nhất cho mỗi danh mục).
     // class .cat-tint để CSS đọc qua biến --cat-bg/--cat-fg (cần !important
     // vì .tx-badge.income/.expense của redesign có !important sẵn).
     const catFill = getCategoryColor(item.category), catText = getCategoryTextColor(item.category);
@@ -565,7 +624,17 @@ function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
     let isUp = diff > 0;
     let icon = isUp ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
     let arrowText = isUp ? (type === 'balance' ? 'Dư' : 'Tăng') : (type === 'balance' ? 'Âm' : 'Giảm');
-    let colorVar = type === 'expense' ? (isUp ? 'var(--expense)' : 'var(--income)') : (isUp ? 'var(--income)' : 'var(--expense)');
+    // PERSONAL ROUND 3f (chẩn đoán từ ảnh Hùng khoanh): dòng so sánh trông
+    // "xỉn" vì dùng var(--income)/var(--expense) — redesign.css đã định
+    // nghĩa lại 2 biến này thành bảng trầm của production (#0B855D xanh sẫm
+    // L28% / #D73752 đỏ S67%), LỆCH hẳn hệ SEM tươi của 3d/3e. Nay dùng
+    // thẳng hex SEM: chiều tốt = SEM_INC #098D5D (4,22:1), chiều xấu =
+    // SEM_EXP #E11D48 (4,70:1) — đạt >= 4,2:1 ở cỡ 10px của .g6-cmpline,
+    // opacity luôn 1 (đo thật: không lớp nào giảm opacity). Trường hợp
+    // phẳng/0 giữ xám trung tính var(--text-2) như quy ước cũ (không có
+    // chiều tăng/giảm để tô màu ngữ nghĩa). Pill hero Tab1 không đổi:
+    // redesign ép color #fff !important lên span của #heroExpenseCompare.
+    let colorVar = type === 'expense' ? (isUp ? SEM_EXP : SEM_INC) : (isUp ? SEM_INC : SEM_EXP);
     let diffObj = formatCurrencyWithUnit(Math.abs(diff));
     return `<span style="color: ${colorVar}; font-weight: 600;">${icon} ${arrowText} ${diffObj.val}${diffObj.unit} ${escapeHTML(text)}</span>`;
 }

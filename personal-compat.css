@@ -237,3 +237,42 @@ body.privacy-on #tab2 .g6-row.g6-bal .g6-amt { color: transparent !important; }
    chữ/badge cần tương phản ở nơi khác). */
 button[onclick="exportToCSV()"] .fa-file-csv { color: #12D990 !important; }
 button[onclick="exportToPDF()"] .fa-file-pdf { color: #EE113D !important; }
+
+/* ---------- 20) ROUND 3f — 3 sửa theo ảnh Hùng khoanh (20/10):
+   (a) SỐ DƯ ÂM -> hồng tươi #E11D48 (họ SEM_EXP), dương/0 giữ tím
+   #7C3AED của §18. Trước 3f KHÔNG có quy tắc theo dấu: đo computed thật
+   cho thấy số dư âm ở cả panel lẫn statbox vẫn tím #7C3AED. Panel: class
+   .g6-balneg do renderG6StatsPanel gắn khi tBal < 0 (specificity (1,3,0)
+   ngang rule .g6-bal của §18 nhưng nằm SAU nên thắng khi có cả 2 class;
+   mask privacy (1,4,1) vẫn thắng cả hai). Statbox Tab1: class .bal-neg
+   trên thẻ .hero-stat (displayTransactions gắn) — rule số (2,3,1) thắng
+   rule dương (2,1,1) của §18 và vẫn bọc body:not(.privacy-on); icon nhãn
+   chêm .hero-sub để (1,4,1) ngang rule icon §18 rồi thắng nhờ thứ tự.
+   Modal chi tiết ngày KHÔNG có ô số dư (chỉ tổng Thu/Chi đã là hex SEM)
+   nên không áp dụng.
+   (b) TAB ĐANG KÍCH HOẠT sáng TÍM #7C3AED (Hùng: "Tab nào đang được kích
+   hoạt thì phải sáng lên màu tím chứ nhỉ?"). Trước 3f redesign.css ép
+   active = #14141A gần đen (icon + nhãn, đo computed rgb(20,20,26)).
+   2 rule dưới specificity (0,4,0) ngang redesign nhưng personal-compat
+   nạp CUỐI nên thắng; áp cho cả 4 nút nav (kể cả navSearchBtn/
+   navSettingsBtn được bơm vào sau và trạng thái trang Từ khóa làm sáng
+   Cài đặt — cùng cơ chế .nav-btn.active trong app-upgrade.js). Nút không
+   active giữ nguyên xám; không đổi kích thước/bố cục. */
+#tab2 .g6-row.g6-balneg .g6-amt { color: #E11D48 !important; }
+#tab2 .g6-row.g6-balneg .g6-ic { color: #E11D48 !important; }
+body:not(.privacy-on) #tab1 .hero-stat.bal-neg #heroBalanceSub { color: #E11D48 !important; }
+#tab1 .hero-sub .hero-stat.bal-neg .hero-stat-label i { color: #E11D48 !important; }
+.bottom-nav .nav-btn.active .nav-icon-wrap { color: #7C3AED !important; }
+.bottom-nav .nav-btn.active .nav-label { color: #7C3AED !important; }
+
+/* ---------- 21) ROUND 3g: chừa safe-area khi app fullscreen trong Telegram.
+   hmhFullscreenSetup (app-core.js) ghi tổng inset trên cùng vào --hmh-sat
+   trên :root: bằng safeAreaInset.top + contentSafeAreaInset.top khi
+   Telegram.WebApp.isFullscreen, ngược lại 0px. Đệm trên của
+   .content-wrapper tiêu thụ biến này để dòng ©masterhmh và hàng
+   avatar/ngày của hero không bị hàng nút nổi của Telegram (đóng ⋯ ở mép
+   trên) che mất. Mặc định 0px nên ngoài fullscreen bố cục không đổi một
+   pixel; thanh điều hướng dưới ghim đáy (position: fixed) không bị ảnh
+   hưởng bởi padding này. */
+:root { --hmh-sat: 0px; }
+.content-wrapper { padding-top: var(--hmh-sat, 0px); }

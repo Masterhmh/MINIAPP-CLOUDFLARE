@@ -100,7 +100,13 @@ function displayTransactions() {
   const heroBalSub = document.getElementById('heroBalanceSub');
   if(heroBalSub) { 
       let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : ''); 
-      heroBalSub.innerHTML = `<span>${sign}</span>${tBalObj.val}<span>${tBalObj.unit}</span>`; 
+      heroBalSub.innerHTML = `<span>${sign}</span>${tBalObj.val}<span>${tBalObj.unit}</span>`;
+      // PERSONAL ROUND 3f: Số dư ÂM -> hồng tươi #E11D48 (số + icon nhãn),
+      // dương/0 -> tím #7C3AED như 3d. Class .bal-neg đặt trên thẻ .hero-stat
+      // bao ngoài để CSS (personal-compat §20) nhuộm cả 2; trước đây KHÔNG
+      // có quy tắc theo dấu — số dư âm vẫn tím (đo computed thật ở sandbox).
+      const stat = heroBalSub.closest('.hero-stat');
+      if (stat) stat.classList.toggle('bal-neg', tBal < 0);
   }
   
   const heroExpCompare = document.getElementById('heroExpenseCompare');
@@ -588,7 +594,7 @@ function drawMonthlyPieChart(data) {
 
   data.forEach((i, idx) => {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
-    const tc = getCategoryTextColor(i.category); // ROUND 3c/3d: chữ (% + số tiền) + glyph icon dùng bản TEXT-VIVID; c (FILL) cho lát/thanh/nền chip
+    const tc = getCategoryTextColor(i.category); // ROUND 3f: c và tc là MỘT màu chuẩn duy nhất (getCategoryColor === getCategoryTextColor) — lát/thanh/icon/số/% đồng bộ tuyệt đối
     const catIconHTML = getCategoryIcon(i.category);
 
     if (leg) { 
@@ -601,7 +607,7 @@ function drawMonthlyPieChart(data) {
     if (progList) { 
         const iAmtObj = formatCurrencyWithUnit(i.amount);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
-        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${tc};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${tc}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
+        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${tc};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${tc}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color:${tc}; font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
         divProg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         progList.appendChild(divProg); 
     }
@@ -987,7 +993,7 @@ function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
     { icon: 'fa-money-bill-transfer', label: 'Chi tiêu', rowCls: 'g6-exp',
       amt: amtHTML(tExpObj.val + '<span>' + tExpObj.unit + '</span>', 'tab2Expense'),
       cmp: getCompareHTML(tExp, pExp, 'expense', compareText), cmpId: 'tab2ExpenseCompare' },
-    { icon: 'fa-wallet', label: 'Số dư', rowCls: 'g6-bal',
+    { icon: 'fa-wallet', label: 'Số dư', rowCls: tBal < 0 ? 'g6-bal g6-balneg' : 'g6-bal',
       amt: amtHTML('<span>' + sign + '</span>' + tBalObj.val + '<span>' + tBalObj.unit + '</span>', 'tab2Balance'),
       cmp: getCompareHTML(tBal, pBal, 'balance', compareText), cmpId: 'tab2BalanceCompare' }
   ];
