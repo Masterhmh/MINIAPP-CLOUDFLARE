@@ -394,3 +394,99 @@ body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card {
 body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
   top: calc(16px + var(--hmh-sat, 0px)) !important;
 }
+
+/* ---------- 26) ROUND 3m: BẢNG CHỌN KỲ Tab 2 — chạm nhãn kỳ (Tuần/
+   Tháng/Năm) mở sheet chọn nhanh (markup + logic do app-upgrade.js
+   tiêm; sheet dùng khuôn .modal-sheet + #modalOverlay sẵn có).
+   - Input ẩn week/month trong .time-nav-center vốn phủ kín nhãn
+     (absolute, opacity 0) để mở picker gốc của trình duyệt: tắt
+     pointer-events để cú chạm rơi vào nhãn -> mở sheet mới. Handler
+     onchange của input vẫn nguyên (gán value + dispatch change vẫn
+     chạy — các suite cũ không đổi).
+   - Ô đang chọn: nền tím đặc var(--primary); ô ngoài tầm dữ liệu /
+     tương lai: mờ 0.35 (ô đang chọn mà bị mờ-vì-ngoài-tầm thì giữ
+     nguyên độ đậm để luôn nhìn rõ kỳ đang đứng). */
+#timeNavContainer .hidden-picker { pointer-events: none !important; }
+#timeNavContainer .time-nav-center { cursor: pointer; }
+#calCtrlLabel { cursor: pointer; }
+.pp-caret { font-size: 0.7rem; color: var(--primary); margin-left: 5px; vertical-align: middle; }
+.period-picker-sheet { padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.period-picker-sheet .pp-x {
+  background: none; border: none; color: var(--text-3);
+  font-size: 1rem; padding: 6px 8px; cursor: pointer;
+}
+.pp-loading { text-align: center; color: var(--text-3); padding: 18px 0; }
+.pp-yearbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pp-year-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: var(--bg-card2, #EEF0F5); color: var(--text-1, #14141A);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.pp-year-btn:disabled { opacity: 0.35; cursor: default; }
+.pp-year-label { font-weight: 700; font-size: 1rem; }
+.pp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.pp-cell {
+  border: none; border-radius: 14px; padding: 13px 4px; min-height: 44px;
+  background: var(--bg-card2, #EEF0F5); color: var(--text-1, #14141A);
+  font-weight: 600; font-size: 0.9rem; cursor: pointer;
+}
+.pp-cell.sel { background: var(--primary); color: #fff; }
+.pp-cell:disabled { opacity: 0.35; cursor: default; }
+.pp-cell.sel:disabled { opacity: 1; }
+.pp-week-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 52vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.pp-week-row {
+  display: flex; align-items: center; justify-content: space-between;
+  border: none; border-radius: 14px; padding: 13px 14px; min-height: 44px;
+  background: var(--bg-card2, #EEF0F5); color: var(--text-1, #14141A);
+  cursor: pointer; text-align: left; flex: 0 0 auto;
+}
+.pp-week-row .pp-week-name { font-weight: 600; font-size: 0.9rem; }
+.pp-week-row .pp-week-range { font-size: 0.82rem; color: var(--text-3); }
+.pp-week-row.sel { background: var(--primary); color: #fff; }
+.pp-week-row.sel .pp-week-range { color: rgba(255, 255, 255, 0.85); }
+.pp-week-row:disabled { opacity: 0.35; cursor: default; }
+.pp-week-row.sel:disabled { opacity: 1; }
+
+/* ---------- 27) ROUND 3n (Cách A — Hùng chọn, thay bản flex-row bị
+   bác): AVATAR HERO ĐÈ NÚT ‹ Ở BỀ NGANG HẸP.
+   Bối cảnh: bản flex-row (§25 cũ, port R34) đưa avatar vào luồng và
+   canh cụm ngày giữa PHẦN CÒN LẠI -> cụm ngày lệch trục giữa hero,
+   Hùng bác ("làm lệch hết bố cục") và đã gỡ sạch ở vòng này: hero trở
+   về đúng cấu trúc 3l (avatar absolute 46px ở left:16, cụm ngày canh
+   giữa TOÀN bề ngang hero).
+   Cách A giữ nguyên cấu trúc đó tuyệt đối — CHỈ khi màn ≤400px mới
+   thu hẹp CỤM NGÀY (avatar + tâm cụm không nhúc nhích, tâm cụm luôn
+   trùng tâm hero):
+   - ẩn dấu ▾ (caret) trong cụm;
+   - đệm ngang của pill ngày 16px -> 6px, margin 4px -> 0;
+   - khoảng cách trong cụm (gap) 12px -> 4px;
+   - cỡ chữ pill 12px -> 11px.
+   (Ba nấc đệm/gap/caret theo spec Cách A đo trong sandbox còn thiếu
+   ~6px khi mô phỏng font máy thật rộng hơn ~25% — nấc cỡ chữ 11px bổ
+   sung để đạt gap ≥ 8px ngay cả ở bản stress; xem PORT2-REPORT 3n.)
+   Và ở ≤370px, JS (app-reports.js, fetchTransactions) render nhãn rút
+   gọn "dd/mm/yyyy" (bỏ "Hôm nay, "…) nên cụm còn hẹp hơn nữa.
+   Trên 400px: không rule nào trong §27 áp dụng — hình học y hệt 3l.
+   CHỈ ĐIỆN THOẠI (Hùng chốt bổ sung 3n theo ảnh desktop: cửa sổ
+   Telegram Desktop hẹp bị thu oan + mất caret): §27 nay có 2 cổng —
+   (pointer: coarse) trong media query (máy tính dùng chuột/trackpad
+   là pointer FINE nên không khớp, kể cả Telegram Web weba/webk trên
+   desktop và trình duyệt thường) VÀ body:not(.hmh-desktop) (client
+   tdesktop/macos được app-core.js gắn lớp). Điện thoại (kể cả
+   weba/webk trên điện thoại — pointer coarse, không lớp desktop)
+   giữ nguyên Cách A. Phía JS nhãn gọn ≤370px dùng đúng cùng 2 cổng. */
+@media (max-width: 400px) and (pointer: coarse) {
+  body:not(.hmh-desktop) #tab1 .hero-date-nav { gap: 4px; }
+  body:not(.hmh-desktop) #tab1 .hero-card .hero-date {
+    padding-left: 6px; padding-right: 6px;
+    margin-left: 0; margin-right: 0;
+    font-size: 11px;
+  }
+  body:not(.hmh-desktop) #tab1 .hero-date-nav .fa-caret-down { display: none; }
+}

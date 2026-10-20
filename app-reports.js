@@ -40,8 +40,33 @@ window.fetchTransactions = async function(forceRefresh = false) {
   const selectedDateObj = new Date(y, m - 1, d); const todayObj = new Date(); todayObj.setHours(0,0,0,0); selectedDateObj.setHours(0,0,0,0);
   const diffDays = Math.round((selectedDateObj - todayObj) / (1000 * 60 * 60 * 24));
   let prefixText = "Ngày "; if (diffDays === 0) prefixText = "Hôm nay, "; else if (diffDays === -1) prefixText = "Hôm qua, "; else if (diffDays === 1) prefixText = "Ngày mai, ";
-  
-  document.getElementById('displayCurrentDate').textContent = `${prefixText}${d}/${m}/${y}`;
+
+  // ROUND 3n (Cách A): màn ≤370px thì nhãn rút gọn còn "dd/mm/yyyy" (bỏ
+  // tiền tố "Hôm nay, "/"Ngày "…) để cụm ngày thu hẹp, không đè avatar —
+  // khớp tầng CSS ≤400px ở personal-compat.css §27. Đăng ký 1 lần: khi
+  // resize qua mốc 370 thì render lại nhãn theo chế độ mới (đi đường
+  // cache nên không tốn mạng).
+  // Bổ sung 3n — CHỈ ĐIỆN THOẠI (giống §27): desktop không bao giờ rút
+  // gọn, kể cả cửa sổ hẹp — cổng = KHÔNG body.hmh-desktop (app-core.js
+  // gắn cho tdesktop/macos) VÀ pointer chính là coarse (cảm ứng);
+  // desktop dùng chuột/trackpad là pointer fine nên bị loại ở cổng 2.
+  const hmhDateIsCompact = () => window.innerWidth <= 370 &&
+    !document.body.classList.contains('hmh-desktop') &&
+    window.matchMedia('(pointer: coarse)').matches;
+  const compactDateLabel = hmhDateIsCompact();
+  document.getElementById('displayCurrentDate').textContent = compactDateLabel ? `${d}/${m}/${y}` : `${prefixText}${d}/${m}/${y}`;
+  if (!window.__hmhDateCompactResize) {
+    window.__hmhDateCompactResize = true;
+    let lastCompact = compactDateLabel;
+    window.addEventListener('resize', () => {
+      const c = hmhDateIsCompact();
+      if (c === lastCompact) return;
+      lastCompact = c;
+      const inp = document.getElementById('transactionDate');
+      const tab1 = document.getElementById('tab1');
+      if (inp && inp.value && tab1 && tab1.classList.contains('active')) window.fetchTransactions(false);
+    });
+  }
   const cacheKey = `${d}/${m}/${y}`;
   const currDateObj = new Date(y, m - 1, d); currDateObj.setDate(currDateObj.getDate() - 1);
   const prevDateStr = formatDateToDDMMYYYY(currDateObj); const prevM = String(currDateObj.getMonth() + 1).padStart(2, '0');

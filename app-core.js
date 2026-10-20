@@ -33,6 +33,23 @@ if (window.Telegram && window.Telegram.WebApp) {
     try {
         var tg = (window.Telegram && window.Telegram.WebApp) || null;
         if (!tg) return;
+        // ROUND 3n (bổ sung theo ảnh desktop của Hùng): đánh dấu client
+        // DESKTOP bằng body.hmh-desktop để Cách A (thu hẹp cụm ngày khi
+        // màn hẹp — personal-compat.css §27 + nhãn gọn trong
+        // app-reports.js) KHÔNG áp dụng trên máy tính: ở đó cụm ngày
+        // luôn nguyên cỡ kèm caret ▾ ở mọi bề rộng cửa sổ. tdesktop/
+        // macos là client desktop thật; weba/webk chạy trên desktop
+        // được §27 chặn thêm bằng điều kiện (pointer: coarse), còn
+        // weba/webk trên điện thoại vẫn là điện thoại (cảm ứng là
+        // pointer chính) nên Cách A giữ nguyên ở đó.
+        try {
+            var hmhPlat = String(tg.platform || '');
+            var markHmhDesktop = function () {
+                if (document.body) document.body.classList.toggle('hmh-desktop', hmhPlat === 'tdesktop' || hmhPlat === 'macos');
+            };
+            if (document.body) markHmhDesktop();
+            else document.addEventListener('DOMContentLoaded', markHmhDesktop);
+        } catch (e) {}
         function applySafeArea() {
             var sat = 0;
             try {
