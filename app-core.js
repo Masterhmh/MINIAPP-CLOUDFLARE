@@ -107,6 +107,19 @@ function triggerHapticNotification(type = 'success') {
     if (localStorage.getItem('settingHaptic') === 'false') return;
     if (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred(type); 
 }
+// (personal-port) Rung chọn khi chuyển tab/pill — cổng gọi chung hmhHaptic
+function triggerHapticSelection() {
+    if (localStorage.getItem('settingHaptic') === 'false') return;
+    try {
+        var hf = (window.Telegram && Telegram.WebApp && Telegram.WebApp.HapticFeedback) || null;
+        if (hf && typeof hf.selectionChanged === 'function') hf.selectionChanged();
+    } catch (e) {}
+}
+window.hmhHaptic = function (kind, arg) {
+    if (kind === 'selection') triggerHapticSelection();
+    else if (kind === 'notification') triggerHapticNotification(arg || 'success');
+    else triggerHaptic(arg || 'light');
+};
 
 // Chạm vào mắt ngoài màn hình -> Chỉ đổi tạm thời cho phiên làm việc hiện tại
 window.togglePrivacy = function() {
@@ -137,6 +150,8 @@ function updatePrivacyUI(syncSettings = false) {
     if (window.mChart) window.mChart.update();
     if (window.pChart) window.pChart.update();
     if (window.dChart) window.dChart.update();
+    // (personal-port) vẽ lại thẻ insight báo cáo theo trạng thái ẩn số
+    try { if (typeof window.refreshInsightStrip === 'function') window.refreshInsightStrip(); } catch (e) {}
 }
 
 // Đổi theme mà KHÔNG ghi đè các class trạng thái khác trên <body> (đặc biệt là
@@ -240,8 +255,25 @@ function processToastQueue() {
 }
 
 function showLoading(show, tabId) {
-  const el = document.getElementById(`loading${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
-  if (el) el.style.display = show ? 'block' : 'none';
+  const key = `loading${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`;
+  const el = document.getElementById(key);
+  if (!el) return;
+  // (personal-port) skeleton chỉ thay spinner khi tải quá 300ms; giữ nguyên
+  // hành vi display block/none của bản gốc.
+  if (show) {
+    el.classList.remove('skel-on');
+    el.style.display = 'block';
+    clearTimeout(window.__skelTimers && window.__skelTimers[key]);
+    if (!window.__skelTimers) window.__skelTimers = {};
+    window.__skelTimers[key] = setTimeout(() => {
+      const e2 = document.getElementById(key);
+      if (e2 && e2.style.display === 'block') e2.classList.add('skel-on');
+    }, 300);
+  } else {
+    if (window.__skelTimers) clearTimeout(window.__skelTimers[key]);
+    el.classList.remove('skel-on');
+    el.style.display = 'none';
+  }
 }
 
 function formatDate(dateStr) { const parts = dateStr.split('/'); if (parts.length !== 3) return dateStr; return `${parts[0].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[2]}`; }
@@ -320,6 +352,26 @@ function renderTxCard(item, stt) {
 }
 window.renderTxCard = renderTxCard;
 
+// ============================================================================
+// (personal-port, theo production fix-round30) Giao diện mới ẩn nút sửa/xóa
+// trên từng dòng cho thoáng; tính năng CRUD giữ nguyên 100%: bấm vào thẻ kích
+// hoạt đúng handler của nút .edit-btn tương ứng (đã được gán trong các hàm
+// render từng vùng: tab1/day list, detail modal, search modal).
+// Xóa vẫn có trong form sửa (nút Xóa của editModal).
+// ============================================================================
+(function initTxCardTapToEdit() {
+  document.addEventListener('click', function (e) {
+    const card = e.target && e.target.closest ? e.target.closest('.tx-card') : null;
+    if (!card) return;
+    // Bỏ qua khi bấm đúng vào cụm nút hành động (nếu có) hoặc link bên trong thẻ.
+    if (e.target.closest('.tx-actions, .tx-btn, a, button')) return;
+    const editBtn = card.querySelector('.edit-btn');
+    if (editBtn && typeof editBtn.onclick === 'function') {
+      try { editBtn.onclick.call(editBtn, e); } catch (err) {}
+    }
+  });
+})();
+
 function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
     let zeroObj = formatCurrencyWithUnit(0);
     if (prev === 0 && current === 0) return `<span style="color: var(--text-2); font-weight: 500;">− ${zeroObj.val}${zeroObj.unit} ${escapeHTML(text)}</span>`;
@@ -334,7 +386,7 @@ function getCompareHTML(current, prev, type, text = 'so với kỳ trước') {
 }
 
 window.openTab = function(tabId) {
-  triggerHaptic('light');
+  triggerHapticSelection();
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
@@ -370,3 +422,273 @@ async function fetchMonthData(month, year, forceRefresh = false) {
     if (window.monthDataCache) window.monthDataCache[cacheKey] = result;
     return result;
 }
+
+// ============================================================================
+// (personal-port) AVATAR trên thẻ tím Tab1 + CROP EDITOR — port từ production
+// (fix-round16/18/19), thích ứng: node đồng bộ /profile/avatar.json (đơn người
+// dùng, không phân hoạch users/<chatId>); key localStorage 'hmh_hero_avatar'.
+// ============================================================================
+// FIX ROUND 16 (19/10/2026): avatar trên thẻ tím (Tab1) + CROP EDITOR (nâng cấp R13).
+// - Vòng tròn 46px ở góc trái thẻ tím: mặc định icon người (fa-user), có ảnh
+//   thì img phủ kín (object-fit: cover). BỎ HOÀN TOÀN badge ✕ của R13.
+// - Bấm avatar: chưa có ảnh -> mở picker chọn ảnh; đã có ảnh -> mở action
+//   sheet (Đổi ảnh / Xóa ảnh / Hủy).
+// - Sau khi chọn file -> mở CROP EDITOR (modal-sheet): stage vuông
+//   min(78vw,320px), vòng tròn guide trắng + vùng ngoài vòng mờ tối, kéo để
+//   pan (pointer events: chuột + touch), thanh trượt zoom 1x–3x, ảnh luôn
+//   cover vòng tròn (clamp pan). "Lưu ảnh": render vùng tròn về canvas
+//   192x192 JPEG 0.85 -> localStorage 'hmh_hero_avatar'. "Hủy": bỏ thay đổi.
+// - Toán pan: ảnh vẽ ở scale = baseZoom * zoom (baseZoom = cover-fit);
+//   tâm ảnh đặt tại (S/2 + tx, S/2 + ty); cover -> |tx| <= (imgW - S)/2
+//   (tương tự ty). Save: góc trái-trên ảnh trong hệ stage = (S/2+tx-imgW/2),
+//   vùng vuông nội tiếp = ((0-x0)/sc, (0-y0)/sc, S/sc) trong tọa độ ảnh gốc.
+// - Hết quota -> thử 128px/0.8, vẫn lỗi thì giữ ảnh cho phiên hiện tại.
+// ============================================================================
+(function initHeroAvatar() {
+  var KEY = 'hmh_hero_avatar';
+  var btn, img, input, ph;
+  var sheet, cropModal, cropStage, cropImg, cropZoom, cropSave;
+  var savedUrl = null;
+  var crop = { imgEl: null, iw: 0, ih: 0, S: 0, zoom: 1, tx: 0, ty: 0 };
+
+  function els() {
+    btn = document.getElementById('heroAvatar');
+    img = document.getElementById('heroAvatarImg');
+    input = document.getElementById('heroAvatarInput');
+    ph = btn ? btn.querySelector('.hero-avatar-ph') : null;
+    sheet = document.getElementById('avatarSheet');
+    cropModal = document.getElementById('avatarCropModal');
+    cropStage = document.getElementById('avatarCropStage');
+    cropImg = document.getElementById('avatarCropImg');
+    cropZoom = document.getElementById('avatarCropZoom');
+    cropSave = document.getElementById('avatarCropSave');
+    return !!(btn && img && input);
+  }
+
+  function render(url) {
+    savedUrl = url || null;
+    if (url) {
+      img.src = url; img.style.display = 'block';
+      if (ph) ph.style.display = 'none';
+    } else {
+      img.removeAttribute('src'); img.style.display = 'none';
+      if (ph) ph.style.display = 'flex';
+    }
+  }
+
+  function store(dataUrl) {
+    try { localStorage.setItem(KEY, dataUrl); return true; }
+    catch (e) { return false; }
+  }
+
+  function overlayShow(on) {
+    var ov = document.getElementById('modalOverlay');
+    if (ov) ov.classList.toggle('show', !!on);
+  }
+
+  /* ---------------- action sheet ---------------- */
+  function openAvatarSheet() {
+    if (sheet) sheet.classList.add('show');
+    overlayShow(true);
+  }
+  function closeAvatarSheet() {
+    if (sheet) sheet.classList.remove('show');
+    if (!cropModal || !cropModal.classList.contains('show')) overlayShow(false);
+  }
+  window.closeAvatarSheet = function () { closeAvatarSheet(); };
+
+  /* ---------------- crop editor ---------------- */
+  function coverScale() {
+    if (!crop.iw || !crop.ih || !crop.S) return 1;
+    return Math.max(crop.S / crop.iw, crop.S / crop.ih);
+  }
+  function clampPan() {
+    var sc = coverScale() * crop.zoom;
+    var mx = Math.max(0, (crop.iw * sc - crop.S) / 2);
+    var my = Math.max(0, (crop.ih * sc - crop.S) / 2);
+    crop.tx = Math.max(-mx, Math.min(mx, crop.tx));
+    crop.ty = Math.max(-my, Math.min(my, crop.ty));
+  }
+  function applyTransform() {
+    clampPan();
+    var sc = coverScale() * crop.zoom;
+    var w = crop.iw * sc, h = crop.ih * sc;
+    cropImg.style.width = w + 'px';
+    cropImg.style.height = h + 'px';
+    // đặt tâm ảnh tại (S/2 + tx, S/2 + ty)
+    cropImg.style.transform = 'translate(' + (crop.S / 2 + crop.tx - w / 2) + 'px,' +
+      (crop.S / 2 + crop.ty - h / 2) + 'px)';
+  }
+
+  function openCrop(dataUrl) {
+    closeAvatarSheet();
+    var im = new Image();
+    im.onload = function () {
+      crop.iw = im.naturalWidth || im.width || 0;
+      crop.ih = im.naturalHeight || im.height || 0;
+      if (!crop.iw || !crop.ih) return;
+      crop.S = (cropStage && cropStage.clientWidth) || Math.min(window.innerWidth * 0.78, 320);
+      crop.zoom = 1; crop.tx = 0; crop.ty = 0;
+      if (cropZoom) cropZoom.value = 1;
+      cropImg.src = dataUrl;
+      crop.imgEl = im;
+      applyTransform();
+      if (cropModal) cropModal.classList.add('show');
+      overlayShow(true);
+    };
+    im.src = dataUrl;
+  }
+
+  function closeCrop() {
+    if (cropModal) cropModal.classList.remove('show');
+    overlayShow(false);
+  }
+  window.closeAvatarCrop = function (/* cancel */) { closeCrop(); };
+
+  function saveCrop() {
+    var im = crop.imgEl; if (!im) return;
+    var sc = coverScale() * crop.zoom;
+    var x0 = crop.S / 2 + crop.tx - (crop.iw * sc) / 2; // góc trái ảnh (px stage)
+    var y0 = crop.S / 2 + crop.ty - (crop.ih * sc) / 2; // góc trên ảnh (px stage)
+    // vùng vuông nội tiếp vòng tròn -> tọa độ trong ảnh gốc
+    var sx = (0 - x0) / sc, sy = (0 - y0) / sc, sw = crop.S / sc;
+    var attempts = [{ s: 192, q: 0.85 }, { s: 128, q: 0.8 }];
+    for (var i = 0; i < attempts.length; i++) {
+      var cv = document.createElement('canvas');
+      cv.width = attempts[i].s; cv.height = attempts[i].s;
+      var cx = cv.getContext('2d');
+      cx.drawImage(im, sx, sy, sw, sw, 0, 0, attempts[i].s, attempts[i].s);
+      var u = cv.toDataURL('image/jpeg', attempts[i].q);
+      render(u);
+      if (store(u)) break; // lưu được -> thoát vòng, đóng editor bên dưới
+      // hết quota: vòng sau thử size nhỏ hơn; vòng cuối vẫn lỗi -> giữ ảnh phiên này
+    }
+    window.closeAvatarCrop(false);
+    pushAvatarServer(lastSavedUrl());
+  }
+
+  // (personal-port) đồng bộ avatar lên máy chủ — bản cá nhân là đơn người dùng
+  // nên node nằm ở /profile/avatar.json (không có phân hoạch users/<chatId>).
+  // Dùng đúng kênh secureFetch đã có (/api/secure_firebase).
+  // - Lưu local trước rồi mới đẩy lên server (fire-and-forget); không có mạng →
+  //   vẫn giữ local, lần mở sau sẽ đẩy lại qua pull.
+  // - Xung đột: server thắng khi mở app; khi ghi, lần ghi sau cùng thắng.
+  function avatarServerPath() { return '/profile/avatar.json'; }
+  function serverSyncOK() {
+    return (typeof window.secureFetch === 'function');
+  }
+  function lastSavedUrl() { return savedUrl; }
+  function pushAvatarServer(dataUrl) {
+    if (!serverSyncOK()) return;
+    try {
+      var p = window.secureFetch(avatarServerPath(), 'PUT', { avatar: dataUrl, updatedAt: Date.now() });
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function pullAvatarServer() {
+    if (!serverSyncOK()) return;
+    try {
+      var p = window.secureFetch(avatarServerPath(), 'GET');
+      Promise.resolve(p).then(function (obj) {
+        if (!obj || typeof obj !== 'object' || !('avatar' in obj)) {
+          // migration — server chưa có node avatar, đẩy ảnh local hiện có lên.
+          // Chỉ khi node KHÔNG tồn tại; tombstone avatar:null (key có mặt) vẫn đi
+          // nhánh dưới để xóa local, tuyệt đối không đẩy lại ở đây.
+          var local = null;
+          try { local = localStorage.getItem(KEY); } catch (e) {}
+          if (local) pushAvatarServer(local);
+          return;
+        }
+        var sv = obj.avatar; // string | null
+        var cur = null;
+        try { cur = localStorage.getItem(KEY); } catch (e) {}
+        if (sv === cur) return;
+        if (typeof sv === 'string' && sv) {
+          try { localStorage.setItem(KEY, sv); } catch (e) {}
+          render(sv);
+        } else {
+          try { localStorage.removeItem(KEY); } catch (e) {}
+          render(null);
+        }
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function handleFile(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    var reader = new FileReader();
+    reader.onload = function () { openCrop(reader.result); };
+    reader.readAsDataURL(file);
+  }
+
+  function bind() {
+    btn.addEventListener('click', function () {
+      if (savedUrl) openAvatarSheet();
+      else input.click();
+    });
+    input.addEventListener('change', function () {
+      if (input.files && input.files[0]) handleFile(input.files[0]);
+      input.value = '';
+    });
+
+    var chg = document.getElementById('avatarSheetChange');
+    var rem = document.getElementById('avatarSheetRemove');
+    var can = document.getElementById('avatarSheetCancel');
+    if (chg) chg.addEventListener('click', function () { closeAvatarSheet(); input.click(); });
+    if (rem) rem.addEventListener('click', function () {
+      try { localStorage.removeItem(KEY); } catch (e) {}
+      render(null); closeAvatarSheet();
+      pushAvatarServer(null); // R18-3: xóa trên server
+    });
+    if (can) can.addEventListener('click', closeAvatarSheet);
+
+    // drag pan: pointer events (chuột + touch); stage có touch-action:none
+    var dragging = false, lx = 0, ly = 0;
+    if (cropStage) {
+      cropStage.addEventListener('pointerdown', function (e) {
+        dragging = true; lx = e.clientX; ly = e.clientY;
+        try { cropStage.setPointerCapture(e.pointerId); } catch (err) {}
+        e.preventDefault();
+      });
+      cropStage.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        crop.tx += (e.clientX - lx); crop.ty += (e.clientY - ly);
+        lx = e.clientX; ly = e.clientY;
+        applyTransform();
+      });
+      var endDrag = function () { dragging = false; };
+      cropStage.addEventListener('pointerup', endDrag);
+      cropStage.addEventListener('pointercancel', endDrag);
+    }
+    if (cropZoom) cropZoom.addEventListener('input', function () {
+      crop.zoom = parseFloat(cropZoom.value) || 1;
+      applyTransform();
+    });
+    if (cropSave) cropSave.addEventListener('click', saveCrop);
+
+    // expose cho test harness
+    window.__heroAvatarTest = {
+      openCrop: openCrop, saveCrop: saveCrop, crop: crop, key: KEY,
+      render: render, handleFile: handleFile,
+      getSaved: function () { return savedUrl; },
+      openSheet: openAvatarSheet, closeSheet: closeAvatarSheet,
+      isSheetOpen: function () { return !!(sheet && sheet.classList.contains('show')); },
+      isCropOpen: function () { return !!(cropModal && cropModal.classList.contains('show')); },
+      // R18-3: đồng bộ server (cho test harness)
+      pushServer: pushAvatarServer, pullServer: pullAvatarServer,
+      serverPath: function () { return avatarServerPath(); }
+    };
+  }
+
+  function start() {
+    if (!els()) return;
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    render(saved);
+    bind();
+    pullAvatarServer(); // R18-3: local hiện ngay, server (nếu khác) cập nhật sau
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();

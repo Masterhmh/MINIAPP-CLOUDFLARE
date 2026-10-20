@@ -392,20 +392,10 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     let pInc = 0, pExp = 0; prevTx.forEach(i => { if(i.type==='Thu nhập') pInc += i.amount; else pExp += i.amount; });
     const pBal = pInc - pExp;
     
-    const tIncObj = formatCurrencyWithUnit(tInc);
-    document.getElementById('tab2Income').innerHTML = `${tIncObj.val}<span>${tIncObj.unit}</span>`;
-    
-    const tExpObj = formatCurrencyWithUnit(tExp);
-    document.getElementById('tab2Expense').innerHTML = `${tExpObj.val}<span>${tExpObj.unit}</span>`;
-    
-    const tBalObj = formatCurrencyWithUnit(Math.abs(tBal));
-    let sign = tBal > 0 ? '+' : (tBal < 0 ? '−' : '');
-    document.getElementById('tab2Balance').innerHTML = `<span>${sign}</span>${tBalObj.val}<span>${tBalObj.unit}</span>`;
-    
-    let compareText = currentFilterMode === 'weekly' ? 'so với tuần trước' : (currentFilterMode === 'monthly' ? 'so với tháng trước' : 'so với năm trước');
-    document.getElementById('tab2IncomeCompare').innerHTML = getCompareHTML(tInc, pInc, 'income', compareText);
-    document.getElementById('tab2ExpenseCompare').innerHTML = getCompareHTML(tExp, pExp, 'expense', compareText);
-    document.getElementById('tab2BalanceCompare').innerHTML = getCompareHTML(tBal, pBal, 'balance', compareText);
+    let compareText = currentFilterMode === 'weekly' ? 'so với tuần trước' : (currentFilterMode === 'monthly' ? 'so với tháng trước' : 'so với kỳ trước');
+    // (personal-port) panel G6 thay 3 stat-card — giữ nguyên các ID để baseline
+    // và wrapper so sánh (app-upgrade.js) vẫn đọc/ghi đúng.
+    try { renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText); } catch (e) {}
     
     // Khi kỳ báo cáo KHÔNG có giao dịch nào -> ẩn 2 biểu đồ trống (Thu nhập & Chi tiêu +
     // Chi tiêu theo danh mục) và hiện dòng thông báo gọn gàng. Giữ nguyên các thẻ tổng & lịch.
@@ -416,6 +406,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
         if (window.pChart) { window.pChart.destroy(); window.pChart = null; }
         if (chartContainerEl) chartContainerEl.style.display = 'none';
         if (reportPlaceholderEl) { reportPlaceholderEl.textContent = 'Không có dữ liệu báo cáo'; reportPlaceholderEl.style.display = 'block'; }
+        try { renderInsightStrip({ tx: currentTx || [], labels: labels || [] }); } catch (e) {}
         return;
     }
     if (reportPlaceholderEl) reportPlaceholderEl.style.display = 'none';
@@ -458,6 +449,8 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
 
     const catMap = {}; currentTx.forEach(t => { if(t.type==='Chi tiêu') catMap[t.category] = (catMap[t.category]||0)+t.amount; });
     drawMonthlyPieChart(Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})));
+    // (personal-port) thẻ insight dưới panel
+    try { renderInsightStrip({ tx: currentTx || [], labels: labels || [] }); } catch (e) {}
 }
 
 function drawMonthlyPieChart(data) {
@@ -683,15 +676,21 @@ async function loadMonthlyReport(monthStr) {
       getTransactionsInRange(prevStartDate, prevEndDate)
     ]);
     document.getElementById('chartTitleTab2').textContent = `Thu nhập & Chi tiêu (Tháng ${month}/${year})`;
-    const labels = [`Tháng ${month}`], incs = [0], exps = [0];
-    currentTx.forEach(t => { if(t.type==='Thu nhập') incs[0]+=t.amount; else exps[0]+=t.amount; });
+    // (personal-port) biểu đồ tháng vẽ theo TỪNG NGÀY (port production R14)
+    const __mcd = buildMonthlyChartData(currentTx, year, month);
+    const labels = __mcd.labels, incs = __mcd.incs, exps = __mcd.exps;
     renderCalendar(currentTx, startDate, 'monthly');
     processReportData(currentTx, prevTx, labels, incs, exps);
     cachedChartData = { mode: 'monthly', txs: currentTx, periodStr: monthStr };
   } catch(e) { showToast(e.message, 'error'); }
   finally { showLoading(false, 'tab2'); }
 }
-async function loadCustomReport(startMonth, endMonth, year) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = new Date(year, startMonth - 1, 1); const endDate = new Date(year, endMonth, 0); const prevStartDate = new Date(year - 1, startMonth - 1, 1); const prevEndDate = new Date(year - 1, endMonth, 0); const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = (startMonth === 1 && endMonth === 12) ? `Thu nhập & Chi tiêu ${year}` : `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`; const labels = [], incs = [], exps = []; for(let m=startMonth; m<=endMonth; m++) { labels.push(`Tháng ${m}`); const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year); let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } document.getElementById('calendarStatbox').style.display = 'none'; processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'custom', txs: currentTx, periodStr: `${startMonth}-${endMonth}-${year}` }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
+async function loadCustomReport(startMonth, endMonth, year) { showLoading(true, 'tab2'); document.querySelector('#tab2 .chart-container').style.display='none'; document.getElementById('placeholderTab2').style.display='none'; try { const startDate = new Date(year, startMonth - 1, 1); const endDate = new Date(year, endMonth, 0); const __isFullYear = (startMonth === 1 && endMonth === 12);
+    let prevStartDate, prevEndDate;
+    if (__isFullYear) { prevStartDate = new Date(year - 1, 0, 1); prevEndDate = new Date(year - 1, 11, 31); }
+    else { const __lenDays = Math.max(1, Math.round((endDate - startDate) / 86400000) + 1);
+      prevEndDate = new Date(startDate); prevEndDate.setDate(prevEndDate.getDate() - 1);
+      prevStartDate = new Date(prevEndDate); prevStartDate.setDate(prevStartDate.getDate() - __lenDays + 1); } const [currentTx, prevTx] = await Promise.all([ getTransactionsInRange(startDate, endDate), getTransactionsInRange(prevStartDate, prevEndDate) ]); document.getElementById('chartTitleTab2').textContent = (startMonth === 1 && endMonth === 12) ? `Thu nhập & Chi tiêu ${year}` : `Thu nhập & Chi tiêu (T${startMonth} - T${endMonth} / ${year})`; const labels = [], incs = [], exps = []; for(let m=startMonth; m<=endMonth; m++) { labels.push(`Tháng ${m}`); const mTx = currentTx.filter(t => parseInt(t.date.split('/')[1]) === m && parseInt(t.date.split('/')[2]) === year); let inc=0, exp=0; mTx.forEach(t => { if(t.type==='Thu nhập') inc+=t.amount; else exp+=t.amount; }); incs.push(inc); exps.push(exp); } document.getElementById('calendarStatbox').style.display = 'none'; processReportData(currentTx, prevTx, labels, incs, exps); cachedChartData = { mode: 'custom', txs: currentTx, periodStr: `${startMonth}-${endMonth}-${year}` }; } catch(e) { showToast(e.message, 'error'); } finally { showLoading(false, 'tab2'); } }
 
 function updateTimeNavUI() {
    const label = document.getElementById('currentPeriodLabel'); const weekP = document.getElementById('weekPicker'); const monthP = document.getElementById('monthPicker'); const timeNav = document.getElementById('timeNavContainer'); const customNav = document.getElementById('customFilterContainer');
@@ -719,3 +718,275 @@ function displaySearchResults() {
     document.querySelectorAll('#searchResultsContainer .edit-btn').forEach(btn => btn.onclick = () => { closeSearchModal(); setTimeout(() => openEditForm(data.find(i => String(i.id) === btn.getAttribute('data-id'))), 350); }); 
     document.querySelectorAll('#searchResultsContainer .delete-btn').forEach(btn => btn.onclick = () => deleteTransaction(btn.getAttribute('data-id'), { fromSearch: true }));
 }
+// ============================================================================
+// (personal-port) G6 DONUT PANEL + INSIGHT STRIP — port từ production.
+// Thích ứng: định dạng tiền qua currency.js của bản cá nhân (dấu chấm vi-VN /
+// chế độ rút gọn), % tỉ trọng dùng dấu phẩy thập phân.
+// ============================================================================
+// (personal-port) PANEL THỐNG KÊ G6 THAY 3 STAT-CARD (Tab2) — port từ production R21/R23.
+// Giữ nguyên ID: tab2Income/tab2Expense/tab2Balance + tab2*Compare (baseline đọc các ID này).
+// Vòng donut trái (nét dày, khe trắng, đầu bo tròn; chàm=thu, hồng=chi) +
+// 3 hàng chú thích phải (icon tím app thật + nhãn + số tiền + so sánh 2 tầng).
+// Giữa vòng = % tỉ trọng chi tiêu (zero-flow: "0 ₫"/"Chưa phát sinh").
+// So sánh render 2 tầng qua formatG6CompareCell; một MutationObserver giữ
+// định dạng sống sót sau khi app-upgrade.js (wrapper ngoài cùng) ghi đè
+// innerHTML các ô so sánh bằng HTML thô của getCompareHTML.
+// ============================================================================
+var G6_INDIGO = '#6366F1', G6_ROSE = '#F43F5E', G6_TRACK = '#E9EBF1', G6_PAD = 9;
+
+function buildDonutSVG(inc, exp) {
+  // R23: vòng 140px, nét 19 (tỉ lệ từ mẫu G7/G8 đã duyệt).
+  var size = 140, sw = 19, r = (size - sw) / 2, cx = size / 2;
+  var total = inc + exp;
+  function pt(deg) { var a = (deg - 90) * Math.PI / 180; return [cx + r * Math.cos(a), cx + r * Math.sin(a)]; }
+  function arc(a0, a1) {
+    var p0 = pt(a0), p1 = pt(a1);
+    var large = (a1 - a0) > 180 ? 1 : 0;
+    return 'M ' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) + ' A ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 ' + large + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+  }
+  var segs = '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(2) + '" fill="none" stroke="' + G6_TRACK + '" stroke-width="' + sw + '"/>';
+  if (total > 0) {
+    var expDeg = exp / total * 360, incDeg = 360 - expDeg;
+    if (inc > 0) {
+      if (incDeg >= 359.9) segs += '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(2) + '" fill="none" stroke="' + G6_INDIGO + '" stroke-width="' + sw + '"/>';
+      else segs += '<path d="' + arc(expDeg + G6_PAD, 360 - G6_PAD) + '" fill="none" stroke="' + G6_INDIGO + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
+    }
+    if (exp > 0) {
+      if (expDeg >= 359.9) segs += '<path d="' + arc(G6_PAD, 360 - G6_PAD) + '" fill="none" stroke="' + G6_ROSE + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
+      else if (expDeg - 2 * G6_PAD < 3) {
+        var bp = pt(Math.max(2.5, expDeg / 2));
+        segs += '<circle cx="' + bp[0].toFixed(2) + '" cy="' + bp[1].toFixed(2) + '" r="' + (sw / 2).toFixed(1) + '" fill="' + G6_ROSE + '"/>';
+      } else segs += '<path d="' + arc(G6_PAD, expDeg - G6_PAD) + '" fill="none" stroke="' + G6_ROSE + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
+    }
+  }
+  return '<svg class="g6-donut" viewBox="0 0 ' + size + ' ' + size + '">' + segs + '</svg>';
+}
+
+function g6CenterContent(inc, exp) {
+  var total = inc + exp;
+  if (total <= 0) return { pct: '0 ₫', lbl: 'Chưa phát sinh', zero: true };
+  if (exp <= 0) return { pct: '0%', lbl: 'chưa có chi tiêu', zero: false };
+  return { pct: Math.round(exp / total * 100) + '%', lbl: 'là chi tiêu', zero: false };
+}
+
+// Định dạng ô so sánh thành 2 tầng (lũy thừa, không phụ thuộc ai gọi sau):
+// tầng 1 = nội dung tới trước "so với" (giữ màu ngữ nghĩa production),
+// tầng 2 = "so với <kỳ>" xám. Số + ₫ giữ nguyên span nowrap.
+function formatG6CompareCell(el) {
+  if (!el || el.querySelector(':scope > .g6-cmpline')) return;
+  var span = el.firstElementChild;
+  if (!span) return;
+  var color = '';
+  try { color = span.style.color || ''; } catch (e) {}
+  var l1 = document.createElement('span'); l1.className = 'g6-cmpline';
+  if (color) l1.style.color = color;
+  var l2 = document.createElement('span'); l2.className = 'g6-cmpline2';
+  var hit = false;
+  Array.prototype.slice.call(span.childNodes).forEach(function (n) {
+    if (!hit && n.nodeType === 3 && n.textContent.indexOf('so với') >= 0) {
+      var idx = n.textContent.indexOf('so với');
+      var a = document.createTextNode(n.textContent.slice(0, idx));
+      var b = document.createTextNode(n.textContent.slice(idx));
+      if (a.textContent.trim()) l1.appendChild(a);
+      l2.appendChild(b); hit = true;
+    } else if (!hit) { l1.appendChild(n); } else { l2.appendChild(n); }
+  });
+  el.innerHTML = ''; el.appendChild(l1);
+  if (hit) el.appendChild(l2);
+}
+
+function installG6CompareObserver() {
+  if (window.__g6ObsInstalled) return; window.__g6ObsInstalled = true;
+  var box = document.getElementById('monthlyStatsContainer');
+  if (!box || !('MutationObserver' in window)) return;
+  var obs = new MutationObserver(function () {
+    ['tab2IncomeCompare', 'tab2ExpenseCompare', 'tab2BalanceCompare'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) formatG6CompareCell(el);
+    });
+  });
+  obs.observe(box, { childList: true, subtree: true, characterData: true });
+}
+
+function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
+  var box = document.getElementById('monthlyStatsContainer');
+  if (!box) return;
+  var tIncObj = formatCurrencyWithUnit(tInc);
+  var tExpObj = formatCurrencyWithUnit(tExp);
+  var tBalObj = formatCurrencyWithUnit(Math.abs(tBal));
+  var sign = tBal > 0 ? '+ ' : (tBal < 0 ? '− ' : '');
+  var eyeCls = (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) ? 'fa-eye-slash' : 'fa-eye';
+  // R23: mắt privacy KHÔNG còn nằm trong hàng số — về góc dưới-phải thẻ (G8-E).
+  function amtHTML(inner, id) {
+    return '<div class="g6-amt stat-num" id="' + id + '">' + inner + '</div>';
+  }
+  var rows = [
+    { icon: 'fa-hand-holding-dollar', label: 'Thu nhập',
+      amt: amtHTML(tIncObj.val + '<span>' + tIncObj.unit + '</span>', 'tab2Income'),
+      cmp: getCompareHTML(tInc, pInc, 'income', compareText), cmpId: 'tab2IncomeCompare' },
+    { icon: 'fa-money-bill-transfer', label: 'Chi tiêu',
+      amt: amtHTML(tExpObj.val + '<span>' + tExpObj.unit + '</span>', 'tab2Expense'),
+      cmp: getCompareHTML(tExp, pExp, 'expense', compareText), cmpId: 'tab2ExpenseCompare' },
+    { icon: 'fa-wallet', label: 'Số dư',
+      amt: amtHTML('<span>' + sign + '</span>' + tBalObj.val + '<span>' + tBalObj.unit + '</span>', 'tab2Balance'),
+      cmp: getCompareHTML(tBal, pBal, 'balance', compareText), cmpId: 'tab2BalanceCompare' }
+  ];
+  var ctr = g6CenterContent(tInc, tExp);
+  var html = '<div class="g6-panel">' +
+    '<div class="g6-donutwrap">' + buildDonutSVG(tInc, tExp) +
+    '<div class="g6-center' + (ctr.zero ? ' zero' : '') + '"><b class="g6-centerpct">' + ctr.pct + '</b><span>' + ctr.lbl + '</span></div></div>' +
+    '<div class="g6-legend">' + rows.map(function (r) {
+      // R23: icon CÙNG hàng flex với nhãn (.g6-lft) — thẳng tâm icon với tâm chữ nhãn;
+      // so sánh thụt vào thẳng dưới nhãn (margin-left 28px trong CSS).
+      return '<div class="g6-row"><div class="g6-line1">' +
+        '<span class="g6-lft"><span class="g6-ic"><i class="fas ' + r.icon + '"></i></span>' +
+        '<span class="g6-tag">' + r.label + '</span></span>' + r.amt + '</div>' +
+        '<div class="g6-cmp" id="' + r.cmpId + '">' + r.cmp + '</div></div>';
+    }).join('') + '</div>' +
+    // R23: mắt góc dưới-phải thẻ — vẫn là nút privacy-toggle-btn nên
+    // togglePrivacy() lật eye/eye-slash qua updatePrivacyUI như cũ.
+    '<i class="fas ' + eyeCls + ' privacy-toggle-btn g6-eyecorner" onclick="togglePrivacy()"></i></div>';
+  box.innerHTML = html;
+  ['tab2IncomeCompare', 'tab2ExpenseCompare', 'tab2BalanceCompare'].forEach(function (id) {
+    formatG6CompareCell(document.getElementById(id));
+  });
+  installG6CompareObserver();
+  try { if (typeof window.fitG6Center === 'function') window.fitG6Center(); } catch (e) {}
+}
+
+// Co chữ % giữa vòng tới khi vừa lọt lòng vòng (không dùng !important inline
+// để CSS mask font-size:0 !important thắng khi privacy-on).
+window.fitG6Center = function () {
+  if (document.body.classList.contains('privacy-on')) return;
+  var b = document.querySelector('#monthlyStatsContainer .g6-centerpct');
+  var wrap = document.querySelector('#monthlyStatsContainer .g6-donutwrap');
+  if (!b || !wrap) return;
+  b.style.removeProperty('font-size');
+  var fs = parseFloat(window.getComputedStyle(b).fontSize) || 24;
+  var avail = wrap.clientWidth - 52;
+  var guard = 40;
+  while (b.scrollWidth > avail + 0.5 && fs > 12 && guard-- > 0) { fs -= 1; b.style.setProperty('font-size', fs + 'px'); }
+};
+(function initG6CenterResize() {
+  var t = null;
+  window.addEventListener('resize', function () {
+    if (t) clearTimeout(t);
+    t = setTimeout(function () { try { if (typeof window.fitG6Center === 'function') window.fitG6Center(); } catch (e) {} }, 150);
+  });
+})();
+
+// ============================================================================
+// FIX ROUND 29 (UX gói 3): THẺ INSIGHT BÁO CÁO (Tab2).
+// Nằm dưới panel G6, trên nút xuất (markup #insightStrip trong index.html).
+// Nội dung suy từ CÙNG dữ liệu kỳ đang render (currentTx) — KHÔNG chạm vào
+// đường so sánh R27/R28 (app-upgrade.js giữ nguyên).
+// - Có chi tiêu: dòng 1 = danh mục chi nhiều nhất + tỉ trọng; dòng 2 = ngày /
+//   tháng chi cao nhất (+ trung bình ngày khi còn vừa ngân sách 2 dòng).
+// - Không chi tiêu: 1 dòng "Chưa phát sinh chi tiêu trong kỳ này."
+// - Privacy: mọi số tiền + % tỉ trọng -> "***"; vẽ lại khi bật/tắt ẩn số qua
+//   window.refreshInsightStrip() (hook trong updatePrivacyUI, app-core.js).
+// ============================================================================
+function renderInsightStrip(ctx) {
+  var strip = document.getElementById('insightStrip');
+  if (!strip) return;
+  var priv = (typeof isPrivacyActive !== 'undefined' && isPrivacyActive);
+  var money = function (n) { if (priv) return '***'; var o = formatCurrencyWithUnit(Math.round(n)); return o.val + o.unit; };
+  var pctT = function (p) { return priv ? '***' : (p + '%'); };
+  var txs = (ctx && ctx.tx) || [];
+  var labels = (ctx && ctx.labels) || [];
+  var expTxs = txs.filter(function (t) { return t.type === 'Chi tiêu'; });
+  var lines = [];
+  if (!expTxs.length) {
+    lines.push('Chưa phát sinh chi tiêu trong kỳ này.');
+  } else {
+    var catMap = {}, dayMap = {}, tExp = 0;
+    expTxs.forEach(function (t) {
+      tExp += t.amount;
+      catMap[t.category] = (catMap[t.category] || 0) + t.amount;
+      dayMap[t.date] = (dayMap[t.date] || 0) + t.amount;
+    });
+    var topCat = null, topAmt = 0;
+    Object.keys(catMap).forEach(function (c) { if (catMap[c] > topAmt) { topAmt = catMap[c]; topCat = c; } });
+    var share = tExp > 0 ? (topAmt / tExp * 100).toFixed(1).replace('.', ',') : '0,0';
+    lines.push('Chi nhiều nhất cho ' + escapeHTML(topCat) + ' — ' + money(topAmt) + ' (' + pctT(share) + ' tổng chi)');
+    var mode = (typeof currentFilterMode !== 'undefined') ? currentFilterMode : 'monthly';
+    var wholeYear = (mode === 'yearly') || (mode === 'custom' && labels.length === 12 && labels[0] === 'Tháng 1');
+    var line2 = '';
+    if (wholeYear) {
+      var mMap = {};
+      expTxs.forEach(function (t) { var p = String(t.date || '').split('/'); if (p.length === 3) { var k = p[1] + '/' + p[2]; mMap[k] = (mMap[k] || 0) + t.amount; } });
+      var bk = null, bv = 0;
+      Object.keys(mMap).forEach(function (k) { if (mMap[k] > bv) { bv = mMap[k]; bk = k; } });
+      if (bk) { var mp = bk.split('/'); line2 = 'Tháng chi cao nhất: Tháng ' + parseInt(mp[0], 10) + '/' + mp[1] + ' — ' + money(bv); }
+    } else {
+      var bd = null, bdv = 0;
+      Object.keys(dayMap).forEach(function (k) { if (dayMap[k] > bdv) { bdv = dayMap[k]; bd = k; } });
+      if (bd) { var dp = bd.split('/'); line2 = 'Ngày chi cao nhất: ' + dp[0] + '/' + dp[1] + ' — ' + money(bdv); }
+      var avg = dailyAverageForMode(mode, tExp, labels, expTxs);
+      if (avg > 0 && (line2.length + 20) <= 56) line2 += ' · TB ' + money(Math.round(avg)) + '/ngày';
+    }
+    if (line2) lines.push(line2);
+  }
+  strip.innerHTML = '<span class="insight-ic"><i class="fas fa-lightbulb"></i></span><span class="insight-lines">' +
+    lines.map(function (l) { return '<span class="insight-line">' + l + '</span>'; }).join('') + '</span>';
+  strip.style.display = 'flex';
+  window.__insightCtx = ctx || null;
+}
+
+// Trung bình chi/ngày theo chế độ. Trả về 0 khi không tính được.
+function dailyAverageForMode(mode, tExp, labels, expTxs) {
+  try {
+    if (mode === 'weekly') return tExp / 7;
+    if (mode === 'monthly') {
+      var apd = (typeof activePeriodDate !== 'undefined') ? activePeriodDate : new Date();
+      var dim = new Date(apd.getFullYear(), apd.getMonth() + 1, 0).getDate();
+      return dim > 0 ? tExp / dim : 0;
+    }
+    if (mode === 'custom') {
+      var y = 0, months = [];
+      (labels || []).forEach(function (l) { var m = /^Tháng (\d{1,2})$/.exec(l); if (m) months.push(parseInt(m[1], 10)); });
+      (expTxs || []).forEach(function (t) { var p = String(t.date || '').split('/'); if (p.length === 3) y = parseInt(p[2], 10); });
+      if (y && months.length) {
+        var days = 0;
+        months.forEach(function (mm) { days += new Date(y, mm, 0).getDate(); });
+        return days > 0 ? tExp / days : 0;
+      }
+    }
+  } catch (e) {}
+  return 0;
+}
+
+// Vẽ lại thẻ insight khi bật/tắt ẩn số (giữ đúng kỳ đang xem).
+window.refreshInsightStrip = function () {
+  var strip = document.getElementById('insightStrip');
+  if (!strip || strip.style.display === 'none') return;
+  renderInsightStrip(window.__insightCtx);
+};
+
+// (personal-port) biểu đồ tháng theo từng ngày — port production R14
+function buildMonthlyChartData(currentTx, year, month) {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const labels = [], incs = new Array(daysInMonth).fill(0), exps = new Array(daysInMonth).fill(0);
+    for (let d = 1; d <= daysInMonth; d++) labels.push(String(d));
+    (currentTx || []).forEach(t => {
+        const day = parseInt(String(t.date || '').split('/')[0], 10);
+        if (Number.isNaN(day) || day < 1 || day > daysInMonth) return;
+        if (t.type === 'Thu nhập') incs[day - 1] += t.amount; else exps[day - 1] += t.amount;
+    });
+    return { labels, incs, exps };
+}
+
+// (personal-port) nút "Thêm giao dịch" ở trạng thái rỗng Tab1 — mở form thêm
+// với ngày = ngày đang xem (port production R28).
+window.emptyAddTxPrefill = async function () {
+  try { await window.openAddForm(); } catch (e) {}
+  try {
+    var v = document.getElementById('transactionDate');
+    var addDate = document.getElementById('addDate');
+    if (v && v.value && addDate) {
+      addDate.value = v.value;
+      if (typeof window.__syncDateDisplay === 'function') window.__syncDateDisplay('addDate', 'addDateDisplay');
+    }
+  } catch (e) {}
+  triggerHaptic('light');
+};

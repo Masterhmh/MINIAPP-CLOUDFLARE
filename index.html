@@ -29,6 +29,9 @@
   
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="upgrade.css">
+  <link rel="stylesheet" href="optimize.css">
+  <link rel="stylesheet" href="redesign.css">
+  <link rel="stylesheet" href="personal-compat.css">
   
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
   <!-- Dùng bản rời (unbundled) thay vì html2pdf.bundle.min.js vì bản bundle
@@ -44,6 +47,11 @@
     <div id="tab1" class="tab-content active">
       <input type="date" id="transactionDate" style="display:none;">
       <div class="hero-card">
+        <button id="heroAvatar" class="hero-avatar" type="button" title="Đổi ảnh đại diện" aria-label="Đổi ảnh đại diện">
+          <span class="hero-avatar-ph"><i class="fas fa-user"></i></span>
+          <img id="heroAvatarImg" class="hero-avatar-img" alt="Ảnh đại diện" style="display:none">
+        </button>
+        <input type="file" id="heroAvatarInput" accept="image/*" hidden>
         <div class="hero-date-nav">
           <button id="prevDayBtn" class="date-nav-btn"><i class="fas fa-chevron-left"></i></button>
           <div class="hero-date" id="displayCurrentDate">Hôm nay, ...</div>
@@ -51,7 +59,7 @@
           <button id="nextDayBtn" class="date-nav-btn"><i class="fas fa-chevron-right"></i></button>
         </div>
         
-        <div class="hero-label" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div class="hero-label" style="display: flex; justify-content: center; align-items: center; width: 100%; gap: 8px;">
           <div><i class="fas fa-money-bill-transfer"></i> Chi tiêu trong ngày</div>
           <i class="fas fa-eye-slash privacy-toggle-btn" onclick="togglePrivacy()" style="font-size: 1.15rem; cursor: pointer; padding: 4px; color: rgba(255,255,255,0.8);"></i>
         </div>
@@ -70,12 +78,12 @@
         </div>
       </div>
 
-      <div id="loadingTab1" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
+      <div id="loadingTab1" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i><div class="skel-wrap" aria-hidden="true"><div class="skel-block skel-row"></div><div class="skel-block skel-row"></div><div class="skel-block skel-row"></div></div></div>
            
       <div class="section-header">
         <span class="section-title">Giao dịch trong ngày</span>
       </div>
-      <div id="placeholderTab1" class="empty-state" style="display: none;">Không có giao dịch nào trong ngày này</div>
+      <div id="placeholderTab1" class="empty-state" style="display: none;">Không có giao dịch nào trong ngày này<button type="button" class="empty-cta" onclick="emptyAddTxPrefill()">Thêm giao dịch</button></div>
       <div class="tx-list" id="transactionsContainer"></div>
       
       <div id="pagination" class="pagination-container" style="display: none;">
@@ -88,7 +96,7 @@
     <div id="tab2" class="tab-content">
       <div id="tab2Overview">
           <div class="section-header">
-            <span class="section-title">Báo Cáo Tài Chính</span>
+            <span class="section-title">BÁO CÁO TÀI CHÍNH</span>
           </div>
           
           <div class="period-pills">
@@ -119,39 +127,11 @@
             <button id="fetchCustomDataBtn" class="btn-save btn-filter"><i class="fas fa-search"></i></button>
           </div>
 
-          <div id="loadingTab2" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i></div>
+          <div id="loadingTab2" class="loading-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i><div class="skel-wrap" aria-hidden="true"><div class="skel-block skel-panel"></div><div class="skel-block skel-chart"></div></div></div>
 
-          <div class="stat-grid" id="monthlyStatsContainer">
-            <div class="stat-card">
-              <div class="stat-header card-income">
-                  <i class="fas fa-hand-holding-dollar"></i>
-                  <span class="stat-tag">Thu nhập</span>
-              </div>
-              <div class="stat-num income" id="tab2Income">—</div>
-              <div class="stat-compare" id="tab2IncomeCompare">−</div>
-            </div>
-            
-            <div class="stat-card">
-              <div class="stat-header card-expense">
-                  <i class="fas fa-money-bill-transfer"></i>
-                  <span class="stat-tag">Chi tiêu</span>
-              </div>
-              <div class="stat-num expense" id="tab2Expense">—</div>
-              <div class="stat-compare" id="tab2ExpenseCompare">−</div>
-            </div>
-            
-            <div class="stat-card">
-              <div class="stat-header card-balance" style="display: flex; justify-content: space-between; width: 100%;">
-                  <div style="display:flex; align-items:center; gap:6px;">
-                      <i class="fas fa-wallet"></i>
-                      <span class="stat-tag">Số dư</span>
-                  </div>
-                  <i class="fas fa-eye-slash privacy-toggle-btn" onclick="togglePrivacy()" style="cursor:pointer; color:var(--text-3); font-size: 1.1rem;"></i>
-              </div>
-              <div class="stat-num balance" id="tab2Balance">—</div>
-              <div class="stat-compare" id="tab2BalanceCompare">−</div>
-            </div>
-          </div>
+          <div class="stat-grid" id="monthlyStatsContainer"></div>
+
+          <div id="insightStrip" class="insight-strip" style="display: none;" aria-live="polite"></div>
 
           <div class="field-group mb-3 flex-row-gap-10">
             <button class="btn-soft m-0 flex-1" onclick="exportToCSV()"><i class="fas fa-file-csv text-income-color"></i> Xuất dữ liệu CSV</button>
@@ -210,7 +190,7 @@
          ========================= -->
     <div id="tab3" class="tab-content">
       <div class="section-header">
-        <span class="section-title">Quản Lý Từ Khóa</span>
+        <span class="section-title">QUẢN LÝ TỪ KHÓA</span>
       </div>
 
       <div class="field-group">
@@ -584,6 +564,34 @@
           <button class="btn-save m-0 flex-1" id="saveIconPickerBtn"><i class="fas fa-save"></i> Lưu thay đổi</button>
       </div>
     </div>
+
+  <div id="avatarSheet" class="modal-sheet" style="display: flex; flex-direction: column;">
+    <div class="modal-handle" onclick="closeAvatarSheet()"></div>
+    <div class="modal-title" style="margin-bottom: 12px;"><i class="fas fa-user-circle" style="color: var(--primary); margin-right: 8px;"></i> ẢNH ĐẠI DIỆN</div>
+    <button type="button" class="avatar-sheet-row" id="avatarSheetChange"><i class="fas fa-image"></i> Đổi ảnh</button>
+    <button type="button" class="avatar-sheet-row avatar-sheet-danger" id="avatarSheetRemove"><i class="fas fa-trash-alt"></i> Xóa ảnh</button>
+    <button type="button" class="avatar-sheet-row" id="avatarSheetCancel"><i class="fas fa-times"></i> Hủy</button>
+  </div>
+
+  <div id="avatarCropModal" class="modal-sheet" style="display: flex; flex-direction: column;">
+    <div class="modal-handle" onclick="closeAvatarCrop(true)"></div>
+    <div class="modal-title" style="margin-bottom: 8px;"><i class="fas fa-crop-alt" style="color: var(--primary); margin-right: 8px;"></i> CẮT ẢNH ĐẠI DIỆN</div>
+    <div class="avatar-crop-hint">Kéo để di chuyển · trượt thanh để phóng to — vùng trong vòng tròn là ảnh sẽ lưu</div>
+    <div id="avatarCropStage" class="avatar-crop-stage">
+      <img id="avatarCropImg" class="avatar-crop-img" alt="Cắt ảnh đại diện" draggable="false">
+      <div class="avatar-crop-mask"></div>
+      <div class="avatar-crop-ring"></div>
+    </div>
+    <div class="avatar-crop-zoom">
+      <i class="fas fa-search-minus"></i>
+      <input type="range" id="avatarCropZoom" min="1" max="3" step="0.01" value="1" aria-label="Phóng to ảnh">
+      <i class="fas fa-search-plus"></i>
+    </div>
+    <div class="modal-actions m-0 pt-3" style="border-top: 1px solid var(--border-color); flex-shrink: 0;">
+      <button class="btn-cancel w-full m-0 flex-1" onclick="closeAvatarCrop(true)"><i class="fas fa-times"></i> Hủy</button>
+      <button class="btn-save w-full m-0 flex-1" id="avatarCropSave"><i class="fas fa-check"></i> Lưu ảnh</button>
+    </div>
+  </div>
 
   <div id="fabBackdrop" class="fab-backdrop" onclick="closeFabMenu()"></div>
   <div id="fabMenu" class="fab-menu">

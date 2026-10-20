@@ -399,6 +399,8 @@
           var ei = document.getElementById('tab2IncomeCompare'); if (ei) ei.innerHTML = getCompareHTML(tInc, pInc, 'income', txt);
           var ee = document.getElementById('tab2ExpenseCompare'); if (ee) ee.innerHTML = getCompareHTML(tExp, pExp, 'expense', txt);
           var eb = document.getElementById('tab2BalanceCompare'); if (eb) eb.innerHTML = getCompareHTML(tBal, pBal, 'balance', txt);
+          // (personal-port) G6: định dạng ô so sánh thành 2 tầng sau khi ghi đè
+          try { if (typeof formatG6CompareCell === 'function') { ['tab2IncomeCompare', 'tab2ExpenseCompare', 'tab2BalanceCompare'].forEach(function (id) { formatG6CompareCell(document.getElementById(id)); }); } } catch (e) {}
         }
       } catch (e) {}
       return r;
@@ -436,7 +438,9 @@
   var _origLoadCustomReport = window.loadCustomReport;
   if (typeof _origLoadCustomReport === 'function') {
     window.loadCustomReport = function (startMonth, endMonth, year) {
-      try { window.__cmpText = 'so với năm ' + (year - 1); } catch (e) { window.__cmpText = null; }
+      // (personal-port) cả năm -> "so với năm trước"; khoảng tùy chọn ->
+      // "so với kỳ trước" (kỳ liền trước cùng độ dài, xem loadCustomReport).
+      try { window.__cmpText = (startMonth === 1 && endMonth === 12) ? 'so với năm ' + (year - 1) : 'so với kỳ trước'; } catch (e) { window.__cmpText = null; }
       return _origLoadCustomReport.apply(this, arguments);
     };
   }

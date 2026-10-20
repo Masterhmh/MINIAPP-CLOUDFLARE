@@ -1,0 +1,95 @@
+/* ==========================================================================
+   PERSONAL-COMPAT — personal-only surfaces under the production light-violet
+   stack (styles.css -> upgrade.css -> optimize.css -> redesign.css -> THIS).
+   Loaded LAST. Keeps ALL personal CSS variable NAMES (--primary, --income,
+   --expense, --text-1/2/3, --border-color, ...) and every frozen class/ID
+   used by app-crud.js / app-init.js. Only re-skins personal-only components
+   that production's redesign.css does not know about.
+   Port: phase 2 (2026-10-20). NO whatsnew. Avatar = #heroAvatar (no badge).
+   ========================================================================== */
+
+/* ---------- 1) #kwCatRefreshBtn: 34px -> 44px touch target (R27/R28) ------- */
+#kwCatRefreshBtn {
+  width: 44px !important; height: 44px !important;
+  min-width: 44px; min-height: 44px;
+}
+
+/* ---------- 2) Custom confirm modal: contrast + hover on light theme ------- */
+.custom-confirm-modal { background: #FFFFFF !important; }
+.custom-confirm-icon {
+  background: var(--expense-bg) !important;
+  color: var(--expense) !important;
+}
+.custom-confirm-title { color: var(--text-1) !important; }
+.custom-confirm-message { color: var(--text-2) !important; }
+.custom-confirm-actions { border-top: 1px solid var(--border-color) !important; }
+.custom-confirm-cancel {
+  color: var(--text-2) !important;
+  border-right: 1px solid var(--border-color) !important;
+}
+.custom-confirm-cancel:hover { background: rgba(20,20,26,0.05) !important; }
+.custom-confirm-ok {
+  color: var(--expense) !important; /* 4.61:1 on white (>=4.5), replaces #f43f5e */
+}
+.custom-confirm-ok:hover { background: var(--expense-bg) !important; }
+
+/* ---------- 3) Lunar day numbers: contrast on light day cells ------------- */
+.calendar-lunar { color: var(--text-3) !important; }
+.calendar-lunar.lunar-special {
+  color: var(--primary) !important; /* 5.7:1 on white (was #A855F7 = 3.95:1) */
+}
+
+/* ---------- 4) Chart legend rows (donut/category/daily legends) ------------ */
+.legend-item:hover { background: rgba(124,58,237,0.07) !important; }
+.legend-name { color: var(--text-1) !important; }
+.legend-pct { font-variant-numeric: tabular-nums; }
+
+/* ---------- 5) Icon picker cells: violet hover ring (was cyan) ------------- */
+.icon-item:hover:not(.selected) { border-color: rgba(124,58,237,0.35) !important; }
+
+/* ---------- 6) Tab3 keyword chips: visible border on light background ------ */
+.keyword-tag {
+  background: #FFFFFF !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-1) !important;
+}
+.keyword-tag:hover { border-color: var(--primary) !important; }
+
+/* ---------- 7) Tag badges (icon picker keywords): keep violet pill --------- */
+.tag-badge {
+  background: var(--primary) !important;
+  color: #FFFFFF !important; /* 5.7:1 on #7C3AED */
+}
+.tag-badge .tag-badge-x { color: #FFFFFF !important; }
+
+/* ---------- 8) Category progress cards: hover tint, not white ------------- */
+.cat-progress-card:hover { border-color: rgba(124,58,237,0.30) !important; }
+
+/* ---------- 9) nav-indicator: intentionally stays hidden -------------------
+   Production's redesign hides the floating pill (#navIndicator, .nav-indicator)
+   and replaces it with the .nav-btn.active bold-label active state, which
+   personal's openTab() already drives. Resurrecting the gray pill would clash
+   with the new white nav bar. No rule here on purpose. */
+
+/* ---------- 10) Skeleton hooks: keep personal loading IDs visible --------- */
+.skel-wrap { font-variant-numeric: tabular-nums; }
+
+/* ---------- 11) Disabled calendar arrows: restore the faded-out state -----
+   Base upgrade.css sets background:transparent for .cal-ctrl-arrow:disabled /
+   .nav-disabled (data-bounds guard: no future/empty periods), but redesign.css
+   repaints every cal arrow #F4F4F8 !important, so the disabled "next" arrow
+   showed as a full circle at 30% opacity. Restore the base behavior. */
+#calendarWidget .cal-ctrl-arrow:disabled,
+#calendarWidget .cal-ctrl-arrow.nav-disabled {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-2) !important;
+}
+
+/* ---------- 12) Keyword group cards: keep the "N từ khóa" count visible ----
+   Production hides .tx-card .tx-id-row (the STT/#ID line on transaction
+   cards — kept hidden here too). But personal's .keyword-group-card reuses
+   .tx-id-row for the per-category keyword COUNT, which is real information
+   (baseline shows "3 từ khóa"). Re-show it inside keyword cards only. */
+.keyword-group-card .tx-id-row { display: block !important; }
