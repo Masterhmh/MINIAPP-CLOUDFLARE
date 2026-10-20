@@ -292,6 +292,17 @@ function formatNumberWithCommas(value) {
     return parseInt(val, 10).toLocaleString('vi-VN');
 }
 function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3']; return c[i % c.length]; }
+/* PERSONAL ROUND 2 — bảng màu danh mục dùng CHUNG cho mọi biểu đồ tròn của
+   app (đồng bộ với production vòng 27): màu gán theo TÊN danh mục (băm ổn
+   định), không theo thứ hạng trong từng biểu đồ — nên cùng một danh mục ở
+   mọi biểu đồ/chú thích/thẻ tiến trình luôn cùng một màu. */
+const CATEGORY_PALETTE = ['#5D5FE2', '#D73752', '#0B855D', '#F59E0B', '#06B6D4', '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3'];
+function getCategoryColor(name) {
+  const s = String(name || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = ((h * 31) + s.codePointAt(i)) >>> 0;
+  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+}
 
 function getRawFaIconName(catName) {
     if (!catName) return null;

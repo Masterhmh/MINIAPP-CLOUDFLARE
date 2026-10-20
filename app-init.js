@@ -88,6 +88,15 @@ function scrollToTopTab3() {
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) { window.scrollTo(0, 0); }
   });
 }
+/* PERSONAL ROUND 2: render mặc định cho view Quản lý từ khóa (#tab3) khi mở
+   từ menu FAB — logic cũ của handler nav tab3, giữ nguyên. */
+window.__renderKeywordsView = function () {
+  scrollToTopTab3();
+  try {
+    var cat = (document.getElementById('keywordCategory') || {}).value || '';
+    if (typeof renderKeywordsByCategory === 'function') renderKeywordsByCategory(cat);
+  } catch (e) {}
+};
 
 // ---------------- INIT LẮNG NGHE SỰ KIỆN CHÍNH ----------------
 document.addEventListener('DOMContentLoaded', async () => {
@@ -131,24 +140,66 @@ document.addEventListener('DOMContentLoaded', async () => {
   let startY = 0; const tab1Content = document.getElementById('tab1');
   if (tab1Content) { tab1Content.addEventListener('touchstart', e => { if (window.scrollY === 0) startY = e.touches[0].clientY; }, { passive: true }); tab1Content.addEventListener('touchend', e => { if (startY === 0) return; let endY = e.changedTouches[0].clientY; if (endY - startY > 80 && window.scrollY === 0) { triggerHaptic('medium'); showToast("Đang làm mới giao dịch...", "info"); window.fetchTransactions(true); } startY = 0; }, { passive: true }); }
 
-  // ---------------- VUỐT TRÁI/PHẢI ĐỂ CHUYỂN NHANH GIỮA CÁC TAB ----------------
+  // ---------------- VUỐT TRÁI/PHẢI THEO THỨ TỰ NAV MỚI ----------------
+  // PERSONAL ROUND 2: thứ tự nav = Giao dịch(0) · Báo cáo(1) · Tìm kiếm(2) ·
+  // Cài đặt(3) — cùng mô hình vị trí như production (goTo/currentPos), đi qua
+  // ĐÚNG đường kích hoạt của nút nav. View Từ khóa (#tab3) không tham gia vuốt
+  // (giống production); modal/sheet chặn khác cũng khóa vuốt.
   if (!window.__tabSwipeWrapped) {
     window.__tabSwipeWrapped = true;
-    const TAB_ORDER = ['tab1', 'tab2', 'tab3'];
     let swipeStartX = 0, swipeStartY = 0, swipeTracking = false;
 
-    const isAnyModalOpen = () => {
+    const blockingOverlayOpen = () => {
       const ov = document.getElementById('modalOverlay');
-      if (ov && getComputedStyle(ov).display !== 'none') return true;
+      const ovShown = ov && ov.classList.contains('show');
+      const sm = document.getElementById('searchModal');
+      const searchShown = sm && sm.classList.contains('show');
+      if (ovShown && !searchShown) return true;
       const cc = document.getElementById('customConfirmOverlay');
       if (cc && cc.style.display && cc.style.display !== 'none') return true;
       const cd = document.getElementById('confirmDeleteModal');
       if (cd && cd.style.display && cd.style.display !== 'none') return true;
+      const fps = document.querySelectorAll('.fullscreen-page.show');
+      for (const p of fps) if (p.id !== 'settingsPage') return true;
+      const fm = document.getElementById('fabMenu');
+      if (fm && fm.classList.contains('show')) return true;
       return false;
     };
 
+    const currentPos = () => {
+      if (blockingOverlayOpen()) return -1;
+      const sm = document.getElementById('searchModal');
+      if (sm && sm.classList.contains('show')) return 2;
+      const sp = document.getElementById('settingsPage');
+      if (sp && sp.classList.contains('show')) return 3;
+      const act = document.querySelector('.tab-content.active');
+      if (!act) return -1;
+      if (act.id === 'tab1') return 0;
+      if (act.id === 'tab2') return 1;
+      return -1; // view từ khóa và các view khác: không vuốt
+    };
+
+    const goToPos = (pos) => {
+      try { if (pos === 0 || pos === 1) { if (typeof triggerHapticSelection === 'function') triggerHapticSelection(); else triggerHaptic('light'); } else triggerHaptic('light'); } catch (e) {}
+      const sm = document.getElementById('searchModal'), sp = document.getElementById('settingsPage');
+      if (pos === 0 || pos === 1) {
+        if (sm && sm.classList.contains('show')) { if (typeof window.closeSearchModal === 'function') window.closeSearchModal(); else sm.classList.remove('show'); }
+        if (sp && sp.classList.contains('show') && typeof window.closeFullscreen === 'function') window.closeFullscreen('settingsPage');
+        const btn = document.querySelector('.nav-btn[data-tab="' + (pos === 0 ? 'tab1' : 'tab2') + '"]');
+        if (btn) btn.click();
+      } else if (pos === 2) {
+        if (sp && sp.classList.contains('show') && typeof window.closeFullscreen === 'function') window.closeFullscreen('settingsPage');
+        const sb = document.getElementById('navSearchBtn');
+        if (sb) sb.click();
+      } else if (pos === 3) {
+        if (sm && sm.classList.contains('show')) { if (typeof window.closeSearchModal === 'function') window.closeSearchModal(); else sm.classList.remove('show'); }
+        const gb = document.getElementById('navSettingsBtn');
+        if (gb) gb.click();
+      }
+    };
+
     document.body.addEventListener('touchstart', (e) => {
-      if (e.touches.length !== 1 || isAnyModalOpen()) { swipeTracking = false; return; }
+      if (e.touches.length !== 1) { swipeTracking = false; return; }
       swipeTracking = true;
       swipeStartX = e.touches[0].clientX;
       swipeStartY = e.touches[0].clientY;
@@ -157,18 +208,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('touchend', (e) => {
       if (!swipeTracking) return;
       swipeTracking = false;
-      if (isAnyModalOpen()) return;
       const dx = e.changedTouches[0].clientX - swipeStartX;
       const dy = e.changedTouches[0].clientY - swipeStartY;
       if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
-      const activeTab = document.querySelector('.tab-content.active');
-      if (!activeTab) return;
-      const idx = TAB_ORDER.indexOf(activeTab.id);
-      if (idx === -1) return;
-      const targetIdx = dx < 0 ? idx + 1 : idx - 1;
-      if (targetIdx < 0 || targetIdx >= TAB_ORDER.length) return;
-      const targetBtn = document.querySelector(`.nav-btn[data-tab="${TAB_ORDER[targetIdx]}"]`);
-      if (targetBtn) { triggerHaptic('light'); targetBtn.click(); }
+      const pos = currentPos();
+      if (pos < 0) return;
+      const target = dx < 0 ? pos + 1 : pos - 1;
+      if (target < 0 || target > 3) return;
+      goToPos(target);
     }, { passive: true });
   }
 
@@ -186,13 +233,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (tab2NeedsReload) { tab2NeedsReload = false; cachedChartData = null; }
         updateTimeNavUI();
       }
-
-      if (targetTab === 'tab3') {
-        scrollToTopTab3();
-        // render ngay keyword theo danh mục đang chọn
-        const cat = document.getElementById('keywordCategory')?.value || '';
-        renderKeywordsByCategory(cat);
-      }
+      // PERSONAL ROUND 2: nhánh tab3 đã gỡ — view Từ khóa mở qua
+      // window.fabKeywords() (menu FAB), render ở window.__renderKeywordsView.
     };
   });
   
@@ -497,7 +539,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (toggleChartBtnInit) toggleChartBtnInit.innerHTML = savedChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
   
   await window.initCategories();
-  const defTab = localStorage.getItem('settingDefaultTab') || 'tab1';
+  let defTab = localStorage.getItem('settingDefaultTab') || 'tab1';
+  if (defTab !== 'tab1' && defTab !== 'tab2') defTab = 'tab1'; // PERSONAL ROUND 2: nav chỉ còn tab1/tab2 (từ khóa ra menu FAB)
   window.openTab(defTab); 
   if(defTab === 'tab1') { showLoading(true, 'tab1'); window.fetchTransactions(false); } else { updateTimeNavUI(); }
 

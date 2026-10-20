@@ -93,3 +93,14 @@
    .tx-id-row for the per-category keyword COUNT, which is real information
    (baseline shows "3 từ khóa"). Re-show it inside keyword cards only. */
 .keyword-group-card .tx-id-row { display: block !important; }
+
+/* ---------- 13) Day-detail donut legend: interactive filter state -----------
+   PERSONAL ROUND 2 (WORK 3): legend rows tap-to-filter. Selected row gets a
+   violet wash + bolder label; rows are tappable (cursor + larger hit area). */
+#dailyCustomLegend .legend-item { cursor: pointer; }
+#dailyCustomLegend .legend-item.selected {
+  background: rgba(99, 102, 241, 0.10) !important;
+  border-radius: 10px;
+}
+#dailyCustomLegend .legend-item.selected .legend-name { font-weight: 800; }
+#dailyCustomLegend .legend-item.selected .legend-pct { text-decoration: underline; text-underline-offset: 2px; }

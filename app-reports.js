@@ -453,15 +453,31 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     try { renderInsightStrip({ tx: currentTx || [], labels: labels || [] }); } catch (e) {}
 }
 
+/* ============================================================================
+   PERSONAL ROUND 2 — MỘT THÔNG SỐ DONUT DÙNG CHUNG cho mọi biểu đồ tròn danh
+   mục (Tab2 + modal chi tiết ngày), đồng bộ với họ donut G6 của app:
+   - vòng dày ~13% đường kính (cutout 73% -> (1-.73)/2 = 13.5%)
+   - khe trắng giữa các lát (spacing: 3) + đầu lát bo tròn (borderRadius: 8)
+   - màu theo TÊN danh mục (getCategoryColor) — cùng danh mục, cùng màu ở mọi
+     biểu đồ; tâm luôn là 'Tổng chi' + tổng (formatCurrencyWithUnit, dấu chấm).
+   ============================================================================ */
+function doughnutSpec() {
+  return { cutout: '73%', spacing: 3, borderRadius: 8, borderWidth: 0, hoverOffset: 4 };
+}
+function doughnutDataset(amts, colors) {
+  const s = doughnutSpec();
+  return { data: amts, backgroundColor: colors, borderWidth: s.borderWidth, hoverOffset: s.hoverOffset, spacing: s.spacing, borderRadius: s.borderRadius };
+}
+
 function drawMonthlyPieChart(data) {
   const appFont = applyAppFontToCharts();
   const ctx = document.getElementById('monthlyPieChart').getContext('2d');
   if(window.pChart) window.pChart.destroy();
   data.sort((a,b) => b.amount - a.amount);
-  const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map((_,i)=>getColorByIndex(i));
+  const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map(i=>getCategoryColor(i.category));
   const total = amts.reduce((a,b)=>a+b,0);
-  
-  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, options: { devicePixelRatio: 4, cutout:'75%', layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
+
+  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
   const catObj = formatCurrencyWithUnit(catAmt);
   const displayAmt = isPrivacyActive ? '***' : catObj.val + catObj.unit;
   ctx.fillText(displayAmt, c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px ${appFont}`; ctx.fillText(`(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font=`500 10px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font=`800 13px ${appFont}`; 
@@ -539,6 +555,7 @@ function showCategoryDetail(cat) {
   const pieContainer = document.getElementById('dailyPieChartContainer');
   if(pieContainer) pieContainer.style.display = 'none';
   
+  document.getElementById('detailListTitle').textContent = 'Giao dịch chi tiết';
   currentPageCategory = 1;
   displayDetailTransactionsList(txs);
 }
@@ -572,26 +589,55 @@ function openDailyDetailView(d, m, y, allTxs) {
     if(chartContainer) chartContainer.style.display = 'none';
 
     const pieContainer = document.getElementById('dailyPieChartContainer');
+    let dayCategories = [];
     if (totalExp > 0 && pieContainer) {
-        pieContainer.style.display = 'flex'; const catMap = {}; 
+        pieContainer.style.display = 'flex'; const catMap = {};
         dayTxs.forEach(t => { if(t.type==='Chi tiêu') catMap[t.category] = (catMap[t.category]||0)+t.amount; });
         const data = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
+        dayCategories = data.map(i => i.category);
         drawDailyPieChart(data, totalExp);
     } else if (pieContainer) { pieContainer.style.display = 'none'; }
 
-    currentPageCategory = 1; displayDetailTransactionsList(dayTxs);
+    // PERSONAL ROUND 2 (WORK 3): trạng thái lọc danh mục của modal ngày —
+    // mới mở luôn không lọc; chú thích tương tác đổi ở toggleDailyFilter().
+    window.__dailyView = { txs: dayTxs, totalExp: totalExp, filter: null, categories: dayCategories };
+    renderDailyList();
+}
+
+function renderDailyList() {
+    const st = window.__dailyView;
+    const all = (st && st.txs) ? st.txs : [];
+    const f = st ? st.filter : null;
+    const list = f ? all.filter(t => t.type === 'Chi tiêu' && t.category === f) : all;
+    document.getElementById('detailListTitle').textContent = 'Giao dịch chi tiết (Tổng: ' + list.length + ')';
+    currentPageCategory = 1;
+    displayDetailTransactionsList(list);
+    document.querySelectorAll('#dailyCustomLegend .legend-item').forEach(el => {
+      el.classList.toggle('selected', !!f && el.getAttribute('data-cat') === f);
+    });
+}
+
+function toggleDailyFilter(cat) {
+    const st = window.__dailyView; if (!st) return;
+    triggerHaptic('light');
+    st.filter = (st.filter === cat) ? null : cat;
+    renderDailyList();
 }
 
 function drawDailyPieChart(data, totalExp) {
     const ctx = document.getElementById('dailyPieChart').getContext('2d');
     if(window.dChart) window.dChart.destroy();
-    const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map((_,i)=>getColorByIndex(i));
-    
+    const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map(i=>getCategoryColor(i.category));
+
     const appFont = applyAppFontToCharts();
-    window.dChart = new Chart(ctx, { 
-        type: 'doughnut', data: { labels:lbls, datasets: [{data:amts, backgroundColor:bg, borderWidth: 0, hoverOffset: 4}] }, 
-        options: { devicePixelRatio: 4, cutout:'75%', layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } } },
-        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font=`500 9px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 8); ctx.fillStyle='#F43F5E'; ctx.font=`800 11px ${appFont}`; 
+    window.dChart = new Chart(ctx, {
+        type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] },
+        options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } },
+          onClick: (event, activeEls) => {
+            if (activeEls && activeEls.length > 0) toggleDailyFilter(lbls[activeEls[0].index]);
+            else if (window.__dailyView && window.__dailyView.filter) toggleDailyFilter(window.__dailyView.filter); // chạm tâm -> bỏ lọc
+          } },
+        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font=`500 9px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 8); ctx.fillStyle='#F43F5E'; ctx.font=`800 11px ${appFont}`;
         const tObj = formatCurrencyWithUnit(totalExp);
         const displayTotal = isPrivacyActive ? '***' : tObj.val + tObj.unit;
         ctx.fillText(displayTotal, c.width/2, c.height/2 + 6); ctx.restore(); } }]
@@ -600,9 +646,10 @@ function drawDailyPieChart(data, totalExp) {
     const leg = document.getElementById('dailyCustomLegend'); if(leg) leg.innerHTML = '';
     data.forEach((i, idx) => {
       const pct = totalExp>0 ? ((i.amount/totalExp)*100).toFixed(1) : 0; const c = bg[idx]; const catIconHTML = getCategoryIcon(i.category);
-      const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; 
-      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${c};">${pct}%</span></div>`; 
-      leg.appendChild(divLeg); 
+      const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; divLeg.setAttribute('data-cat', i.category);
+      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${c};">${pct}%</span></div>`;
+      divLeg.onclick = function() { toggleDailyFilter(i.category); };
+      leg.appendChild(divLeg);
     });
 }
 
@@ -702,7 +749,8 @@ function updateTimeNavUI() {
 
 // ---------------- TÌM KIẾM MODAL ----------------
 window.openSearchModal = function() { triggerHaptic('light'); document.getElementById('modalOverlay').classList.add('show'); setTimeout(() => document.getElementById('searchModal').classList.add('show'), 10); };
-window.closeSearchModal = function() { triggerHaptic('light'); document.getElementById('searchModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); };
+window.closeSearchModal = function() { triggerHaptic('light'); document.getElementById('searchModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300); // PERSONAL ROUND 2 (như production R20-2): đóng modal Tìm kiếm -> nav highlight quay về tab đang hiển thị
+  try { if (typeof window.__syncNavToActiveTab === 'function') window.__syncNavToActiveTab(); } catch (e) {} };
 
 function displaySearchResults() {
     const list = document.getElementById('searchResultsContainer'); list.innerHTML=''; const data = cachedSearchResults;

@@ -109,6 +109,9 @@
     }, { passive: true });
   }
 
+  /* PERSONAL ROUND 2 (20/10): port nguyên bản setupSearchTab() của production —
+     Tìm kiếm + Cài đặt đều thành nút trên thanh nav (sau nav-spacer),
+     giống hệt bản tham chiếu. Từ khóa rời nav (vào menu FAB -> fabKeywords). */
   function setupSearchTab() {
     var fabMenu = document.getElementById('fabMenu');
     if (fabMenu) {
@@ -118,14 +121,36 @@
       });
     }
     var group = document.querySelector('.nav-tabs-group');
+    var spacer = group ? group.querySelector('.nav-spacer') : null;
     if (group && !document.getElementById('navSearchBtn')) {
       var btn = document.createElement('button');
       btn.id = 'navSearchBtn';
       btn.className = 'nav-btn';
       btn.type = 'button';
       btn.innerHTML = '<div class="nav-icon-wrap"><i class="fas fa-search"></i></div><span class="nav-label">Tìm kiếm</span>';
-      btn.onclick = function () { triggerHaptic('light'); if (typeof window.openSearchModal === 'function') window.openSearchModal(); };
-      group.appendChild(btn);
+      btn.onclick = function () {
+        triggerHaptic('light');
+        document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        if (typeof window.openSearchModal === 'function') window.openSearchModal();
+      };
+      if (spacer && spacer.nextSibling) group.insertBefore(btn, spacer.nextSibling);
+      else group.appendChild(btn);
+    }
+    /* Cài đặt ra thanh nav, đứng sau Tìm kiếm (Từ khóa rời nav) */
+    if (group && !document.getElementById('navSettingsBtn')) {
+      var sbtn = document.createElement('button');
+      sbtn.id = 'navSettingsBtn';
+      sbtn.className = 'nav-btn';
+      sbtn.type = 'button';
+      sbtn.innerHTML = '<div class="nav-icon-wrap"><i class="fas fa-cog"></i></div><span class="nav-label">Cài đặt</span>';
+      sbtn.onclick = function () {
+        triggerHaptic('light');
+        document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+        sbtn.classList.add('active');
+        if (typeof window.openFullscreen === 'function') window.openFullscreen('settingsPage');
+      };
+      group.appendChild(sbtn);
     }
   }
 
@@ -663,6 +688,29 @@
   window.fabAddExpense = function () { closeFabMenu(); window.openAddForm('Chi tiêu'); };
   window.fabSearch = function () { closeFabMenu(); if (typeof window.openSearchModal === 'function') window.openSearchModal(); };
   window.fabSettings = function () { closeFabMenu(); openFullscreen('settingsPage'); };
+  /* PERSONAL ROUND 2: mở Quản lý từ khóa (view #tab3) theo đúng hành vi
+     production — nav highlight rơi vào nút Cài đặt; kèm render + lên đầu
+     trang như handler nav tab3 cũ của bản cá nhân. */
+  window.fabKeywords = function () {
+    closeFabMenu();
+    if (typeof window.closeFullscreen === 'function') window.closeFullscreen('settingsPage');
+    if (typeof window.loadKeywords === 'function') window.loadKeywords(false);
+    if (typeof window.openTab === 'function') window.openTab('tab3');
+    if (typeof window.__renderKeywordsView === 'function') window.__renderKeywordsView();
+    document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var s = document.getElementById('navSettingsBtn');
+    if (s) s.classList.add('active');
+  };
+  function syncNavToActiveTab() {
+    document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); });
+    var act = document.querySelector('.tab-content.active');
+    if (act) {
+      var b = document.querySelector('.nav-btn[data-tab="' + act.id + '"]');
+      if (!b && act.id === 'tab3') b = document.getElementById('navSettingsBtn'); /* tu khoa -> cai dat */
+      if (b) b.classList.add('active');
+    }
+  }
+  window.__syncNavToActiveTab = syncNavToActiveTab;
   window.fabAbout = function () { closeFabMenu(); openFullscreen('aboutPage'); };
 
   // ------------------------------------------------------------------
@@ -679,6 +727,7 @@
     var el = document.getElementById(id);
     if (el) el.classList.remove('show');
     if (!document.querySelector('.fullscreen-page.show')) document.body.classList.remove('fullscreen-open');
+    if (id === 'settingsPage') { try { syncNavToActiveTab(); } catch (e) {} }
   };
 
   // ------------------------------------------------------------------
