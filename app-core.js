@@ -25,8 +25,10 @@ if (window.Telegram && window.Telegram.WebApp) {
 // no-op hoàn toàn (mọi API đều kiểm tra tồn tại trước khi gọi).
 // Khi fullscreen, Telegram chèn nút nổi (đóng ⋯) ở mép trên màn hình: cộng
 // safeAreaInset.top + contentSafeAreaInset.top vào biến CSS --hmh-sat để
-// personal-compat.css §21 chừa khoảng trống trên cùng cho app. Không
-// fullscreen -> --hmh-sat = 0px -> bố cục y hệt như trước vòng này.
+// personal-compat.css §21 chừa khoảng trống trên cùng cho app.
+// ROUND 3l: inset lấy ĐÚNG số Telegram báo ở mọi trạng thái — kể cả trạng
+// thái CHỜ fullscreen (nút nổi đã phủ lên nội dung dù isFullscreen còn
+// false). Telegram báo 0 -> --hmh-sat = 0px -> bố cục y hệt như trước.
 (function hmhFullscreenSetup() {
     try {
         var tg = (window.Telegram && window.Telegram.WebApp) || null;
@@ -34,17 +36,21 @@ if (window.Telegram && window.Telegram.WebApp) {
         function applySafeArea() {
             var sat = 0;
             try {
-                if (tg.isFullscreen) {
-                    var sa = tg.safeAreaInset || {}, ca = tg.contentSafeAreaInset || {};
-                    sat = (Number(sa.top) || 0) + (Number(ca.top) || 0);
-                }
+                // ROUND 3l (như production R33): KHÔNG cổng isFullscreen —
+                // Telegram báo contentSafeAreaInset.top > 0 ngay từ trạng
+                // thái CHỜ fullscreen, cổng cũ ép sat = 0 suốt cửa sổ chờ
+                // -> dải/đệm mất, vết cắt quay lại cho tới khi được cấp
+                // fullscreen. Nay inset là đúng số Telegram báo ở MỌI
+                // trạng thái (chờ / fullscreen / chuyển đổi).
+                var sa = tg.safeAreaInset || {}, ca = tg.contentSafeAreaInset || {};
+                sat = (Number(sa.top) || 0) + (Number(ca.top) || 0);
             } catch (e) {}
             document.documentElement.style.setProperty('--hmh-sat', sat + 'px');
-            // ROUND 3h: body.hmh-fs bật khi fullscreen CÓ inset thật (> 0)
-            // — personal-compat.css §22 dùng nó để dựng dải tím phủ vùng
-            // status/nút nổi (Cách B) + áp đệm trên cho mọi trang. sat = 0
-            // (ngoài fullscreen, hoặc fullscreen desktop không inset) thì
-            // không lớp, không dải, bố cục y hệt như trước.
+            // ROUND 3h + 3l: body.hmh-fs nghĩa là "DẢI ĐANG HOẠT ĐỘNG"
+            // (sat > 0, ở bất kỳ trạng thái nào) — personal-compat.css §22
+            // dùng nó để dựng dải tím phủ vùng status/nút nổi (Cách B) +
+            // áp đệm trên cho mọi trang. sat = 0 (Telegram báo không có
+            // inset) thì không lớp, không dải, bố cục y hệt như trước.
             try {
                 if (document.body) document.body.classList.toggle('hmh-fs', sat > 0);
             } catch (e) {}
@@ -62,7 +68,12 @@ if (window.Telegram && window.Telegram.WebApp) {
             try { tg.setHeaderColor('#7C3AED'); } catch (e) {}
         }
         applySafeArea();
-        var canFullscreen = typeof tg.requestFullscreen === 'function' &&
+        // ROUND 3l (như production R33-B, Hùng chốt 20/10): chỉ tự xin
+        // fullscreen trên iOS/Android. Nền desktop (tdesktop/macos/weba/
+        // webk/...) KHÔNG xin — Telegram Desktop/Web mở app trong cửa sổ
+        // thường của nó (như cửa sổ BotFather), không ép toàn màn hình.
+        var canFullscreen = (tg.platform === 'ios' || tg.platform === 'android') &&
+            typeof tg.requestFullscreen === 'function' &&
             (typeof tg.isVersionAtLeast !== 'function' || tg.isVersionAtLeast('8.0'));
         if (canFullscreen && !window.__hmhFsRequested) {
             window.__hmhFsRequested = true;
