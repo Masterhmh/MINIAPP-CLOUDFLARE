@@ -104,3 +104,22 @@
 }
 #dailyCustomLegend .legend-item.selected .legend-name { font-weight: 800; }
 #dailyCustomLegend .legend-item.selected .legend-pct { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- 14) FIX (Hùng 20/10: chú thích dài thành danh sách cuộn, muốn hiện full) ---
+   Chú thích modal chi tiết ngày LUÔN hiện full chiều cao nội dung, không cuộn
+   trong. `.compact-legend` toàn cục vẫn giữ nguyên cho nơi khác (Tab2
+   #monthlyCustomLegend hiện display:none nên không bị ảnh hưởng). Donut giữ
+   căn đỉnh với hàng chú thích đầu tiên kể cả khi chú thích dài. */
+#dailyCustomLegend {
+  max-height: none;
+  overflow-y: visible;
+  padding-right: 0;
+}
+#dailyPieChartContainer {
+  align-items: flex-start;
+}
+
+/* Ghi chú: cuộn ngoài của modal do thẻ bọc nội dung (con thứ 3 của
+   #detailModal, overflow-y: auto có sẵn) đảm nhiệm — đã kiểm chứng: với 10
+   giao dịch, wrapper scrollH 1522 > clientH 651 và cuộn tới được pagination.
+   Không thêm overflow cho chính #detailModal để tránh lồng 2 khung cuộn. */
