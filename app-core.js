@@ -663,6 +663,10 @@ window.openTab = function(tabId) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById(tabId).classList.add('active');
+  // ROUND 3j: personal-compat.css §24 keys the fullscreen seam fix off
+  // this class — mọi đường chuyển tab (nav click, vuốt qua btn.click(),
+  // FAB) đều chạy qua openTab nên lớp luôn đồng bộ với .tab-content.active.
+  document.body.classList.toggle('hmh-on-tab1', tabId === 'tab1');
   const btn = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
   if(btn) btn.classList.add('active');
 };

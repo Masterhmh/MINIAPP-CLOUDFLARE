@@ -349,3 +349,40 @@ body.hmh-fs .modal-sheet { max-height: calc(100dvh - var(--hmh-sat, 0px) - 12px)
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* ---------- 24) ROUND 3j: xóa VẾT CẮT NGANG giữa dải tím fullscreen
+   (§22) và hero Tab 1 (Hùng chụp màn hình thật 20/10: đường cắt thẳng
+   ngay dưới hàng nút nổi Telegram).
+   CHẨN ĐOÁN (đo pixel trên bản chưa sửa): dải và hero sơn HAI LẦN LẤY
+   MẪU KHÁC NHAU của cùng một gradient 135° —
+   - Dải body::before: position:fixed, background-size 100% x 340px neo
+     tại y=0 -> ở mép dưới dải (y=44) màu là gradient ở độ sâu 44/340.
+   - Hero: nằm trong .content-wrapper (padding-top: --hmh-sat) nên hộp
+     bắt đầu ở y=44, gradient (background-size auto) trải theo chiều cao
+     hộp hero và bắt đầu lại từ độ sâu 0 tại y=44.
+   Tại biên: rgb(167,135,251) nhảy thẳng lên rgb(187,163,253) — bước
+   nhảy kênh màu 28 đơn vị trong khi bước trung vị của gradient xung
+   quanh là 1 (gấp 28 lần) -> mắt thấy một đường cắt thẳng.
+   SỬA — khi Tab 1 đang active + fullscreen (body.hmh-fs.hmh-on-tab1 do
+   window.openTab duy trì) + KHÔNG có trang phủ toàn màn hình đang mở
+   (.fullscreen-open — Cài đặt/Giới thiệu vẫn cần dải tím đặc như §22):
+   1) Dải ::before trong suốt -> chỉ còn MỘT bề mặt tím duy nhất sơn.
+   2) Hero vươn lên lấp vùng inset: margin-top: -sat kéo hộp hero về
+      y=0 để gradient hero sơn liền từ đỉnh màn hình; padding-top tăng
+      đúng sat để MỌI nội dung trong hero đứng yên tại vị trí cũ
+      (hàng ngày vẫn bắt đầu ở 44+20 như trước).
+   3) Avatar là position:absolute; top:16px theo HỘP hero (redesign.css)
+      nên phải cộng thêm sat, nếu không nó trồi lên sat và bị hàng nút
+      nổi che — sau sửa avatar vẫn ở đúng y=60 như trước vòng này.
+   Ngoài fullscreen (không .hmh-fs): không rule nào áp dụng — bố cục
+   Tab 1 không đổi một pixel. Các tab/trang khác giữ dải tím §22. */
+body.hmh-fs.hmh-on-tab1:not(.fullscreen-open)::before {
+  background: none;
+}
+body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card {
+  margin-top: calc(-1 * var(--hmh-sat, 0px)) !important;
+  padding-top: calc(20px + var(--hmh-sat, 0px)) !important;
+}
+body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
+  top: calc(16px + var(--hmh-sat, 0px)) !important;
+}
