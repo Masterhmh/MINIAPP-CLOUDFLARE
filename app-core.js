@@ -96,6 +96,26 @@ if (window.Telegram && window.Telegram.WebApp) {
             window.__hmhFsRequested = true;
             tg.requestFullscreen();
         }
+        // ROUND 3o (Hùng chốt 20/10): tắt cử chỉ VUỐT XUỐNG của chính
+        // Telegram — ở chế độ fullscreen, vuốt xuống từ đầu trang khiến
+        // app bị thu thành thẻ nổi trên khung chat; Hùng muốn như
+        // BotFather: chỉ nút Close mới thoát được. disableVerticalSwipes()
+        // (Bot API 7.7+) khóa cử chỉ đó phía client Telegram. Cổng giống
+        // hệt requestFullscreen ở trên: chỉ iOS/Android + API có mặt +
+        // isVersionAtLeast('7.7'); desktop không bao giờ gọi. Gọi đúng
+        // 1 lần lúc khởi động, lỗi thì im lặng.
+        // LƯU Ý: cử chỉ này của Telegram TÁCH BIỆT với cử chỉ JS trong
+        // app — kéo xuống làm mới ở Tab 1 (app-init.js, listener
+        // touchstart/touchend trên #tab1) và vuốt ngang chuyển tab vẫn
+        // nhận sự kiện touch như thường; ngược lại còn hết bị Telegram
+        // giành mất cú kéo từ mép trên. Kiểm chứng: port2-round3o.cjs.
+        var canDisableSwipes = (tg.platform === 'ios' || tg.platform === 'android') &&
+            typeof tg.disableVerticalSwipes === 'function' &&
+            (typeof tg.isVersionAtLeast !== 'function' || tg.isVersionAtLeast('7.7'));
+        if (canDisableSwipes && !window.__hmhSwipesDisabled) {
+            window.__hmhSwipesDisabled = true;
+            try { tg.disableVerticalSwipes(); } catch (e) {}
+        }
     } catch (e) { /* lỗi phía Telegram không được làm hỏng khởi động app */ }
 })();
 
