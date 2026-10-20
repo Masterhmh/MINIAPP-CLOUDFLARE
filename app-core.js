@@ -155,6 +155,10 @@ function updatePrivacyUI(syncSettings = false) {
     // FIX R2-3 (bản cá nhân): bật/tắt ẩn số đổi hiển thị -> co cỡ số lại cho
     // vừa hàng (và gỡ inline-size khi masked để lớp mask "***" thắng).
     try { if (typeof window.fitStatAmounts === 'function') window.fitStatAmounts(); } catch (e) {}
+    // FIX 3b F-07: số trong ô lịch dùng inline font-size !important khi co cho
+    // vừa ô -> phải đồng bộ theo ẩn số (bật: gỡ inline để mask "***" thắng;
+    // tắt: co lại) — cùng kỷ luật với fitStatAmounts ở trên.
+    try { if (typeof window.fitCalendarAmounts === 'function') window.fitCalendarAmounts(); } catch (e) {}
 }
 
 // ============================================================================
@@ -220,7 +224,7 @@ function fitAmountRow(ids) {
 }
 
 window.fitStatAmounts = function () {
-  var ids = ['tab2Income', 'tab2Expense', 'tab2Balance', 'heroIncome', 'heroBalanceSub'];
+  var ids = ['tab2Income', 'tab2Expense', 'tab2Balance', 'heroIncome', 'heroBalanceSub', 'heroExpenseMain'];
   if (document.body.classList.contains('privacy-on')) {
     // mask thắng: gỡ inline font-size để CSS font-size:0 !important có hiệu lực
     // (inline !important thắng stylesheet !important -> số không bị che)
@@ -229,6 +233,12 @@ window.fitStatAmounts = function () {
   }
   fitAmountRow(['tab2Income', 'tab2Expense', 'tab2Balance']);
   fitAmountRow(['heroIncome', 'heroBalanceSub']);
+  // FIX 3b F-06: số chi chính của hero (cố định 45px, nowrap) trước đây KHÔNG
+  // được fit ở cả hai bản -> ngày chi >= ~1.000 tỷ ₫ sẽ tràn hero ở máy 360.
+  // Fit riêng một nhóm (không dùng chung cỡ với heroIncome/heroBalanceSub vốn
+  // nhỏ hơn nhiều); fitAmountRow chỉ thu nhỏ khi glyph thật vượt bề rộng khả
+  // dụng nên số thường giữ nguyên cỡ thiết kế.
+  fitAmountRow(['heroExpenseMain']);
 };
 
 (function initStatAmountResize() {
@@ -377,15 +387,35 @@ function formatNumberWithCommas(value) {
     return parseInt(val, 10).toLocaleString('vi-VN');
 }
 function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E0B', '#06B6D4', '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3']; return c[i % c.length]; }
-/* PERSONAL ROUND 2 — bảng màu danh mục dùng CHUNG cho mọi biểu đồ tròn của
-   app (đồng bộ với production vòng 27): màu gán theo TÊN danh mục (băm ổn
-   định), không theo thứ hạng trong từng biểu đồ — nên cùng một danh mục ở
-   mọi biểu đồ/chú thích/thẻ tiến trình luôn cùng một màu. */
-const CATEGORY_PALETTE = ['#5D5FE2', '#D73752', '#0B855D', '#F59E0B', '#06B6D4', '#EC4899', '#84CC16', '#8B5CF6', '#F97316', '#14B8A6', '#EAB308', '#D946EF', '#22C55E', '#0EA5E9', '#A855F7', '#EF4444', '#64748B', '#059669', '#DC2626', '#4F46E5', '#C026D3'];
+/* PERSONAL ROUND 3 (W1) — bảng màu danh mục THIẾT KẾ LẠI theo yêu cầu của
+   Hùng (bảng vòng 27 quá nhiều tím/hồng cạnh nhau, có cả trùng màu thật:
+   "Bảo hiểm" và "Công nghệ" cùng #A855F7). Nguyên tắc:
+   - 14 màu giãn ĐỀU trên vòng hue, bước 360/14 ≈ 25,7° → mọi cặp màu cách
+     nhau ≥ 25,4° hue (đo trên hex cuối) → không còn cặp nào "na ná" nhau.
+   - Bão hòa cùng họ 78%; độ sáng chỉnh theo từng hue để mọi màu khi làm CHỮ
+     trên nền trắng (chú thích %, số tiền thẻ danh mục) đạt tương phản ≥ 5,0:1
+     (chuẩn ≥ 4,5:1); xen kẽ 2 tầng tương phản (~5,0 / ~7,0) theo vị trí để
+     các hue kề nhau còn khác nhau thêm về độ sáng.
+   - Màu vẫn gán theo TÊN danh mục (băm ổn định) — cùng một danh mục ở mọi
+     biểu đồ/chú thích/thẻ/PDF luôn cùng một màu. Băm = h*31 + finalizer
+     xor-shift 13, seed 266571: seed được chọn bằng tìm kiếm tự động vì 2 lý
+     do: (1) băm cũ (kể cả mọi cỡ bảng 12–21) đều làm trùng màu trong 12 danh
+     mục thật của Hùng; (2) "Gia đình"/"Bảo hiểm" có độ dài bằng nhau nên băm
+     h*31 thuần luôn khóa chúng ở 2 ô kề nhau (25,7°) — finalizer phá khóa đó.
+     Với seed đã chọn: 12 danh mục thật của Hùng rơi vào 12 ô KHÁC NHAU, mọi
+     cặp kề nhau trên donut tháng 10 của anh cách nhau ≥ 102,9° hue:
+       Gia đình #3933E6 (chàm đậm) · Bảo hiểm #A32E14 (đỏ gạch) ·
+       Y tế #761BDE (tím) · Ăn uống #497B0F (xanh lá đậm) ·
+       Công nghệ #1654B3 (dương đậm) · Đi lại #986413 (nâu hổ phách) ·
+       Mua sắm #BB1ACF (magenta) · Cà phê #585B0B (olive) ·
+       Giáo dục #107F34 (ngọc lục bảo) · Sức khỏe #0C644E (teal đậm) ·
+       Nhà cửa #12798F (cyan đậm) · Giải trí #D81B4A (hồng đỏ). */
+const CATEGORY_PALETTE = ['#D81B4A', '#A32E14', '#986413', '#585B0B', '#497B0F', '#16660D', '#107F34', '#0C644E', '#12798F', '#1654B3', '#3933E6', '#761BDE', '#BB1ACF', '#A61477'];
 function getCategoryColor(name) {
   const s = String(name || '');
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = ((h * 31) + s.codePointAt(i)) >>> 0;
+  let h = 266571;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.codePointAt(i)) >>> 0;
+  h = (h ^ (h >>> 13)) >>> 0;
   return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
 }
 

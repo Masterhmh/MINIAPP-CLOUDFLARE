@@ -144,3 +144,33 @@
 #tab2 .g6-amt {
   padding-right: 40px;
 }
+
+/* ---------- 16) FIX 3b F-10 (Hùng: "ẩn là ẩn cả"): % tỉ trọng ở THẺ DANH MỤC
+   cũng phải che "***" khi bật ẩn số. Trước đây số tiền thẻ (.cat-progress-amt)
+   bị che nhưng span % ngay cạnh (giờ đã có class .cat-progress-pct trong
+   app-reports.js) không có rule nào -> vẫn lộ số thật, trong khi % ở chú
+   thích donut (.legend-pct) thì bị che. Mẫu mask chép đúng họ mask của
+   redesign.css/upgrade.css: font-size:0 + ::after "***" cỡ chữ gốc của span
+   (0.65rem), màu chữ tối trên nền thẻ trắng. */
+body.privacy-on #tab2 .cat-progress-pct {
+  font-size: 0 !important; color: transparent !important; letter-spacing: 0 !important;
+}
+body.privacy-on #tab2 .cat-progress-pct::after {
+  content: '***'; display: inline-block; visibility: visible;
+  color: #1C1B22 !important; font-size: 0.65rem !important; line-height: 1.4; font-weight: 600;
+}
+
+/* ---------- 17) FIX 3b F-01: vùng chạm các nút nav dưới đạt >= 44px.
+   Chuỗi đo của audit (icon FA mô phỏng 1em như máy thật): nút cao 38px —
+   dưới chuẩn 44px (production vòng 27). Chỉ nâng CHIỀU CAO VÙNG CHẠM bằng
+   min-height (box-sizing: border-box toàn cục nên 44px là tổng chiều cao
+   thật, gồm padding 4px sẵn có) + căn giữa nội dung; icon (17px), nhãn
+   (10px), khoảng cách và mọi màu/kiểu đang chốt giữ nguyên. Áp cho cả 2 nút
+   tĩnh trong index.html lẫn navSearchBtn/navSettingsBtn được bơm vào sau
+   (cùng class .nav-btn trong .bottom-nav). FAB neo theo đáy nav (bottom:
+   30px) và body đã chừa padding-bottom 104px nên nav cao thêm ~6px không
+   che nội dung. */
+.bottom-nav .nav-btn {
+  min-height: 44px;
+  justify-content: center;
+}

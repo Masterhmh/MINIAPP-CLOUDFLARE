@@ -46,7 +46,15 @@ window.loadKeywords = async function(isInit = false) {
     } catch(e) { if(!isInit) showToast(e.message, 'error'); } finally { if(!isInit) showLoading(false, 'tab3'); }
 };
 
-window.startEditKeyword = function(kw, category) { 
+// PERSONAL ROUND 3 (F-04, ngang production vòng 28): CTA ở trạng thái rỗng
+// của view Từ khóa — bấm "Thêm từ khóa" thì focus thẳng vào ô nhập từ khóa.
+window.emptyFocusKeyword = function () {
+  triggerHaptic('light');
+  var inp = document.getElementById('keywordInput');
+  if (inp) { try { inp.focus({ preventScroll: false }); } catch (e) { inp.focus(); } inp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+};
+
+window.startEditKeyword = function(kw, category) {
     triggerHaptic('light');
     document.getElementById('keywordInput').value = kw;
     document.getElementById('keywordCategory').value = category;
@@ -887,6 +895,8 @@ window.openIconPickerModal = function() {
     catSelect.appendChild(newOpt);
 
     const updateIconState = (val) => {
+        // FIX 3b F-08: dọn ô "icon hiện tại" tổng hợp của lần gọi trước (nếu có)
+        container.querySelectorAll('.icon-item.current-icon').forEach(el => el.remove());
         let usedEmojis = [];
         uniqueCats.forEach(c => {
             if (c !== val) {
@@ -917,6 +927,15 @@ window.openIconPickerModal = function() {
         let currentIconVal = null;
         if (window.customCategoryIcons && window.customCategoryIcons[val]) currentIconVal = window.customCategoryIcons[val].trim();
         else if (window.categoryIconMap && window.categoryIconMap[val]) currentIconVal = window.categoryIconMap[val].trim();
+        // FIX 3b F-08: đang SỬA một danh mục (gồm cả khi gõ tên mới để đổi tên)
+        // -> mượn icon của danh mục gốc để luôn có icon được mang theo/chọn sẵn.
+        if (!currentIconVal) {
+            const origCat = (modal.getAttribute('data-original-category') || '').trim();
+            if (origCat && origCat !== val) {
+                if (window.customCategoryIcons && window.customCategoryIcons[origCat]) currentIconVal = window.customCategoryIcons[origCat].trim();
+                else if (window.categoryIconMap && window.categoryIconMap[origCat]) currentIconVal = window.categoryIconMap[origCat].trim();
+            }
+        }
 
         if (currentIconVal) {
             let targetEmoji = currentIconVal;
@@ -926,15 +945,36 @@ window.openIconPickerModal = function() {
                 targetEmoji = FA_TO_EMOJI_MAP[faClass];
             }
 
-            if (targetEmoji) {
-                let item = Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji);
-                if (item) {
-                    item.classList.add('selected');
-                    item.classList.remove('disabled-icon');
-                    modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
-                    if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
-                    container.scrollTop = 0;
-                }
+            let item = targetEmoji ? Array.from(modal.querySelectorAll('.icon-item')).find(el => el.getAttribute('data-icon') === targetEmoji) : null;
+            if (item) {
+                item.classList.add('selected');
+                item.classList.remove('disabled-icon');
+                modal.setAttribute('data-selected-icon', item.getAttribute('data-icon'));
+                if (container.firstChild !== item) container.insertBefore(item, container.firstChild);
+                container.scrollTop = 0;
+            } else {
+                // FIX 3b F-08: icon đã lưu KHÔNG nằm trong lưới emoji (vd '❓'
+                // của danh mục 'Khác', hoặc class FA không có ánh xạ emoji) ->
+                // trước đây data-selected-icon bị để null nên nút Lưu chặn bằng
+                // toast "Vui lòng chọn 1 icon!" dù người dùng không đổi icon.
+                // Nay: chèn ô "icon hiện tại" đã-chọn ở đầu lưới và đặt
+                // data-selected-icon = ĐÚNG giá trị đã lưu -> bấm Lưu ngay
+                // được, icon giữ nguyên; chạm ô khác trong lưới vẫn đổi icon
+                // như thường (handler chọn icon ghi đè thuộc tính này).
+                modal.setAttribute('data-selected-icon', currentIconVal);
+                const cur = document.createElement('div');
+                cur.className = 'icon-item selected current-icon';
+                cur.setAttribute('data-icon', (targetEmoji && !String(targetEmoji).includes('fa-')) ? targetEmoji : '❓');
+                cur.textContent = (targetEmoji && !String(targetEmoji).includes('fa-')) ? targetEmoji : '❓';
+                cur.title = 'Icon hiện tại';
+                cur.onclick = function() {
+                    triggerHaptic('light');
+                    modal.querySelectorAll('.icon-item').forEach(i => i.classList.remove('selected'));
+                    cur.classList.add('selected');
+                    modal.setAttribute('data-selected-icon', currentIconVal);
+                };
+                container.insertBefore(cur, container.firstChild);
+                container.scrollTop = 0;
             }
         }
     };

@@ -387,7 +387,48 @@ function renderCalendar(txs, dateObj, mode) {
             grid.appendChild(dayDiv);
         }
     }
+    // FIX 3b F-07: co cỡ số trong ô cho vừa ô ngay sau khi dựng lịch.
+    try { fitCalendarAmounts(); } catch (e) {}
 }
+
+// ============================================================================
+// FIX 3b F-07: SỐ TRONG Ô LỊCH — CO CHO VỪA Ô thay cho cắt ellipsis.
+// Trước đây .cal-row-amt bị ellipsis ở ô ~45px ("25.000.000.000" scrollW 60
+// > ô 45 -> mất chữ số cuối). Nay đo scrollWidth/clientWidth thật của từng
+// span và thu cỡ dần (bước 0.5px, sàn 6px) tới khi đủ chữ số lọt ô; số bình
+// thường không bị đụng (chỉ co khi tràn). Giữ nguyên quy tắc đã chốt: lịch
+// KHÔNG mang ₫ (chuỗi chỉ gồm chữ số + dấu chấm). Kỷ luật ẩn số như
+// fitStatAmounts: inline font-size phải kèm !important mới thắng rule 9px
+// !important của redesign.css, và inline !important lại thắng cả mask
+// font-size:0 !important -> khi privacy-on PHẢI gỡ inline (mask "***" thắng);
+// updatePrivacyUI (app-core.js) gọi lại hàm này mỗi lần bật/tắt ẩn số.
+// ============================================================================
+function fitCalendarAmounts() {
+  var spans = document.querySelectorAll('#calendarGrid .cal-row-amt');
+  if (!spans.length) return;
+  if (document.body.classList.contains('privacy-on')) {
+    spans.forEach(function (el) { el.style.removeProperty('font-size'); });
+    return;
+  }
+  spans.forEach(function (el) {
+    el.style.removeProperty('font-size'); // về cỡ CSS (9px) rồi mới đo/co
+    if (!(el.clientWidth > 0)) return;
+    var size = parseFloat(window.getComputedStyle(el).fontSize) || 9;
+    var guard = 20;
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > 6 && guard-- > 0) {
+      size = Math.max(6, size - 0.5);
+      el.style.setProperty('font-size', size + 'px', 'important');
+    }
+  });
+}
+window.fitCalendarAmounts = fitCalendarAmounts;
+(function initCalendarFitResize() {
+  var t = null;
+  window.addEventListener('resize', function () {
+    if (t) clearTimeout(t);
+    t = setTimeout(function () { try { fitCalendarAmounts(); } catch (e) {} }, 150);
+  });
+})();
 
 function processReportData(currentTx, prevTx, labels, incs, exps) {
     let tInc = 0, tExp = 0; currentTx.forEach(i => { if(i.type==='Thu nhập') tInc += i.amount; else tExp += i.amount; });
@@ -422,36 +463,84 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     const ctx = document.getElementById('monthlyChart').getContext('2d');
     if (window.mChart) window.mChart.destroy();
 
-    const chartHeight = 250; 
-    let incGradient = ctx.createLinearGradient(0, 0, 0, chartHeight);
-    incGradient.addColorStop(0, 'rgba(16, 185, 129, 0.8)'); incGradient.addColorStop(1, 'rgba(16, 185, 129, 0.1)');
-    let expGradient = ctx.createLinearGradient(0, 0, 0, chartHeight);
-    expGradient.addColorStop(0, 'rgba(244, 63, 94, 0.8)'); expGradient.addColorStop(1, 'rgba(244, 63, 94, 0.1)');
-
-    let dsInc = { label: 'Thu nhập', data: incs, backgroundColor: incGradient, borderColor: '#10B981', borderWidth: 0, borderRadius: 4, maxBarThickness: 20 };
-    let dsExp = { label: 'Chi tiêu', data: exps, backgroundColor: expGradient, borderColor: '#F43F5E', borderWidth: 0, borderRadius: 4, maxBarThickness: 20 };
-
-    if (window.currentChartType === 'line') {
-        dsInc.tension = 0.4; dsInc.fill = true; dsInc.borderWidth = 2; dsInc.pointRadius = 4;
-        dsExp.tension = 0.4; dsExp.fill = true; dsExp.borderWidth = 2; dsExp.pointRadius = 4;
-    }
-
     const appFont = applyAppFontToCharts();
-    window.mChart = new Chart(ctx, { 
-        type: window.currentChartType || 'bar', 
-        data: { labels: labels, datasets: [ dsInc, dsExp ]}, 
-        options: { 
-            devicePixelRatio: 4, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, 
-            scales: { x: { grid: { display: false }, ticks: { color: '#94A3B8', font: { size: 10, family: appFont } } }, y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94A3B8', font: { size: 10, family: appFont }, callback: v => {
-                if (isPrivacyActive) return '***';
-                const vObj = formatCurrencyWithUnit(v); return vObj.val + vObj.unit;
-            } } } }, 
-            plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => {
-                if (isPrivacyActive) return `${ctx.dataset.label}: ***`;
-                const cObj = formatCurrencyWithUnit(ctx.raw);
-                return `${ctx.dataset.label}: ${cObj.val}${cObj.unit}`;
-            } } } } 
-        } 
+
+    // PERSONAL ROUND 3 (W2) — port mẫu L1 (đường) + B1 (cột) Hùng đã duyệt
+    // (chart-demos/DEMOS.md), áp cho mọi kỳ (tuần/tháng/năm/tùy chọn):
+    //  - Kỳ nào TỔNG THU = 0 -> ẨN HẲN chuỗi Thu nhập (chỉ còn Chi tiêu);
+    //    có thu -> hiện cả 2. (App không có chip legend riêng cho biểu đồ này:
+    //    Chart.js legend đang tắt, tiêu đề thẻ + tooltip đảm nhiệm chú thích —
+    //    nên "ẩn chip" ở đây chính là bỏ hẳn dataset khỏi biểu đồ.)
+    //  - Đường L1: mượt tension 0,4, gradient 22% -> trong suốt, không chấm
+    //    điểm (chỉ chấm hover), trần trục = max x 1,08, lưới ngang đứt nét.
+    //  - Cột B1: màu đặc, bo đầu 4px, dày tối đa 14.
+    //  - Trục Y giữ formatCurrencyWithUnit của bản cá nhân (dấu chấm vi-VN +
+    //    ₫, tôn trọng cài đặt đầy đủ/rút gọn); bật ẩn số vẫn che '***' ở cả
+    //    trục Y lẫn tooltip như trước. layout padding top giữ nguyên để nút
+    //    chuyển biểu đồ (đè góc phải trên) không che vùng vẽ.
+    const isLineMode = window.currentChartType === 'line';
+    const hasIncome = tInc > 0;
+    let maxY = 0;
+    incs.forEach(v => { if (v > maxY) maxY = v; });
+    exps.forEach(v => { if (v > maxY) maxY = v; });
+
+    const lineGradient = (rgb) => (c) => {
+        const chartArea = c.chart && c.chart.chartArea;
+        if (!chartArea) return `rgba(${rgb},0.22)`;
+        const g = c.chart.ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+        g.addColorStop(0, `rgba(${rgb},0.22)`); g.addColorStop(1, `rgba(${rgb},0)`);
+        return g;
+    };
+    const lineDs = (label, data, hex, rgb) => ({ label: label, data: data, type: 'line',
+        borderColor: hex, borderWidth: 2.5, tension: 0.4, fill: 'origin',
+        backgroundColor: lineGradient(rgb),
+        pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: hex, pointHoverBorderWidth: 2.5 });
+    const barDs = (label, data, hex) => ({ label: label, data: data,
+        backgroundColor: hex, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 14 });
+
+    const dsExp = isLineMode ? lineDs('Chi tiêu', exps, '#F43F5E', '244,63,94') : barDs('Chi tiêu', exps, '#F43F5E');
+    const dsInc = isLineMode ? lineDs('Thu nhập', incs, '#6366F1', '99,102,241') : barDs('Thu nhập', incs, '#6366F1');
+    const mDatasets = hasIncome ? [dsInc, dsExp] : [dsExp];
+
+    window.mChart = new Chart(ctx, {
+        type: window.currentChartType || 'bar',
+        data: { labels: labels, datasets: mDatasets },
+        options: {
+            devicePixelRatio: 4, responsive: true, maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            interaction: { mode: 'index', intersect: false },
+            layout: { padding: { top: 20 } },
+            scales: {
+                x: { grid: { display: false }, border: { display: false },
+                     ticks: { color: '#9AA1B5', font: { size: 11, family: appFont }, maxTicksLimit: 11, autoSkip: true },
+                     ...(isLineMode ? {} : { categoryPercentage: 0.8, barPercentage: 0.75 }) },
+                y: { beginAtZero: true, suggestedMax: Math.round(maxY * 1.08),
+                     grid: { color: '#EEF0F4', drawTicks: false, borderDash: [5, 5] },
+                     border: { display: false },
+                     ticks: { color: '#9AA1B5', font: { size: 10.5, family: appFont }, maxTicksLimit: 7, padding: 6, callback: v => {
+                         if (isPrivacyActive) return '***';
+                         const vObj = formatCurrencyWithUnit(v); return vObj.val + vObj.unit;
+                     } } }
+            },
+            plugins: { legend: { display: false }, tooltip: {
+                backgroundColor: '#fff', titleColor: '#14161F', bodyColor: '#4B5563',
+                borderColor: '#EDEEF2', borderWidth: 1, padding: 12, cornerRadius: 12,
+                boxWidth: 8, boxHeight: 8, boxPadding: 4, usePointStyle: true, displayColors: true,
+                titleFont: { size: 12, weight: '700', family: appFont }, bodyFont: { size: 12, family: appFont },
+                callbacks: {
+                    title: items => {
+                        if (!items || !items.length) return '';
+                        const lb = String(items[0].label);
+                        return /^\d+$/.test(lb) ? ('Ngày ' + lb) : lb;
+                    },
+                    label: c => {
+                        if (isPrivacyActive) return ' ' + c.dataset.label + ': ***';
+                        const cObj = formatCurrencyWithUnit(c.raw);
+                        return ' ' + c.dataset.label + ': ' + cObj.val + cObj.unit;
+                    }
+                } } }
+        }
     });
 
     const catMap = {}; currentTx.forEach(t => { if(t.type==='Chi tiêu') catMap[t.category] = (catMap[t.category]||0)+t.amount; });
@@ -487,7 +576,9 @@ function drawMonthlyPieChart(data) {
   window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
   const catObj = formatCurrencyWithUnit(catAmt);
   const displayAmt = isPrivacyActive ? '***' : catObj.val + catObj.unit;
-  ctx.fillText(displayAmt, c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px ${appFont}`; ctx.fillText(`(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font=`500 10px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font=`800 13px ${appFont}`; 
+  // FIX 3b F-10 (quét %): dòng % dưới số tiền ở tâm donut cũng phải che "***"
+  // khi ẩn số — trước đây chỉ số tiền được che, % tỉ trọng vẫn lộ số thật.
+  ctx.fillText(displayAmt, c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px ${appFont}`; ctx.fillText(isPrivacyActive ? '***' : `(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font=`500 10px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font=`800 13px ${appFont}`; 
   const totalObj = formatCurrencyWithUnit(total);
   const displayTotal = isPrivacyActive ? '***' : totalObj.val + totalObj.unit;
   ctx.fillText(displayTotal, c.width/2, c.height/2 + 8); } ctx.restore(); } }] });
@@ -509,7 +600,7 @@ function drawMonthlyPieChart(data) {
     if (progList) { 
         const iAmtObj = formatCurrencyWithUnit(i.amount);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
-        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
+        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
         divProg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         progList.appendChild(divProg); 
     }
@@ -553,9 +644,11 @@ function showCategoryDetail(cat) {
   txs.forEach(t => { if(t.type === 'Thu nhập') totalInc += t.amount; else totalExp += t.amount; });
   
   const incObj = formatCurrencyWithUnit(totalInc);
-  document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
+  // FIX 3b F-09: tổng bằng 0 hiển thị "0 ₫" KHÔNG kèm dấu +/− (trước đây vô
+  // điều kiện gắn dấu -> "+0 ₫" / "−0 ₫" ở ngày chỉ có một phía).
+  document.getElementById('detailTotalIncome').innerHTML = `${totalInc > 0 ? '<span>+</span>' : ''}${incObj.val}<span>${incObj.unit}</span>`;
   const expObj = formatCurrencyWithUnit(totalExp);
-  document.getElementById('detailTotalExpense').innerHTML = `<span>−</span>${expObj.val}<span>${expObj.unit}</span>`;
+  document.getElementById('detailTotalExpense').innerHTML = `${totalExp > 0 ? '<span>−</span>' : ''}${expObj.val}<span>${expObj.unit}</span>`;
 
   const chartContainer = document.getElementById('detailChartContainer');
   if(chartContainer) chartContainer.style.display = 'none';
@@ -588,9 +681,10 @@ function openDailyDetailView(d, m, y, allTxs) {
     dayTxs.forEach(t => { if(t.type === 'Chi tiêu') totalExp += t.amount; else totalInc += t.amount; });
 
     const incObj = formatCurrencyWithUnit(totalInc);
-    document.getElementById('detailTotalIncome').innerHTML = `<span>+</span>${incObj.val}<span>${incObj.unit}</span>`;
+    // FIX 3b F-09: như showCategoryDetail — 0 thì không gắn dấu +/−.
+    document.getElementById('detailTotalIncome').innerHTML = `${totalInc > 0 ? '<span>+</span>' : ''}${incObj.val}<span>${incObj.unit}</span>`;
     const expObj = formatCurrencyWithUnit(totalExp);
-    document.getElementById('detailTotalExpense').innerHTML = `<span>−</span>${expObj.val}<span>${expObj.unit}</span>`;
+    document.getElementById('detailTotalExpense').innerHTML = `${totalExp > 0 ? '<span>−</span>' : ''}${expObj.val}<span>${expObj.unit}</span>`;
 
     const chartContainer = document.getElementById('detailChartContainer');
     if(chartContainer) chartContainer.style.display = 'none';
@@ -982,8 +1076,43 @@ function renderInsightStrip(ctx) {
     }
     if (line2) lines.push(line2);
   }
-  strip.innerHTML = '<span class="insight-ic"><i class="fas fa-lightbulb"></i></span><span class="insight-lines">' +
-    lines.map(function (l) { return '<span class="insight-line">' + l + '</span>'; }).join('') + '</span>';
+  var paintInsight = function () {
+    strip.innerHTML = '<span class="insight-ic"><i class="fas fa-lightbulb"></i></span><span class="insight-lines">' +
+      lines.map(function (l) { return '<span class="insight-line">' + l + '</span>'; }).join('') + '</span>';
+  };
+  paintInsight();
+  strip.style.display = 'flex';
+  // FIX 3b F-05: áp NGÂN SÁCH 2 DÒNG NỘI DUNG cho cả thẻ (production mới chỉ
+  // áp cho đoạn trung bình ngày qua ước lượng (line2.length + 20) <= 56).
+  // Ca biên của audit: danh mục chi nhiều nhất tên 34 ký tự + số 1,5 tỷ ->
+  // dòng 1 dài 88 ký tự, thẻ cao 86px ở máy 360 trong khi khung chuẩn 2 dòng
+  // là ~66px. Vượt ngân sách khi: dòng 1 > 72 ký tự HOẶC tổng nội dung
+  // > 118 ký tự (ca thường: dòng 1 ~54, tổng ~108 -> không đụng). Khi vượt,
+  // cắt dần chi tiết theo đúng thứ tự: (1) bỏ đoạn trung bình ngày
+  // "· TB .../ngày", (2) bỏ hẳn dòng 2, (3) rút gọn tên danh mục ở dòng 1
+  // bằng "…" — kết quả đo lại trên fixture audit: thẻ về đúng chiều cao
+  // chuẩn 2 dòng, số tiền cao nhất vẫn còn nguyên.
+  if (expTxs.length && lines.length) {
+    var insightOver = function () {
+      var t = 0;
+      lines.forEach(function (l) { t += l.length; });
+      return lines[0].length > 72 || t > 118;
+    };
+    if (insightOver()) {
+      var line1I = lines[0];
+      var line2I = lines.length > 1 ? lines[1] : '';
+      var tbAt = line2I.indexOf(' · TB ');
+      var line2NoAvg = tbAt >= 0 ? line2I.slice(0, tbAt) : line2I;
+      var candI = [];
+      if (line2I && line2NoAvg !== line2I) candI.push([line1I, line2NoAvg]);
+      if (line2I) candI.push([line1I]);
+      if (topCat && topCat.length > 20) candI.push(['Chi nhiều nhất cho ' + escapeHTML(topCat.slice(0, 20) + '…') + ' — ' + money(topAmt) + ' (' + pctT(share) + ' tổng chi)']);
+      for (var ciI = 0; ciI < candI.length; ciI++) {
+        lines = candI[ciI]; paintInsight();
+        if (!insightOver()) break;
+      }
+    }
+  }
   strip.style.display = 'flex';
   window.__insightCtx = ctx || null;
 }

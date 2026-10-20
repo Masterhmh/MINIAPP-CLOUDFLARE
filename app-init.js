@@ -513,19 +513,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       toggleChartBtn.onclick = () => {
           triggerHaptic('light');
           window.currentChartType = window.currentChartType === 'bar' ? 'line' : 'bar';
+          localStorage.setItem('settingChartType', window.currentChartType);
+          const chartTypeSel2 = document.getElementById('settingChartType'); if (chartTypeSel2) chartTypeSel2.value = window.currentChartType;
           document.getElementById('toggleChartBtn').innerHTML = window.currentChartType === 'bar' ? '<i class="fas fa-chart-line"></i>' : '<i class="fas fa-chart-bar"></i>';
-          const isTab2 = document.getElementById('tab2').classList.contains('active');
-          if (isTab2 && window.mChart) {
-              window.mChart.config.type = window.currentChartType;
-              if (window.currentChartType === 'line') {
-                  window.mChart.data.datasets[0].tension = 0.4; window.mChart.data.datasets[0].fill = true; window.mChart.data.datasets[0].borderWidth = 2; window.mChart.data.datasets[0].pointRadius = 4;
-                  window.mChart.data.datasets[1].tension = 0.4; window.mChart.data.datasets[1].fill = true; window.mChart.data.datasets[1].borderWidth = 2; window.mChart.data.datasets[1].pointRadius = 4;
-              } else {
-                  window.mChart.data.datasets[0].fill = false; window.mChart.data.datasets[0].borderWidth = 0; window.mChart.data.datasets[0].borderRadius = 4;
-                  window.mChart.data.datasets[1].fill = false; window.mChart.data.datasets[1].borderWidth = 0; window.mChart.data.datasets[1].borderRadius = 4;
-              }
-              window.mChart.update();
-          }
+          // PERSONAL ROUND 3: vẽ lại qua đúng đường render (processReportData)
+          // như select trong Cài đặt, thay cơ chế vá config tại chỗ của bản cũ —
+          // cơ chế cũ vỡ khi kỳ không có thu nhập (chỉ còn 1 dataset -> đọc
+          // datasets[1] gây lỗi) và giữ style cũ (chấm điểm, fill đặc) thay vì
+          // mẫu L1/B1 đã duyệt.
+          if (document.getElementById('tab2').classList.contains('active')) updateTimeNavUI();
       };
   }
 
