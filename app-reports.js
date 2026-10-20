@@ -588,12 +588,12 @@ function drawMonthlyPieChart(data) {
 
   data.forEach((i, idx) => {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
-    const tc = getCategoryTextColor(i.category); // ROUND 3c: chữ (% + số tiền) dùng biến thể TEXT đậm; c (FILL) cho lát/icon/thanh
+    const tc = getCategoryTextColor(i.category); // ROUND 3c/3d: chữ (% + số tiền) + glyph icon dùng bản TEXT-VIVID; c (FILL) cho lát/thanh/nền chip
     const catIconHTML = getCategoryIcon(i.category);
 
     if (leg) { 
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; 
-        divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`; 
+        divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${tc}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`; 
         divLeg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         leg.appendChild(divLeg); 
     }
@@ -601,7 +601,7 @@ function drawMonthlyPieChart(data) {
     if (progList) { 
         const iAmtObj = formatCurrencyWithUnit(i.amount);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
-        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${tc}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
+        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${tc};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${tc}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
         divProg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         progList.appendChild(divProg); 
     }
@@ -749,7 +749,7 @@ function drawDailyPieChart(data, totalExp) {
     data.forEach((i, idx) => {
       const pct = totalExp>0 ? ((i.amount/totalExp)*100).toFixed(1) : 0; const c = bg[idx]; const tc = getCategoryTextColor(i.category); const catIconHTML = getCategoryIcon(i.category);
       const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; divLeg.setAttribute('data-cat', i.category);
-      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`;
+      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${tc}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`;
       divLeg.onclick = function() { toggleDailyFilter(i.category); };
       leg.appendChild(divLeg);
     });
@@ -967,17 +967,25 @@ function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
   var sign = tBal > 0 ? '+ ' : (tBal < 0 ? '− ' : '');
   var eyeCls = (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) ? 'fa-eye-slash' : 'fa-eye';
   // R23: mắt privacy KHÔNG còn nằm trong hàng số — về góc dưới-phải thẻ (G8-E).
+  // PERSONAL ROUND 3d (Hùng: số tiền panel đen + icon một màu tím trầm):
+  // số tiền + icon từng hàng mang màu ngữ nghĩa TƯƠI riêng — Thu nhập chàm
+  // SEM_INC, Chi tiêu hồng SEM_EXP, Số dư tím SEM_BAL (định trong app-core).
+  // Màu đi qua class hàng .g6-inc/.g6-exp/.g6-bal (CSS ở personal-compat,
+  // thắng rule #tab2 .stat-num !important của redesign) — KHÔNG dùng inline
+  // color: inline không thắng được !important stylesheet, còn inline
+  // !important thì phá vỡ mask privacy (inline thắng mọi stylesheet).
+  // fitter chỉ đặt font-size inline nên không chỏi.
   function amtHTML(inner, id) {
     return '<div class="g6-amt stat-num" id="' + id + '">' + inner + '</div>';
   }
   var rows = [
-    { icon: 'fa-hand-holding-dollar', label: 'Thu nhập',
+    { icon: 'fa-hand-holding-dollar', label: 'Thu nhập', rowCls: 'g6-inc',
       amt: amtHTML(tIncObj.val + '<span>' + tIncObj.unit + '</span>', 'tab2Income'),
       cmp: getCompareHTML(tInc, pInc, 'income', compareText), cmpId: 'tab2IncomeCompare' },
-    { icon: 'fa-money-bill-transfer', label: 'Chi tiêu',
+    { icon: 'fa-money-bill-transfer', label: 'Chi tiêu', rowCls: 'g6-exp',
       amt: amtHTML(tExpObj.val + '<span>' + tExpObj.unit + '</span>', 'tab2Expense'),
       cmp: getCompareHTML(tExp, pExp, 'expense', compareText), cmpId: 'tab2ExpenseCompare' },
-    { icon: 'fa-wallet', label: 'Số dư',
+    { icon: 'fa-wallet', label: 'Số dư', rowCls: 'g6-bal',
       amt: amtHTML('<span>' + sign + '</span>' + tBalObj.val + '<span>' + tBalObj.unit + '</span>', 'tab2Balance'),
       cmp: getCompareHTML(tBal, pBal, 'balance', compareText), cmpId: 'tab2BalanceCompare' }
   ];
@@ -988,7 +996,7 @@ function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
     '<div class="g6-legend">' + rows.map(function (r) {
       // R23: icon CÙNG hàng flex với nhãn (.g6-lft) — thẳng tâm icon với tâm chữ nhãn;
       // so sánh thụt vào thẳng dưới nhãn (margin-left 28px trong CSS).
-      return '<div class="g6-row"><div class="g6-line1">' +
+      return '<div class="g6-row ' + r.rowCls + '"><div class="g6-line1">' +
         '<span class="g6-lft"><span class="g6-ic"><i class="fas ' + r.icon + '"></i></span>' +
         '<span class="g6-tag">' + r.label + '</span></span>' + r.amt + '</div>' +
         '<div class="g6-cmp" id="' + r.cmpId + '">' + r.cmp + '</div></div>';

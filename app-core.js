@@ -418,9 +418,34 @@ function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E
      Công nghệ #4086F2 / #1654B3 · Đi lại #F19E1E / #986413 ·
      Mua sắm #DC32F1 / #BB1ACF · Cà phê #E6EE20 / #585B0B ·
      Giáo dục #20EE63 / #107F34 · Sức khỏe #20EEBB / #0C644E ·
-     Nhà cửa #27CEF1 / #12798F · Giải trí #F23665 / #D81B4A. */
+     Nhà cửa #27CEF1 / #12798F · Giải trí #F23665 / #D81B4A.
+
+   PERSONAL ROUND 3d — Hùng xem ảnh thật: "Màu số tiền, icon… tổng thể phải
+   tươi lên". Vòng 3c mới làm tươi phần TÔ; số tiền/icon/chip vẫn dùng bản
+   TEXT trầm của vòng 3 → tổng thể vẫn xỉn. Vòng này thay TEXT bằng
+   TEXT-VIVID: CÙNG hue + ô với fill, bão hòa >= 85%, độ sáng = MỨC CAO
+   NHẤT còn đạt tương phản >= 4,2:1 trên nền trắng (tính bằng script từng
+   màu; hue sáng như chàm/tím lên tới L 63–68, hue vàng/xanh lá — vốn mang
+   luminance cao — dừng ở L 27–36 nhưng bão hòa 85%+ nên vẫn rực hơn bản
+   cũ hẳn). Mọi CHỮ mang màu danh mục dùng bản này: % chú thích 2 donut,
+   số tiền thẻ danh mục, số tiền tâm donut khi chạm lát, chữ/% xuất PDF.
+   Bản TEXT vòng 3 bị thay thế hoàn toàn (không còn consumer nào dùng).
+   Ánh xạ 12 danh mục thật (fill / text-vivid):
+     Gia đình #5550F2 / #6E69F4 · Bảo hiểm #EC4722 / #E53913 ·
+     Y tế #9341F1 / #9D53F2 · Ăn uống #8FEC22 / #4F890B ·
+     Công nghệ #4086F2 / #2877F0 · Đi lại #F19E1E / #AD6D0B ·
+     Mua sắm #DC32F1 / #D010E8 · Cà phê #E6EE20 / #7B800A ·
+     Giáo dục #20EE63 / #0B8E36 · Sức khỏe #20EEBB / #0B8C6C ·
+     Nhà cửa #27CEF1 / #0A86A0 · Giải trí #F23665 / #F01B51. */
 const CATEGORY_PALETTE = ['#F23665', '#EC4722', '#F19E1E', '#E6EE20', '#8FEC22', '#37EC22', '#20EE63', '#20EEBB', '#27CEF1', '#4086F2', '#5550F2', '#9341F1', '#DC32F1', '#F22CB2'];
-const CATEGORY_TEXT_PALETTE = ['#D81B4A', '#A32E14', '#986413', '#585B0B', '#497B0F', '#16660D', '#107F34', '#0C644E', '#12798F', '#1654B3', '#3933E6', '#761BDE', '#BB1ACF', '#A61477'];
+const CATEGORY_TEXT_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F890B', '#198E0B', '#0B8E36', '#0B8C6C', '#0A86A0', '#2877F0', '#6E69F4', '#9D53F2', '#D010E8', '#E70EA1'];
+/* PERSONAL ROUND 3d — màu NGỮ NGHĨA tươi cho số tiền + icon (tương phản
+   trên trắng đo bằng script: #6366F1 = 4,47 · #E11D48 = 4,70 ·
+   #7C3AED = 5,70 · #098D5D = 4,22; riêng statbox Tab1 nền #F4F4F8 nên
+   chàm lùi 1 nấc #6062F2 = 4,23 trên nền đó — vẫn cùng họ #6366F1).
+   SEM_EXP/SEM_EARN cũng là màu số tiền thẻ giao dịch (.tx-amount, trong
+   redesign.css) và thẻ tổng modal chi tiết ngày (index.html). */
+const SEM_INC = '#6366F1', SEM_INC_STAT = '#6062F2', SEM_EXP = '#E11D48', SEM_BAL = '#7C3AED', SEM_EARN = '#098D5D';
 function categoryPaletteIndex(name) {
   const s = String(name || '');
   let h = 266571;
@@ -472,14 +497,21 @@ function renderTxCard(item, stt) {
     const isInc = item.type === 'Thu nhập';
     const tCls = isInc ? 'income' : 'expense';
     const icon = getCategoryIcon(item.category);
+    // PERSONAL ROUND 3d (Hùng: chip mọi danh mục đều hồng nhạt giống nhau):
+    // chip icon + pill tên danh mục mang màu RIÊNG từng danh mục —
+    // nền = FILL ở 14% alpha, icon/pill chữ = TEXT-VIVID (cùng hue).
+    // class .cat-tint để CSS đọc qua biến --cat-bg/--cat-fg (cần !important
+    // vì .tx-badge.income/.expense của redesign có !important sẵn).
+    const catFill = getCategoryColor(item.category), catText = getCategoryTextColor(item.category);
+    const tint = ` style="--cat-bg:${catFill}24; --cat-fg:${catText}"`;
     const amtObj = formatCurrencyWithUnit(item.amount);
-    return `<div class="tx-icon-wrap ${tCls}">${icon}</div>`
+    return `<div class="tx-icon-wrap ${tCls} cat-tint"${tint}>${icon}</div>`
         + `<div class="tx-body">`
         +   `<div class="tx-title">${escapeHTML(item.content)}</div>`
         +   `<div class="tx-meta-row">`
         +     `<span class="tx-date">${escapeHTML(formatDate(item.date))}</span>`
         +     `<span class="tx-badge tx-badge-neutral">${escapeHTML(item.type)}</span>`
-        +     `<span class="tx-badge ${tCls}">${escapeHTML(item.category)}</span>`
+        +     `<span class="tx-badge ${tCls} cat-tint"${tint}>${escapeHTML(item.category)}</span>`
         +   `</div>`
         +   (item.note ? `<div class="tx-note"><i class="fas fa-tag tx-note-icon"></i>${escapeHTML(item.note)}</div>` : '')
         +   `<div class="tx-id-row"><span>STT: ${stt}</span> • <span>#${escapeHTML(item.id)}</span></div>`

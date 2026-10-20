@@ -174,3 +174,52 @@ body.privacy-on #tab2 .cat-progress-pct::after {
   min-height: 44px;
   justify-content: center;
 }
+
+/* ---------- 18) ROUND 3d — tổng thể TƯƠI (Hùng: "Màu số tiền, icon… tổng
+   thể phải tươi lên"): sau 3c chỉ phần tô biểu đồ tươi; vòng này phủ nốt
+   lớp trình diễn còn lại. Số tiền ngữ nghĩa + icon panel G6 đi qua style
+   inline trong app-reports.js (SEM_* ở app-core.js); các bề mặt CSS ở đây:
+   - Chip icon + pill danh mục trên thẻ giao dịch (.cat-tint trong
+     renderTxCard): nền = FILL danh mục 14% alpha, glyph/chữ = TEXT-VIVID
+     cùng hue (biến --cat-bg/--cat-fg truyền từ JS vì 14+ danh mục động,
+     không đóng cứng bằng class được). Thắng .tx-badge.income/.expense
+     !important của redesign nhờ specificity cao hơn + nạp sau.
+   - 2 số statbox Tab1: Thu nhập chàm #6062F2 (bản đạt 4,2:1 trên nền thẻ
+     #F4F4F8 của họ #6366F1), Số dư tím #7C3AED; icon nhãn theo cùng màu.
+     Bọc body:not(.privacy-on) cho mask privacy không bị tranh chấp.
+   - Bóng đèn insight: chàm -> hổ phách tươi #F59E0B.
+   - Chip icon Cài đặt: tím #8B5CF6 (bão hòa thấp, nền 12%) -> tím tươi
+     #7C3AED bão hòa đầy, nền 15% — vẫn đúng MỘT họ tím như cũ, chỉ hết
+     "tắt tiếng". */
+.tx-card .tx-icon-wrap.cat-tint {
+  background: var(--cat-bg) !important;
+  color: var(--cat-fg) !important;
+}
+.tx-card .tx-badge.cat-tint {
+  background: var(--cat-bg) !important;
+  color: var(--cat-fg) !important;
+  border-color: transparent !important;
+}
+body:not(.privacy-on) #tab1 #heroIncome { color: #6062F2 !important; }
+body:not(.privacy-on) #tab1 #heroBalanceSub { color: #7C3AED !important; }
+
+/* G6 panel: số tiền + icon từng hàng màu ngữ nghĩa TƯƠI.
+   Class .g6-inc/.g6-exp/.g6-bal trên hàng (gán trong renderG6StatsPanel).
+   Specificity (1,3,0) thắng #tab2 .stat-num !important (1,2,0) của redesign.
+   Rule mask privacy bọc dưới: specificity cao hơn nên vẫn che "***" thắng. */
+#tab2 .g6-row.g6-inc .g6-amt { color: #6366F1 !important; }
+#tab2 .g6-row.g6-exp .g6-amt { color: #E11D48 !important; }
+#tab2 .g6-row.g6-bal .g6-amt { color: #7C3AED !important; }
+#tab2 .g6-row.g6-inc .g6-ic { color: #6366F1 !important; }
+#tab2 .g6-row.g6-exp .g6-ic { color: #E11D48 !important; }
+#tab2 .g6-row.g6-bal .g6-ic { color: #7C3AED !important; }
+body.privacy-on #tab2 .g6-row.g6-inc .g6-amt,
+body.privacy-on #tab2 .g6-row.g6-exp .g6-amt,
+body.privacy-on #tab2 .g6-row.g6-bal .g6-amt { color: transparent !important; }
+#tab1 .hero-sub .hero-stat:nth-child(1) .hero-stat-label i { color: #6062F2 !important; }
+#tab1 .hero-sub .hero-stat:nth-child(3) .hero-stat-label i { color: #7C3AED !important; }
+#tab2 .insight-strip .insight-ic { color: #F59E0B !important; }
+#settingsPage .settings-info > i {
+  color: #7C3AED !important;
+  background: rgba(124, 58, 237, 0.15) !important;
+}

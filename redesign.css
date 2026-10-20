@@ -161,8 +161,10 @@ body { background: #F7F7FA !important; color: #14141A !important; }
 .tx-icon-wrap { border-radius: 16px !important; width: 46px; height: 46px; }
 .tx-title { color: #14141A !important; font-weight: 700 !important; }
 .tx-date, .tx-note { color: #6D6D76 !important; }
-.tx-amount.expense { color: #D73752 !important; font-weight: 800 !important; }
-.tx-amount.income { color: #0B855D !important; font-weight: 800 !important; }
+/* PERSONAL ROUND 3d (Hùng: số tiền tươi lên): hồng tươi #E11D48 (tương phản
+   4,70 trên trắng) thay #D73752; xanh lá tươi #098D5D (4,22) thay #0B855D. */
+.tx-amount.expense { color: #E11D48 !important; font-weight: 800 !important; }
+.tx-amount.income { color: #098D5D !important; font-weight: 800 !important; }
 .tx-badge { border-radius: 999px !important; font-size: 10px !important; padding: 3px 10px !important; font-weight: 600 !important; }
 .tx-badge-neutral, .tx-badge.tx-badge-neutral { background: #F4F4F8 !important; color: #5B5B66 !important; }
 .tx-badge.expense { background: rgba(244,63,94,0.10) !important; color: #D73752 !important; }
