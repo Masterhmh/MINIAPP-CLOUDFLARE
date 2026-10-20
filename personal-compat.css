@@ -117,9 +117,30 @@
 }
 #dailyPieChartContainer {
   align-items: flex-start;
+  /* FIX (Hùng 20/10: card thừa khoảng trống khi ít danh mục):
+     .chart-placeholder toàn cục ép min-height: 250px khiến card luôn cao
+     250px kể cả khi nội dung chỉ ~134px (1 danh mục) → chết ~115px.
+     Gỡ min-height ở container này để chiều cao card bám đúng nội dung:
+     card = max(donut 110px, chú thích tự nhiên) + padding 12px×2. */
+  min-height: 0;
 }
 
 /* Ghi chú: cuộn ngoài của modal do thẻ bọc nội dung (con thứ 3 của
    #detailModal, overflow-y: auto có sẵn) đảm nhiệm — đã kiểm chứng: với 10
    giao dịch, wrapper scrollH 1522 > clientH 651 và cuộn tới được pagination.
    Không thêm overflow cho chính #detailModal để tránh lồng 2 khung cuộn. */
+
+/* ---------- 15) FIX R2-3 (Hùng 20/10: ký tự ₫ ở hàng Số dư bị cụt ở mép
+   phải panel khi số dài — ảnh chế độ năm "− 229.740.842 ₫").
+   Mắt privacy nằm absolute ở góc dưới-phải thẻ (bottom:4/right:4, 32x32)
+   TRÙNG dải ngang với đuôi số của hàng Số dư: đo thực tế overlap ngang
+   24px, hở dọc chỉ ~8px (sandbox DejaVu); trên iPhone glyph SF rộng hơn
+   ~25% nên mắt đè hẳn lên ký tự ₫. Text căn phải nên fitter KHÔNG dời được
+   mép phải bằng cách thu cỡ — dự trữ mắt phải nằm ở CSS: padding-right
+   40px cho CẢ 3 HÀNG số của panel G6 (mép phải glyph các hàng vẫn thẳng
+   hàng Δ=0; vùng 40px này trống cho mắt). fitter (app-core.js) trừ padding
+   khi tính bề rộng khả dụng nên mọi số được co để lọt trong vùng này.
+   Bằng đúng mức dự trữ 40px của dòng so sánh hàng cuối (redesign.css). */
+#tab2 .g6-amt {
+  padding-right: 40px;
+}

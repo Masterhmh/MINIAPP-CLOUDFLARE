@@ -105,6 +105,9 @@ function displayTransactions() {
   
   const heroExpCompare = document.getElementById('heroExpenseCompare');
   if(heroExpCompare) heroExpCompare.innerHTML = getCompareHTML(tExp, pExp, 'expense', compSuffix);
+
+  // FIX R2-3: co cỡ số tiền hero cho vừa sau mỗi lần vẽ (port production R20)
+  try { if (typeof window.fitStatAmounts === 'function') window.fitStatAmounts(); } catch (e) {}
   
   const headerTitle = document.querySelector('#tab1 .section-title');
   if(headerTitle) headerTitle.innerHTML = `GIAO DỊCH TRONG NGÀY <span style="font-size: 0.75rem; color: var(--text-2); text-transform: none;">(Tổng: ${data.length})</span>`;
@@ -396,7 +399,11 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
     // (personal-port) panel G6 thay 3 stat-card — giữ nguyên các ID để baseline
     // và wrapper so sánh (app-upgrade.js) vẫn đọc/ghi đúng.
     try { renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText); } catch (e) {}
-    
+    // FIX R2-3: co cỡ 3 số của panel G6 cho vừa hàng sau mỗi lần render —
+    // kể cả khi render lại do ĐỔI ĐỊNH DẠNG TIỀN (settingCurrencyFormat đổi
+    // -> fetchTransactions(true) -> vẽ lại panel -> fitter chạy ở đây).
+    try { if (typeof window.fitStatAmounts === 'function') window.fitStatAmounts(); } catch (e) {}
+
     // Khi kỳ báo cáo KHÔNG có giao dịch nào -> ẩn 2 biểu đồ trống (Thu nhập & Chi tiêu +
     // Chi tiêu theo danh mục) và hiện dòng thông báo gọn gàng. Giữ nguyên các thẻ tổng & lịch.
     const chartContainerEl = document.querySelector('#tab2 .chart-container');

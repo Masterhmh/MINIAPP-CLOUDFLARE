@@ -152,7 +152,92 @@ function updatePrivacyUI(syncSettings = false) {
     if (window.dChart) window.dChart.update();
     // (personal-port) vẽ lại thẻ insight báo cáo theo trạng thái ẩn số
     try { if (typeof window.refreshInsightStrip === 'function') window.refreshInsightStrip(); } catch (e) {}
+    // FIX R2-3 (bản cá nhân): bật/tắt ẩn số đổi hiển thị -> co cỡ số lại cho
+    // vừa hàng (và gỡ inline-size khi masked để lớp mask "***" thắng).
+    try { if (typeof window.fitStatAmounts === 'function') window.fitStatAmounts(); } catch (e) {}
 }
+
+// ============================================================================
+// FIX ROUND 20 (port từ production) + FIX R2-3: CO CỠ SỐ STAT CHO VỪA HÀNG.
+// Bản cá nhân CHƯA từng có fitter này -> số dài bị overflow:hidden + clip
+// cắt mất đuôi (ký tự ₫) — Hùng chụp được ở chế độ năm: Số dư
+// "− 229.740.842 ₫" bị cụt "₫" ở mép phải panel.
+// Cơ chế (như production): đo bề rộng GLYPH thật bằng Range (scrollWidth mù
+// khi flex + overflow:hidden), thu nhỏ từng số tới khi vừa bề rộng khả dụng,
+// rồi áp CỠ CHUNG NHỎ NHẤT cho cả nhóm hàng (các số cùng cỡ, mép phải thẳng
+// hàng Δ=0). Sàn 12.8px (≈0.8rem), CSS dùng !important nên setProperty phải
+// kèm 'important'. Privacy-on: GỠ inline font-size để lớp CSS mask
+// (font-size:0 !important + "***"::after) thắng — không bao giờ để số thật lộ.
+// FIX R2-3 — DỰ TRỮ MẮT: mắt privacy nằm absolute ở góc dưới-phải panel
+// (bottom:4/right:4, hộp 32px) và TRÙNG dải ngang với đuôi số hàng Số dư
+// (đo thực tế: overlap ngang 24px, hở dọc chỉ ~8px theo số liệu sandbox —
+// trên máy thật, glyph SF rộng hơn ~25% + lệch vài px là mắt đè lên ký tự
+// ₫, đúng như ảnh Hùng chụp). Cơ chế dự trữ KHÔNG nằm trong fitter (chữ căn
+// phải nên thu nhỏ cỡ không dời được mép phải) mà nằm ở CSS:
+// personal-compat.css §15 cho .g6-amt padding-right:40px ở CẢ 3 HÀNG ->
+// mép phải glyph của cả 3 số lùi đều 40px (vẫn thẳng hàng Δ=0), vùng mắt
+// luôn trống; fitter dưới đây trừ padding khi tính avail như production.
+// ============================================================================
+function fitAmountRow(ids) {
+  var FLOOR = 12.8; // ≈0.8rem (như production R20)
+  function textW(el) {
+    var kids = [];
+    Array.prototype.forEach.call(el.childNodes, function (nd) {
+      if (nd.nodeType === 1 && window.getComputedStyle(nd).position === 'absolute') return;
+      kids.push(nd);
+    });
+    if (!kids.length) return el.scrollWidth;
+    try {
+      var r = document.createRange();
+      r.setStartBefore(kids[0]);
+      r.setEndAfter(kids[kids.length - 1]);
+      return r.getBoundingClientRect().width;
+    } catch (e) { return el.scrollWidth; }
+  }
+  var fitted = [];
+  ids.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.removeProperty('font-size'); // về cỡ CSS của viewport hiện tại
+    var cs = window.getComputedStyle(el);
+    var avail = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    if (!(avail > 0)) return;
+    var size = parseFloat(cs.fontSize) || 16;
+    if (size < 8) return; // đang bị mask (privacy-on) — bỏ qua hàng này
+    var guard = 60;
+    while (textW(el) > avail + 0.5 && size > FLOOR && guard-- > 0) {
+      size = Math.max(FLOOR, size - 1);
+      el.style.setProperty('font-size', size + 'px', 'important');
+    }
+    fitted.push(size);
+  });
+  if (!fitted.length) return;
+  var shared = Math.min.apply(null, fitted);
+  ids.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.style.setProperty('font-size', shared + 'px', 'important');
+  });
+}
+
+window.fitStatAmounts = function () {
+  var ids = ['tab2Income', 'tab2Expense', 'tab2Balance', 'heroIncome', 'heroBalanceSub'];
+  if (document.body.classList.contains('privacy-on')) {
+    // mask thắng: gỡ inline font-size để CSS font-size:0 !important có hiệu lực
+    // (inline !important thắng stylesheet !important -> số không bị che)
+    ids.forEach(function (id) { var el = document.getElementById(id); if (el) el.style.removeProperty('font-size'); });
+    return; // "***" luôn vừa
+  }
+  fitAmountRow(['tab2Income', 'tab2Expense', 'tab2Balance']);
+  fitAmountRow(['heroIncome', 'heroBalanceSub']);
+};
+
+(function initStatAmountResize() {
+  var t = null;
+  window.addEventListener('resize', function () {
+    if (t) clearTimeout(t);
+    t = setTimeout(function () { try { window.fitStatAmounts(); } catch (e) {} }, 150);
+  });
+})();
 
 // Đổi theme mà KHÔNG ghi đè các class trạng thái khác trên <body> (đặc biệt là
 // 'privacy-on'). Trước đây gán thẳng body.className = `theme-...` khiến chế độ
