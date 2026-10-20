@@ -975,7 +975,7 @@ function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
   // R23: mắt privacy KHÔNG còn nằm trong hàng số — về góc dưới-phải thẻ (G8-E).
   // PERSONAL ROUND 3d (Hùng: số tiền panel đen + icon một màu tím trầm):
   // số tiền + icon từng hàng mang màu ngữ nghĩa TƯƠI riêng — Thu nhập xanh
-  // lá SEM_INC (số #098D5D / icon SEM_INC_VIVID #10B981; vòng 3e đổi từ
+  // lá (số + icon CÙNG #10B981 từ vòng 3k — trước 3k số #098D5D; vòng 3e đổi từ
   // chàm theo yêu cầu của Hùng), Chi tiêu hồng SEM_EXP, Số dư tím SEM_BAL
   // (định trong app-core).
   // Màu đi qua class hàng .g6-inc/.g6-exp/.g6-bal (CSS ở personal-compat,

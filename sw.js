@@ -6,7 +6,7 @@
 //   mất kết nối. TUYỆT ĐỐI không cache dữ liệu Firebase / Google Sheet
 //   (tài chính động) để tránh hiển thị số liệu cũ.
 // ============================================================================
-const CACHE_VERSION = 'miniapp-hmh-v16';
+const CACHE_VERSION = 'miniapp-hmh-v17';
 const APP_SHELL = [
   './',
   './index.html',

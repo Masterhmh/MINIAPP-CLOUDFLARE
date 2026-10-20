@@ -532,7 +532,16 @@ const CATEGORY_TEXT_PALETTE = ['#F55C83', '#F36545', '#CD810D', '#92980A', '#5DA
    - SEM_INC_VIVID (icon Thu panel/statbox, lát Thu donut G6, dataset
      Thu biểu đồ cột/đường): #10B981 tươi (H160 S84% L39%) — phần TÔ/icon
      không phải chữ nên được dùng bản tươi nhất của họ.
-   Chi tiêu hồng SEM_EXP và Số dư tím SEM_BAL giữ nguyên. */
+   Chi tiêu hồng SEM_EXP và Số dư tím SEM_BAL giữ nguyên.
+
+   PERSONAL ROUND 3k — Hùng chốt: "Màu số tiền thu nhập phải cùng màu
+   với icon của thu nhập". MỌI số tiền Thu -> #10B981 (= SEM_INC_VIVID,
+   trùng hex icon): panel G6 + statbox Tab1 (CSS personal-compat §18),
+   .tx-amount.income (redesign.css), tổng Thu modal chi tiết ngày
+   (index.html, cả nhãn+icon lẫn số). SEM_INC #098D5D từ vòng này CHỈ
+   còn nuôi dòng so sánh "chiều tốt" của getCompareHTML (ngoài phạm vi
+   3k, giữ nguyên); SEM_INC_STAT/SEM_EARN là hằng legacy không còn
+   consumer trong code. */
 const SEM_INC = '#098D5D', SEM_INC_STAT = '#0B855D', SEM_INC_VIVID = '#10B981', SEM_EXP = '#E11D48', SEM_BAL = '#7C3AED', SEM_EARN = '#098D5D';
 function categoryPaletteIndex(name) {
   const s = String(name || '');
