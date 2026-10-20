@@ -40,6 +40,14 @@ if (window.Telegram && window.Telegram.WebApp) {
                 }
             } catch (e) {}
             document.documentElement.style.setProperty('--hmh-sat', sat + 'px');
+            // ROUND 3h: body.hmh-fs bật khi fullscreen CÓ inset thật (> 0)
+            // — personal-compat.css §22 dùng nó để dựng dải tím phủ vùng
+            // status/nút nổi (Cách B) + áp đệm trên cho mọi trang. sat = 0
+            // (ngoài fullscreen, hoặc fullscreen desktop không inset) thì
+            // không lớp, không dải, bố cục y hệt như trước.
+            try {
+                if (document.body) document.body.classList.toggle('hmh-fs', sat > 0);
+            } catch (e) {}
         }
         if (typeof tg.onEvent === 'function') {
             tg.onEvent('safeAreaChanged', applySafeArea);
@@ -494,9 +502,20 @@ function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E
    nên getCategoryColor() === getCategoryTextColor() ở mọi danh mục — lát
    donut (Tab2 + chi tiết ngày), thanh tiến trình, icon, số tiền, %, nền
    chip (chuẩn ở ~14% alpha) và điểm nhấn PDF đều dùng đúng 1 hex. Bảng
-   FILL tươi của 3c bị thay thế hoàn toàn. */
-const CATEGORY_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F890B', '#198E0B', '#0B8E36', '#0B8C6C', '#0A86A0', '#2877F0', '#6E69F4', '#9D53F2', '#D010E8', '#E70EA1'];
-const CATEGORY_TEXT_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F890B', '#198E0B', '#0B8E36', '#0B8C6C', '#0A86A0', '#2877F0', '#6E69F4', '#9D53F2', '#D010E8', '#E70EA1'];
+   FILL tươi của 3c bị thay thế hoàn toàn.
+
+   PERSONAL ROUND 3h — Hùng vẫn chê màu chuẩn 3f "xỉn" trên máy thật và
+   đã CHỌT demo "bậc tươi-large" (demo-fs-color/DEMO.md): giữ nguyên
+   hue/ô của bảng 3f, ép bão hòa S = 88%, độ sáng L = mức CAO NHẤT còn
+   đạt tương phản >= 3,1:1 trên trắng (ngưỡng chữ lớn/đậm — số tiền thẻ
+   danh mục là chữ đậm ~16,5px). 12 danh mục thật lấy đúng hex đã duyệt
+   ở DEMO.md; 2 ô không thuộc danh mục thật của Hùng (#198E0B hue 113,6°
+   và #E70EA1 hue 319,4°) tính bằng cùng quy tắc -> #1CA90B / #F450BF.
+   Nguyên tắc MỘT hex/danh mục của 3f giữ nguyên tuyệt đối:
+   CATEGORY_PALETTE === CATEGORY_TEXT_PALETTE; màu ngữ nghĩa Thu/Chi/Dư
+   không đụng. */
+const CATEGORY_PALETTE = ['#F55C83', '#F36545', '#CD810D', '#92980A', '#5DA30A', '#1CA90B', '#0BA93F', '#0BA57F', '#0C9FBD', '#5191F4', '#8985F7', '#B175F6', '#E252F4', '#F450BF'];
+const CATEGORY_TEXT_PALETTE = ['#F55C83', '#F36545', '#CD810D', '#92980A', '#5DA30A', '#1CA90B', '#0BA93F', '#0BA57F', '#0C9FBD', '#5191F4', '#8985F7', '#B175F6', '#E252F4', '#F450BF'];
 /* PERSONAL ROUND 3d — màu NGỮ NGHĨA tươi cho số tiền + icon (tương phản
    trên trắng đo bằng script: #6366F1 = 4,47 · #E11D48 = 4,70 ·
    #7C3AED = 5,70 · #098D5D = 4,22; riêng statbox Tab1 nền #F4F4F8 nên

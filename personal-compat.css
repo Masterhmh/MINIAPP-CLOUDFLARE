@@ -276,3 +276,43 @@ body:not(.privacy-on) #tab1 .hero-stat.bal-neg #heroBalanceSub { color: #E11D48 
    hưởng bởi padding này. */
 :root { --hmh-sat: 0px; }
 .content-wrapper { padding-top: var(--hmh-sat, 0px); }
+
+/* ---------- 22) ROUND 3h: "Cách B" — dải tím phủ vùng trên cùng khi
+   fullscreen + đệm an toàn cho MỌI trang (Hùng chốt demo 20/10).
+   §21 mới chừa đệm cho .content-wrapper (3 tab chính); các trang phủ
+   toàn màn hình (.fullscreen-page: Cài đặt + Giới thiệu, position:fixed
+   inset:0 nên đệm của wrapper không với tới) vẫn để tiêu đề chui dưới
+   hàng nút nổi của Telegram, và nền trắng ở đỉnh làm chìm giờ/pin
+   trắng của iOS (header Telegram đã set tím #7C3AED từ 3g nên iOS vẽ
+   giờ/pin TRẮNG). Cách B: trang tự sơn một dải tím cố định ở mép trên:
+   - body.hmh-fs do hmhFullscreenSetup bật khi fullscreen có inset > 0
+     (ngoài fullscreen: không dải, đệm 0 — bố cục không đổi 1 pixel).
+   - Dải = body::before position:fixed, cao đúng --hmh-sat, gradient
+     tím hero (redesign.css #tab1 .hero-card) với background-size cao
+     340px để dải là "lát trên" của cùng trường gradient — ở Tab 1 nó
+     nối liền hero tím bên dưới, ở các trang trắng nó là dải tím ở đỉnh
+     như demo B. z-index 9000: trên .fullscreen-page (3000), .modal-sheet
+     (2000), .bottom-nav (1000); dưới toast + confirm overlay (999999).
+     pointer-events: none — dải chỉ để sơn, không chặn chạm; nó ghim cố
+     định nên khi cuộn, nội dung trôi qua dưới dải (đúng kiểu app-bar)
+     và hàng nút nổi của Telegram luôn nằm trên nền tím.
+   - Đệm trên cho .fullscreen-page: padding-top = --hmh-sat (ghi đè
+     padding 0 của upgrade.css nhờ nạp cuối) -> tiêu đề Cài đặt/Giới
+     thiệu không bị nút nổi đè.
+   - .modal-sheet neo ĐÁY (max-height 90vh): khi fullscreen, sheet rất
+     cao có thể chạm vùng dải -> giới hạn max-height chừa --hmh-sat +
+     12px, chỉ áp khi body.hmh-fs nên ngoài fullscreen giữ nguyên 90vh. */
+body.hmh-fs::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--hmh-sat, 0px);
+  background-image: linear-gradient(135deg, #B79CFC 0%, #9D7BFA 22%, #8256E7 45%, #7C3AED 72%, #6D28D9 100%);
+  background-size: 100% 340px;
+  background-position: top left;
+  background-repeat: no-repeat;
+  z-index: 9000;
+  pointer-events: none;
+}
+.fullscreen-page { padding-top: var(--hmh-sat, 0px); }
+body.hmh-fs .modal-sheet { max-height: calc(100dvh - var(--hmh-sat, 0px) - 12px); }
