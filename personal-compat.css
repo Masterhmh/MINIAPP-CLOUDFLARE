@@ -490,3 +490,54 @@ body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
   }
   body:not(.hmh-desktop) #tab1 .hero-date-nav .fa-caret-down { display: none; }
 }
+
+/* ---------- 28) ROUND 3p (Hùng 20/10: "vòng tròn bọc mũi tên hơi to"):
+   THU NHỎ VÒNG TRÒN SƠN quanh nút mũi tên — CHỈ đổi đường kính vòng
+   tròn nhìn thấy, hộp nút / hình học / vùng bấm KHÔNG đổi một pixel.
+   Đo thật trước sửa (390px, harness cảm ứng): cả 2 nơi vòng tròn sơn
+   = chính nền của nút phủ kín hộp 44x44 (border-radius 50%):
+   - Tab 1 (‹ › cạnh pill ngày hero): sơn 44px -> 40px;
+   - Tab 2 (‹ › + nút thu gọn ^ trên #calCtrlBar): sơn 44px -> 32px.
+   Cách làm: nền của nút về trong suốt, vòng tròn chuyển sang ::before
+   canh giữa đúng tâm nút (tâm glyph không đổi, glyph nổi trên vòng).
+   Hộp nút vẫn 44x44 như R27-F5 quy định (vùng bấm ≥44px giữ nguyên),
+   gap/tâm cụm hero/tâm các nút giữ nguyên từng pixel.
+   Trạng thái mờ của mũi tên bị khóa giữ nguyên: khóa = opacity 0.3 +
+   KHÔNG vòng tròn (nền trong suốt như trước) nên ::before cũng phải
+   trong suốt khi :disabled / .nav-disabled.
+   Phạm vi Tab 2 khóa chặt vào #calCtrlBar — nút thu gọn biểu đồ
+   (#barChartCollapseBtn, chung class .cal-ctrl-toggle) ở ngoài thanh
+   này KHÔNG bị đụng tới (đúng cảnh báo từ R13). */
+#tab1 .date-nav-btn {
+  position: relative;
+  background: transparent !important;
+}
+#tab1 .date-nav-btn::before {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+#tab1 .date-nav-btn > i { position: relative; z-index: 1; }
+#calendarWidget #calCtrlBar .cal-ctrl-arrow,
+#calendarWidget #calCtrlBar .cal-ctrl-toggle {
+  position: relative;
+  background: transparent !important;
+}
+#calendarWidget #calCtrlBar .cal-ctrl-arrow::before,
+#calendarWidget #calCtrlBar .cal-ctrl-toggle::before {
+  content: ''; position: absolute; left: 50%; top: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: #F4F4F8;
+  pointer-events: none;
+}
+#calendarWidget #calCtrlBar .cal-ctrl-arrow:disabled::before,
+#calendarWidget #calCtrlBar .cal-ctrl-arrow.nav-disabled::before {
+  background: transparent;
+}
+#calendarWidget #calCtrlBar .cal-ctrl-arrow > i,
+#calendarWidget #calCtrlBar .cal-ctrl-toggle > i {
+  position: relative; z-index: 1;
+}
