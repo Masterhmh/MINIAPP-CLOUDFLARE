@@ -56,7 +56,7 @@ window.exportToPDF = function() {
     const catArrForColor = Object.keys(catMapForColor).map(k => ({category: k, amount: catMapForColor[k]})).sort((a,b) => b.amount - a.amount);
     
     const categoryColorMap = {};
-    catArrForColor.forEach((c) => { categoryColorMap[c.category] = getCategoryColor(c.category); }); // PERSONAL ROUND 2: gán màu theo tên danh mục, đồng bộ với donut app
+    catArrForColor.forEach((c) => { categoryColorMap[c.category] = getCategoryTextColor(c.category); }); // PERSONAL ROUND 2/3c: màu theo TÊN danh mục; ô này là CHỮ trên nền trắng nên dùng biến thể TEXT (cùng hue với donut app)
 
     const groupedData = {};
     data.forEach(t => {
@@ -191,6 +191,7 @@ window.exportToPDF = function() {
         catArr.forEach((c, idx) => {
             const pct = totalExpense > 0 ? ((c.amount/totalExpense)*100).toFixed(1) : 0;
             const color = getCategoryColor(c.category);
+            const textColor = getCategoryTextColor(c.category); // ROUND 3c: % là chữ trên trắng -> biến thể TEXT
             const catIconHTML = getCategoryIcon(c.category);
             
             pieLegendHTML += `
@@ -199,7 +200,7 @@ window.exportToPDF = function() {
                         <span style="display:inline-block; width:16px; text-align:center; flex-shrink:0; color:${color}; font-size:13px;">${catIconHTML}</span>
                         ${c.category}
                     </span>
-                    <span style="font-weight: 800; color: ${color}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
+                    <span style="font-weight: 800; color: ${textColor}; margin-left: 10px; flex-shrink: 0;">${pct}%</span>
                 </div>
             `;
         });

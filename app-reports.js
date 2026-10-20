@@ -573,7 +573,7 @@ function drawMonthlyPieChart(data) {
   const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map(i=>getCategoryColor(i.category));
   const total = amts.reduce((a,b)=>a+b,0);
 
-  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = c.data.datasets[0].backgroundColor[activeIdx]; const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
+  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = getCategoryTextColor(catName); const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
   const catObj = formatCurrencyWithUnit(catAmt);
   const displayAmt = isPrivacyActive ? '***' : catObj.val + catObj.unit;
   // FIX 3b F-10 (quét %): dòng % dưới số tiền ở tâm donut cũng phải che "***"
@@ -588,11 +588,12 @@ function drawMonthlyPieChart(data) {
 
   data.forEach((i, idx) => {
     const pct = total>0 ? ((i.amount/total)*100).toFixed(1) : 0; const c = bg[idx];
+    const tc = getCategoryTextColor(i.category); // ROUND 3c: chữ (% + số tiền) dùng biến thể TEXT đậm; c (FILL) cho lát/icon/thanh
     const catIconHTML = getCategoryIcon(i.category);
 
     if (leg) { 
         const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; 
-        divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${c};">${pct}%</span></div>`; 
+        divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`; 
         divLeg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         leg.appendChild(divLeg); 
     }
@@ -600,7 +601,7 @@ function drawMonthlyPieChart(data) {
     if (progList) { 
         const iAmtObj = formatCurrencyWithUnit(i.amount);
         const divProg = document.createElement('div'); divProg.className = 'cat-progress-card'; 
-        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${c}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
+        divProg.innerHTML = `<div class="cat-progress-header"><div class="cat-progress-info"><div class="cat-progress-icon" style="background:${c}22; color:${c};">${catIconHTML}</div><span class="cat-progress-title">${escapeHTML(i.category)}</span></div><div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px;"><span class="cat-progress-amt" style="color:${tc}">${iAmtObj.val}<span>${iAmtObj.unit}</span></span><span class="cat-progress-pct" style="font-size: 0.65rem; color: var(--text-3); font-weight: 600;">${pct}%</span></div></div><div class="cat-progress-bar-bg"><div class="cat-progress-bar-fill" style="width:${pct}%; background:${c}"></div></div>`; 
         divProg.onclick = () => { triggerHaptic('light'); showCategoryDetail(i.category); }; 
         progList.appendChild(divProg); 
     }
@@ -746,9 +747,9 @@ function drawDailyPieChart(data, totalExp) {
 
     const leg = document.getElementById('dailyCustomLegend'); if(leg) leg.innerHTML = '';
     data.forEach((i, idx) => {
-      const pct = totalExp>0 ? ((i.amount/totalExp)*100).toFixed(1) : 0; const c = bg[idx]; const catIconHTML = getCategoryIcon(i.category);
+      const pct = totalExp>0 ? ((i.amount/totalExp)*100).toFixed(1) : 0; const c = bg[idx]; const tc = getCategoryTextColor(i.category); const catIconHTML = getCategoryIcon(i.category);
       const divLeg = document.createElement('div'); divLeg.className = 'legend-item'; divLeg.setAttribute('data-cat', i.category);
-      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${c};">${pct}%</span></div>`;
+      divLeg.innerHTML = `<div class="legend-item-left"><span style="display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; color:${c}; font-size:13px; margin-right: 8px;">${catIconHTML}</span><span class="legend-name" title="${escapeHTML(i.category)}">${escapeHTML(i.category)}</span></div><div class="legend-value-col"><span class="legend-pct" style="color:${tc};">${pct}%</span></div>`;
       divLeg.onclick = function() { toggleDailyFilter(i.category); };
       leg.appendChild(divLeg);
     });

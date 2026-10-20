@@ -392,10 +392,6 @@ function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E
    "Bảo hiểm" và "Công nghệ" cùng #A855F7). Nguyên tắc:
    - 14 màu giãn ĐỀU trên vòng hue, bước 360/14 ≈ 25,7° → mọi cặp màu cách
      nhau ≥ 25,4° hue (đo trên hex cuối) → không còn cặp nào "na ná" nhau.
-   - Bão hòa cùng họ 78%; độ sáng chỉnh theo từng hue để mọi màu khi làm CHỮ
-     trên nền trắng (chú thích %, số tiền thẻ danh mục) đạt tương phản ≥ 5,0:1
-     (chuẩn ≥ 4,5:1); xen kẽ 2 tầng tương phản (~5,0 / ~7,0) theo vị trí để
-     các hue kề nhau còn khác nhau thêm về độ sáng.
    - Màu vẫn gán theo TÊN danh mục (băm ổn định) — cùng một danh mục ở mọi
      biểu đồ/chú thích/thẻ/PDF luôn cùng một màu. Băm = h*31 + finalizer
      xor-shift 13, seed 266571: seed được chọn bằng tìm kiếm tự động vì 2 lý
@@ -403,20 +399,40 @@ function getColorByIndex(i) { const c = ['#6366F1', '#F43F5E', '#10B981', '#F59E
      mục thật của Hùng; (2) "Gia đình"/"Bảo hiểm" có độ dài bằng nhau nên băm
      h*31 thuần luôn khóa chúng ở 2 ô kề nhau (25,7°) — finalizer phá khóa đó.
      Với seed đã chọn: 12 danh mục thật của Hùng rơi vào 12 ô KHÁC NHAU, mọi
-     cặp kề nhau trên donut tháng 10 của anh cách nhau ≥ 102,9° hue:
-       Gia đình #3933E6 (chàm đậm) · Bảo hiểm #A32E14 (đỏ gạch) ·
-       Y tế #761BDE (tím) · Ăn uống #497B0F (xanh lá đậm) ·
-       Công nghệ #1654B3 (dương đậm) · Đi lại #986413 (nâu hổ phách) ·
-       Mua sắm #BB1ACF (magenta) · Cà phê #585B0B (olive) ·
-       Giáo dục #107F34 (ngọc lục bảo) · Sức khỏe #0C644E (teal đậm) ·
-       Nhà cửa #12798F (cyan đậm) · Giải trí #D81B4A (hồng đỏ). */
-const CATEGORY_PALETTE = ['#D81B4A', '#A32E14', '#986413', '#585B0B', '#497B0F', '#16660D', '#107F34', '#0C644E', '#12798F', '#1654B3', '#3933E6', '#761BDE', '#BB1ACF', '#A61477'];
-function getCategoryColor(name) {
+     cặp kề nhau trên donut tháng 10 của anh cách nhau ≥ 102,9° hue.
+
+   PERSONAL ROUND 3c — Hùng chê bảng vòng 3 "xỉn": vòng 3 đã sẫm hóa mọi màu
+   để đạt tương phản chữ ≥ 4,5:1 (chàm đậm, đỏ gạch, olive, nâu — đục). Nay
+   TÁCH mỗi màu thành 2 biến thể CÙNG HUE (gán hue/ô giữ nguyên tuyệt đối,
+   lệch hue fill↔text ≤ 0,2°):
+   - FILL (CATEGORY_PALETTE, getCategoryColor): lát donut, thanh tiến trình,
+     chip icon, tô PDF — TƯƠI như họ màu biểu đồ cột/đường của app
+     (#F43F5E L60/S89 · #6366F1 L67/S84): HSL L 52,9–63,1%, S 83,7–88,4%
+     (kiểm chứng bằng script: mọi fill nằm trong dải L 52–65 / S ≥ 80).
+   - TEXT (CATEGORY_TEXT_PALETTE, getCategoryTextColor): chữ % chú thích,
+     số tiền thẻ danh mục, %/chữ xuất PDF — chính là hex vòng 3, tương phản
+     trên nền trắng ≥ 5,03:1 (chuẩn ≥ 4,5:1).
+   Ánh xạ 12 danh mục thật (fill / text):
+     Gia đình #5550F2 / #3933E6 · Bảo hiểm #EC4722 / #A32E14 ·
+     Y tế #9341F1 / #761BDE · Ăn uống #8FEC22 / #497B0F ·
+     Công nghệ #4086F2 / #1654B3 · Đi lại #F19E1E / #986413 ·
+     Mua sắm #DC32F1 / #BB1ACF · Cà phê #E6EE20 / #585B0B ·
+     Giáo dục #20EE63 / #107F34 · Sức khỏe #20EEBB / #0C644E ·
+     Nhà cửa #27CEF1 / #12798F · Giải trí #F23665 / #D81B4A. */
+const CATEGORY_PALETTE = ['#F23665', '#EC4722', '#F19E1E', '#E6EE20', '#8FEC22', '#37EC22', '#20EE63', '#20EEBB', '#27CEF1', '#4086F2', '#5550F2', '#9341F1', '#DC32F1', '#F22CB2'];
+const CATEGORY_TEXT_PALETTE = ['#D81B4A', '#A32E14', '#986413', '#585B0B', '#497B0F', '#16660D', '#107F34', '#0C644E', '#12798F', '#1654B3', '#3933E6', '#761BDE', '#BB1ACF', '#A61477'];
+function categoryPaletteIndex(name) {
   const s = String(name || '');
   let h = 266571;
   for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.codePointAt(i)) >>> 0;
   h = (h ^ (h >>> 13)) >>> 0;
-  return CATEGORY_PALETTE[h % CATEGORY_PALETTE.length];
+  return h % CATEGORY_PALETTE.length;
+}
+function getCategoryColor(name) {
+  return CATEGORY_PALETTE[categoryPaletteIndex(name)];
+}
+function getCategoryTextColor(name) {
+  return CATEGORY_TEXT_PALETTE[categoryPaletteIndex(name)];
 }
 
 function getRawFaIconName(catName) {
