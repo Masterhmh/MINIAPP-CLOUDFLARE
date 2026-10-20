@@ -500,7 +500,7 @@ function processReportData(currentTx, prevTx, labels, incs, exps) {
         backgroundColor: hex, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 14 });
 
     const dsExp = isLineMode ? lineDs('Chi tiêu', exps, '#F43F5E', '244,63,94') : barDs('Chi tiêu', exps, '#F43F5E');
-    const dsInc = isLineMode ? lineDs('Thu nhập', incs, '#6366F1', '99,102,241') : barDs('Thu nhập', incs, '#6366F1');
+    const dsInc = isLineMode ? lineDs('Thu nhập', incs, '#10B981', '16,185,129') : barDs('Thu nhập', incs, '#10B981');
     const mDatasets = hasIncome ? [dsInc, dsExp] : [dsExp];
 
     window.mChart = new Chart(ctx, {
@@ -875,14 +875,14 @@ function displaySearchResults() {
 // ============================================================================
 // (personal-port) PANEL THỐNG KÊ G6 THAY 3 STAT-CARD (Tab2) — port từ production R21/R23.
 // Giữ nguyên ID: tab2Income/tab2Expense/tab2Balance + tab2*Compare (baseline đọc các ID này).
-// Vòng donut trái (nét dày, khe trắng, đầu bo tròn; chàm=thu, hồng=chi) +
+// Vòng donut trái (nét dày, khe trắng, đầu bo tròn; xanh lá=thu, hồng=chi) +
 // 3 hàng chú thích phải (icon tím app thật + nhãn + số tiền + so sánh 2 tầng).
 // Giữa vòng = % tỉ trọng chi tiêu (zero-flow: "0 ₫"/"Chưa phát sinh").
 // So sánh render 2 tầng qua formatG6CompareCell; một MutationObserver giữ
 // định dạng sống sót sau khi app-upgrade.js (wrapper ngoài cùng) ghi đè
 // innerHTML các ô so sánh bằng HTML thô của getCompareHTML.
 // ============================================================================
-var G6_INDIGO = '#6366F1', G6_ROSE = '#F43F5E', G6_TRACK = '#E9EBF1', G6_PAD = 9;
+var G6_GREEN = '#10B981', G6_ROSE = '#F43F5E', G6_TRACK = '#E9EBF1', G6_PAD = 9;
 
 function buildDonutSVG(inc, exp) {
   // R23: vòng 140px, nét 19 (tỉ lệ từ mẫu G7/G8 đã duyệt).
@@ -898,8 +898,8 @@ function buildDonutSVG(inc, exp) {
   if (total > 0) {
     var expDeg = exp / total * 360, incDeg = 360 - expDeg;
     if (inc > 0) {
-      if (incDeg >= 359.9) segs += '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(2) + '" fill="none" stroke="' + G6_INDIGO + '" stroke-width="' + sw + '"/>';
-      else segs += '<path d="' + arc(expDeg + G6_PAD, 360 - G6_PAD) + '" fill="none" stroke="' + G6_INDIGO + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
+      if (incDeg >= 359.9) segs += '<circle cx="' + cx + '" cy="' + cx + '" r="' + r.toFixed(2) + '" fill="none" stroke="' + G6_GREEN + '" stroke-width="' + sw + '"/>';
+      else segs += '<path d="' + arc(expDeg + G6_PAD, 360 - G6_PAD) + '" fill="none" stroke="' + G6_GREEN + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
     }
     if (exp > 0) {
       if (expDeg >= 359.9) segs += '<path d="' + arc(G6_PAD, 360 - G6_PAD) + '" fill="none" stroke="' + G6_ROSE + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
@@ -968,8 +968,10 @@ function renderG6StatsPanel(tInc, tExp, tBal, pInc, pExp, pBal, compareText) {
   var eyeCls = (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) ? 'fa-eye-slash' : 'fa-eye';
   // R23: mắt privacy KHÔNG còn nằm trong hàng số — về góc dưới-phải thẻ (G8-E).
   // PERSONAL ROUND 3d (Hùng: số tiền panel đen + icon một màu tím trầm):
-  // số tiền + icon từng hàng mang màu ngữ nghĩa TƯƠI riêng — Thu nhập chàm
-  // SEM_INC, Chi tiêu hồng SEM_EXP, Số dư tím SEM_BAL (định trong app-core).
+  // số tiền + icon từng hàng mang màu ngữ nghĩa TƯƠI riêng — Thu nhập xanh
+  // lá SEM_INC (số #098D5D / icon SEM_INC_VIVID #10B981; vòng 3e đổi từ
+  // chàm theo yêu cầu của Hùng), Chi tiêu hồng SEM_EXP, Số dư tím SEM_BAL
+  // (định trong app-core).
   // Màu đi qua class hàng .g6-inc/.g6-exp/.g6-bal (CSS ở personal-compat,
   // thắng rule #tab2 .stat-num !important của redesign) — KHÔNG dùng inline
   // color: inline không thắng được !important stylesheet, còn inline

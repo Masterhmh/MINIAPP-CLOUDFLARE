@@ -444,8 +444,19 @@ const CATEGORY_TEXT_PALETTE = ['#F01B51', '#E53913', '#AD6D0B', '#7B800A', '#4F8
    #7C3AED = 5,70 · #098D5D = 4,22; riêng statbox Tab1 nền #F4F4F8 nên
    chàm lùi 1 nấc #6062F2 = 4,23 trên nền đó — vẫn cùng họ #6366F1).
    SEM_EXP/SEM_EARN cũng là màu số tiền thẻ giao dịch (.tx-amount, trong
-   redesign.css) và thẻ tổng modal chi tiết ngày (index.html). */
-const SEM_INC = '#6366F1', SEM_INC_STAT = '#6062F2', SEM_EXP = '#E11D48', SEM_BAL = '#7C3AED', SEM_EARN = '#098D5D';
+   redesign.css) và thẻ tổng modal chi tiết ngày (index.html).
+
+   PERSONAL ROUND 3e — Hùng chốt: "Thu nhập phải màu xanh lá" (bản 3d để
+   Thu = chàm #6366F1). MỌI rendition Thu nhập chuyển sang họ emerald:
+   - SEM_INC (số tiền Thu panel G6, nền trắng): #098D5D = 4,22:1.
+   - SEM_INC_STAT (số tiền Thu statbox Tab1, nền thẻ #F4F4F8): #0B855D
+     = 4,23:1 trên nền đó (chính là --income của redesign.css; #098D5D
+     trên nền thẻ chỉ đạt 3,84 nên không dùng chung được).
+   - SEM_INC_VIVID (icon Thu panel/statbox, lát Thu donut G6, dataset
+     Thu biểu đồ cột/đường): #10B981 tươi (H160 S84% L39%) — phần TÔ/icon
+     không phải chữ nên được dùng bản tươi nhất của họ.
+   Chi tiêu hồng SEM_EXP và Số dư tím SEM_BAL giữ nguyên. */
+const SEM_INC = '#098D5D', SEM_INC_STAT = '#0B855D', SEM_INC_VIVID = '#10B981', SEM_EXP = '#E11D48', SEM_BAL = '#7C3AED', SEM_EARN = '#098D5D';
 function categoryPaletteIndex(name) {
   const s = String(name || '');
   let h = 266571;
