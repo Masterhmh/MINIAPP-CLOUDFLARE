@@ -316,3 +316,36 @@ body.hmh-fs::before {
 }
 .fullscreen-page { padding-top: var(--hmh-sat, 0px); }
 body.hmh-fs .modal-sheet { max-height: calc(100dvh - var(--hmh-sat, 0px) - 12px); }
+
+/* ---------- 23) ROUND 3i: dòng thương hiệu "©masterhmh" thu nhỏ, đặt ngay
+   dưới nút + (Hùng chốt 20/10: "Thu nhỏ đặt ngay dưới chỗ dấu +").
+   Trước đây dòng này là .app-branding ở đỉnh .content-wrapper — từ khi có
+   dải tím fullscreen (§22) nó bị kẹt trơ trọi trên dải trắng dưới dải tím ở
+   mọi tab, nhìn lạc quẻ. Nay: gỡ hẳn khỏi đỉnh (đã xóa khỏi index.html) và
+   đặt bản thu nhỏ vào trong .bottom-nav, ghim theo trục FAB:
+   - #fabBtn absolute, bottom: 30px, cao 60px (redesign.css) -> mép dưới
+     FAB nằm cố định ở 30px trên mép dưới nav. Chữ neo bằng top:
+     calc(100% - 27px) -> mép trên của chữ ở 27px trên mép dưới nav, tức
+     3px DƯỚI mép dưới FAB, không bao giờ đè FAB kể cả khi padding-bottom
+     của nav thay đổi theo safe-area. Cỡ chữ 0.6rem, line-height 1.15 ->
+     cao ~11px, mép dưới chữ ~16px trên mép dưới nav: nằm trọn trong nav,
+     trên vùng safe-area home-indicator, và (đo thực tế ở 360/390/440)
+     không chạm glyph của 4 nhãn nav hai bên (vùng ngang trống giữa trục).
+   - left: 50% + translateX(-50%) = cùng trục với FAB (cũng left: 50%).
+   - Màu xám muted của app (var(--text-3), cùng tông nhãn nav), weight 600.
+   - pointer-events: none + position absolute -> không đổi chiều cao nav,
+     không đổi bất kỳ bố cục nào, không chặn chạm. Nav là phần tử toàn cục
+     nên chữ hiện ở mọi tab/trang. */
+.bottom-nav .nav-branding {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% - 27px);
+  font-size: 0.6rem;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+  white-space: nowrap;
+  pointer-events: none;
+}
