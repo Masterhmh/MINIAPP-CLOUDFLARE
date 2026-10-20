@@ -1083,6 +1083,11 @@ function renderInsightStrip(ctx) {
   var priv = (typeof isPrivacyActive !== 'undefined' && isPrivacyActive);
   var money = function (n) { if (priv) return '***'; var o = formatCurrencyWithUnit(Math.round(n)); return o.val + o.unit; };
   var pctT = function (p) { return priv ? '***' : (p + '%'); };
+  // ROUND 3q: các dòng insight mang markup <strong> CHỈ quanh GIÁ TRỊ
+  // (nhãn giữ thường 400 — chốt cuối của Hùng); mọi phép đo NGÂN SÁCH 2 DÒNG
+  // phải đo độ dài HIỂN THỊ (bóc thẻ) để hành vi cắt dòng giữ nguyên như
+  // trước khi có markup.
+  var visLen = function (s) { return String(s).replace(/<[^>]*>/g, '').length; };
   var txs = (ctx && ctx.tx) || [];
   var labels = (ctx && ctx.labels) || [];
   var expTxs = txs.filter(function (t) { return t.type === 'Chi tiêu'; });
@@ -1099,7 +1104,11 @@ function renderInsightStrip(ctx) {
     var topCat = null, topAmt = 0;
     Object.keys(catMap).forEach(function (c) { if (catMap[c] > topAmt) { topAmt = catMap[c]; topCat = c; } });
     var share = tExp > 0 ? (topAmt / tExp * 100).toFixed(1).replace('.', ',') : '0,0';
-    lines.push('Chi nhiều nhất cho ' + escapeHTML(topCat) + ' — ' + money(topAmt) + ' (' + pctT(share) + ' tổng chi)');
+    // ROUND 3q: thêm ":" sau "cho"; NHÃN "Chi nhiều nhất cho:" giữ THƯỜNG,
+    // chỉ GIÁ TRỊ "<danh mục> — <số tiền>" in ĐẬM 700 qua <strong>; đoạn
+    // "(…% tổng chi)" cũng thường. Privacy: money()/pctT() vẫn trả "***"
+    // trong <strong> như cũ.
+    lines.push('Chi nhiều nhất cho: <strong>' + escapeHTML(topCat) + ' — ' + money(topAmt) + '</strong> (' + pctT(share) + ' tổng chi)');
     var mode = (typeof currentFilterMode !== 'undefined') ? currentFilterMode : 'monthly';
     var wholeYear = (mode === 'yearly') || (mode === 'custom' && labels.length === 12 && labels[0] === 'Tháng 1');
     var line2 = '';
@@ -1108,13 +1117,15 @@ function renderInsightStrip(ctx) {
       expTxs.forEach(function (t) { var p = String(t.date || '').split('/'); if (p.length === 3) { var k = p[1] + '/' + p[2]; mMap[k] = (mMap[k] || 0) + t.amount; } });
       var bk = null, bv = 0;
       Object.keys(mMap).forEach(function (k) { if (mMap[k] > bv) { bv = mMap[k]; bk = k; } });
-      if (bk) { var mp = bk.split('/'); line2 = 'Tháng chi cao nhất: Tháng ' + parseInt(mp[0], 10) + '/' + mp[1] + ' — ' + money(bv); }
+      if (bk) { var mp = bk.split('/'); line2 = 'Tháng chi cao nhất: <strong>Tháng ' + parseInt(mp[0], 10) + '/' + mp[1] + ' — ' + money(bv) + '</strong>'; }
     } else {
       var bd = null, bdv = 0;
       Object.keys(dayMap).forEach(function (k) { if (dayMap[k] > bdv) { bdv = dayMap[k]; bd = k; } });
-      if (bd) { var dp = bd.split('/'); line2 = 'Ngày chi cao nhất: ' + dp[0] + '/' + dp[1] + ' — ' + money(bdv); }
+      // ROUND 3q: đồng bộ biến thể ngày — nhãn thường, chỉ giá trị
+      // "<ngày> — <số tiền>" đậm; hậu tố " · TB …/ngày" nối sau giữ thường.
+      if (bd) { var dp = bd.split('/'); line2 = 'Ngày chi cao nhất: <strong>' + dp[0] + '/' + dp[1] + ' — ' + money(bdv) + '</strong>'; }
       var avg = dailyAverageForMode(mode, tExp, labels, expTxs);
-      if (avg > 0 && (line2.length + 20) <= 56) line2 += ' · TB ' + money(Math.round(avg)) + '/ngày';
+      if (avg > 0 && (visLen(line2) + 20) <= 56) line2 += ' · TB ' + money(Math.round(avg)) + '/ngày';
     }
     if (line2) lines.push(line2);
   }
@@ -1137,8 +1148,8 @@ function renderInsightStrip(ctx) {
   if (expTxs.length && lines.length) {
     var insightOver = function () {
       var t = 0;
-      lines.forEach(function (l) { t += l.length; });
-      return lines[0].length > 72 || t > 118;
+      lines.forEach(function (l) { t += visLen(l); });
+      return visLen(lines[0]) > 72 || t > 118;
     };
     if (insightOver()) {
       var line1I = lines[0];
