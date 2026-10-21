@@ -602,3 +602,19 @@ body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
   }
   body.hmh-desktop #tab1 .hero-date-tap { gap: 0; }
 }
+
+/* ---------- 30) PERSONAL ROUND 3s (Hùng 21/10: "cho hình tròn to lên
+   theo số tiền? Vẫn đủ chỗ mà") — donut modal chi tiết ngày TO LÊN MỘT
+   NẤC CỐ ĐỊNH 110 -> 140px cho MỌI ngày (KHÔNG phóng theo từng ngày vì
+   thẻ sẽ nhảy cỡ giữa các ngày). Lỗ mới ~84.5px (đo thật): tổng 8 chữ
+   số tối đa 99.999.999 ₫ với ₫ 55% đo 59.8px sandbox -> ~74.8px trên máy
+   thật (glyph rộng hơn ~25%) vẫn lọt ở cỡ chữ thiết kế 11px, hở ~10px.
+   140 là nấc tối đa còn giữ chú thích không chèn ở 360px: 140 + gap 16
+   + chú thích tối thiểu 134.6 = 290.6 <= 294 (card inner ở 360).
+   Cutout 73% giữ nguyên nên vòng dày theo tỉ lệ; chú thích/label/tâm
+   không đụng. Tổng >= 100.000.000 co chữ fallback trong app-reports.js
+   (tầng 2), không phóng thêm để khỏi chèn cột chú thích ở 360. */
+#dailyPieChartContainer .pie-chart-inner {
+  flex-basis: 140px !important; width: 140px !important; height: 140px !important;
+  min-width: 140px !important; min-height: 140px !important;
+}
