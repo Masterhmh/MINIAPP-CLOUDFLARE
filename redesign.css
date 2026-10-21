@@ -621,20 +621,6 @@ body { background: #F7F7FA !important; color: #14141A !important; }
 }
 .pagination-info { font-size: 12px !important; }
 
-/* ---- F2: chế độ năm — thanh nav kỳ hiện ở vùng điều khiển trên cùng ---- */
-#tab2.fix2-year #timeNavContainer {
-  display: flex !important;
-  background: #fff !important; border: 1px solid #EDEDF2 !important;
-  border-radius: 18px !important; box-shadow: 0 10px 24px rgba(124,58,237,0.06) !important;
-  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
-  padding: 8px !important; margin-bottom: 14px !important;
-}
-#tab2.fix2-year #timeNavContainer .nav-arrow-btn {
-  background: #F4F4F8 !important; border: none !important; border-radius: 50% !important;
-  width: 40px !important; height: 40px !important; color: #8B5CF6 !important;
-}
-#tab2.fix2-year #currentPeriodLabel { font-weight: 800 !important; color: #14141A !important; }
-
 /* ---- F5 tinh chỉnh: thẻ giao dịch thấp hơn, số stat 21px ---- */
 .tx-card { padding: 11px 14px !important; }
 .tx-card .tx-title { margin-bottom: 2px !important; }
@@ -748,7 +734,7 @@ body { background: #F7F7FA !important; color: #14141A !important; }
   flex: 1 1 auto !important; width: auto !important; margin-bottom: 0 !important;
 }
 #barChartSection.bar-collapsed .chart-placeholder { display: none !important; }
-#barChartSection.bar-collapsed #barChartCollapseBtn i { transform: rotate(180deg); }
+
 
 /* ---- R5-3: 3 số tiền thống kê CÙNG cỡ chữ + cùng baseline ----
    (đo thực tế: 21px là cỡ lớn nhất mà "25,000,000 ₫" vừa khít thẻ) */
@@ -1412,7 +1398,7 @@ body.privacy-on .hero-card #heroExpenseCompare::after {
 /* --- R27 F5: vùng bấm ≥44×44 (UX audit §3). Giữ kích thước glyph, chỉ mở hit area. --- */
 #tab1 .date-nav-btn { width: 44px !important; height: 44px !important; }
 .btn-soft { min-height: 44px !important; }
-#barChartCollapseBtn, #toggleChartBtn { min-width: 44px !important; min-height: 44px !important; }
+#toggleChartBtn { min-width: 44px !important; min-height: 44px !important; }
 #calCtrlBar .cal-ctrl-toggle, #calCtrlBar .cal-ctrl-arrow {
   width: 44px !important; height: 44px !important; flex: 0 0 44px !important;
 }

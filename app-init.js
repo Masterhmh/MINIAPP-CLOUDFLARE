@@ -157,8 +157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (ovShown && !searchShown) return true;
       const cc = document.getElementById('customConfirmOverlay');
       if (cc && cc.style.display && cc.style.display !== 'none') return true;
-      const cd = document.getElementById('confirmDeleteModal');
-      if (cd && cd.style.display && cd.style.display !== 'none') return true;
+
       const fps = document.querySelectorAll('.fullscreen-page.show');
       for (const p of fps) if (p.id !== 'settingsPage') return true;
       const fm = document.getElementById('fabMenu');
@@ -312,15 +311,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filterMonthlyBtn').onclick = () => { triggerHapticSelection(); setFilterMode('monthly'); };
   document.getElementById('filterYearlyBtn').onclick = () => { triggerHapticSelection(); setFilterMode('yearly'); };
   document.getElementById('filterCustomBtn').onclick = () => { triggerHapticSelection(); setFilterMode('custom'); };
-  document.getElementById('prevPeriodBtn').onclick = () => { triggerHaptic('light'); shiftPeriod(-1); };
-  document.getElementById('nextPeriodBtn').onclick = () => { triggerHaptic('light'); shiftPeriod(1); };
   document.getElementById('weekPicker').onchange = (e) => { triggerHaptic('light'); const d = getDateFromWeekString(e.target.value); if(d) { activePeriodDate = d; updateTimeNavUI(); } };
   document.getElementById('monthPicker').onchange = (e) => { triggerHaptic('light'); const val = e.target.value; if(val) { const [y, m] = val.split('-'); activePeriodDate = new Date(y, m-1, 1); updateTimeNavUI(); } };
   document.getElementById('fetchCustomDataBtn').onclick = () => { triggerHaptic('light'); const s = parseInt(document.getElementById('startMonth').value); const e = parseInt(document.getElementById('endMonth').value); if(s > e) return showToast("Tháng bắt đầu phải nhỏ hơn kết thúc", "warning"); loadCustomReport(s, e, new Date().getFullYear()); };
   
   function setFilterMode(mode) { currentFilterMode = mode; document.querySelectorAll('#tab2 .period-pill').forEach(p => p.classList.remove('active')); document.getElementById('filter' + mode.charAt(0).toUpperCase() + mode.slice(1) + 'Btn').classList.add('active'); activePeriodDate = new Date(); updateTimeNavUI(); }
-  function shiftPeriod(dir) { if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + (dir * 7)); else if (currentFilterMode === 'monthly') activePeriodDate.setMonth(activePeriodDate.getMonth() + dir); updateTimeNavUI(); }
-  
+
   // ---------------- TÌM KIẾM: 1 Ô NHẬP DUY NHẤT ----------------
   document.getElementById('searchTransactionsBtn').onclick = async () => {
     triggerHaptic('light');

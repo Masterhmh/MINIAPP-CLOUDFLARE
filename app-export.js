@@ -607,20 +607,21 @@ window.exportToCSV = async function() {
 
   const sortedData = sortTransactions(dataToExport);
 
+  // 3x: xuất đủ mọi năm có trong dữ liệu (trước đây chỉ lấy 1 năm nên
+  // xuất đa năm bị rớt dữ liệu các năm còn lại). Chỉ 1 năm thì giữ
+  // nguyên định dạng cũ.
   const years = [
     ...new Set(
       sortedData
         .map(tx => parseDateParts(tx.date)?.year)
         .filter(Boolean)
     )
-  ];
-
-  const exportYear = years.length === 1
-    ? years[0]
-    : new Date().getFullYear();
+  ].sort((a, b) => a - b);
+  const multiYear = years.length > 1;
 
   let csvContent = "\uFEFF";
 
+  for (const exportYear of years) {
   for (let month = 1; month <= 12; month++) {
     const monthTransactions = sortedData.filter(tx => {
       const parts = parseDateParts(tx.date);
@@ -642,9 +643,11 @@ window.exportToCSV = async function() {
       ? formatMonthId(monthTransactions.length)
       : "GD000";
 
-    // Dòng tách tháng
+    // Dòng tách tháng (đa năm thì ghi kèm năm để khỏi trùng tên tháng)
     csvContent += makeCsvRow([
-      `THÁNG ${String(month).padStart(2, "0")}`,
+      multiYear
+        ? `THÁNG ${String(month).padStart(2, "0")}/${exportYear}`
+        : `THÁNG ${String(month).padStart(2, "0")}`,
       "",
       "",
       "",
@@ -674,14 +677,17 @@ window.exportToCSV = async function() {
     ]);
 
     // Giao dịch trong tháng
+    // 3x: DANH MỤC = danh mục thật, PHÂN LOẠI CHI TIẾT = nội dung gõ
+    // tay (trước đây đảo nhau: DANH MỤC chứa content, CHI TIẾT chứa
+    // category).
     monthTransactions.forEach((tx, index) => {
       csvContent += makeCsvRow([
         tx.date || "",
         tx.type || "",
         formatMonthId(index + 1),
-        tx.content || "",
-        Number(tx.amount || 0),
         tx.category || "",
+        Number(tx.amount || 0),
+        tx.content || "",
         tx.note || "",
         "",
         "",
@@ -692,9 +698,16 @@ window.exportToCSV = async function() {
     // Dòng trống giữa các tháng cho dễ nhìn
     csvContent += makeCsvRow(["", "", "", "", "", "", "", "", "", ""]);
   }
+  }
 
+  // 3x: dự phòng tên file cho xuất đa năm (trước đây lấy năm hiện tại).
+  const fallbackYearName = years.length === 0
+    ? `Nam_${new Date().getFullYear()}`
+    : (multiYear
+      ? `Nam_${years[0]}-${years[years.length - 1]}`
+      : `Nam_${years[0]}`);
   const reportName = isTab2
-    ? (cachedChartData?.periodStr || `Nam_${exportYear}`)
+    ? (cachedChartData?.periodStr || fallbackYearName)
     : formatDateToYYYYMMDD(new Date());
 
   const fileName = `Giao_Dich_${reportName}.csv`;

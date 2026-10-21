@@ -450,8 +450,6 @@ select.field-input { background-image: url("data:image/svg+xml;charset=UTF-8,%3c
     text-overflow: clip !important;
 }
 
-.nav-arrow-btn,
-#prevPeriodBtn,
-#nextPeriodBtn {
+.nav-arrow-btn {
     flex: 0 0 auto !important;
 }

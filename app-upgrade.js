@@ -614,8 +614,8 @@
   }
 
   async function refreshNavArrows() {
-    var prevIds = ['calPrevBtn', 'prevPeriodBtn'];
-    var nextIds = ['calNextBtn', 'nextPeriodBtn'];
+    var prevIds = ['calPrevBtn'];
+    var nextIds = ['calNextBtn'];
     // CHE DO NAM: chan tien toi nam tuong lai; nut lui chi bat khi nam LIEN TRUOC
     // (selY - 1) co du lieu -> nam trong thi lam mo, khong cho quay ve.
     if (currentFilterMode === 'yearly') {
@@ -925,7 +925,6 @@
   };
   window.fabAddIncome = function () { closeFabMenu(); window.openAddForm('Thu nhập'); };
   window.fabAddExpense = function () { closeFabMenu(); window.openAddForm('Chi tiêu'); };
-  window.fabSearch = function () { closeFabMenu(); if (typeof window.openSearchModal === 'function') window.openSearchModal(); };
   window.fabSettings = function () { closeFabMenu(); openFullscreen('settingsPage'); };
   /* PERSONAL ROUND 2: mở Quản lý từ khóa (view #tab3) theo đúng hành vi
      production — nav highlight rơi vào nút Cài đặt; kèm render + lên đầu
