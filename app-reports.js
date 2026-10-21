@@ -671,6 +671,7 @@ function drawMonthlyPieChart(data) {
 }
 
 function showCategoryDetail(cat) {
+  lockDetailModalScroll(); // 3w: khóa cuộn trang nền (cùng sheet #detailModal, cùng lỗi chaining)
   const detailModal = document.getElementById('detailModal');
   document.getElementById('modalOverlay').classList.add('show');
   setTimeout(() => detailModal.classList.add('show'), 10);
@@ -724,6 +725,7 @@ function showCategoryDetail(cat) {
 }
 
 function openDailyDetailView(d, m, y, allTxs) {
+    lockDetailModalScroll(); // 3w: khóa cuộn trang nền khi modal chi tiết ngày mở
     const dNum = parseInt(d, 10); const mNum = parseInt(m, 10); const yNum = parseInt(y, 10);
     
     const dayTxs = allTxs.filter(t => { 
@@ -754,17 +756,23 @@ function openDailyDetailView(d, m, y, allTxs) {
 
     const pieContainer = document.getElementById('dailyPieChartContainer');
     let dayCategories = [];
+    // PERSONAL ROUND 3u: khoản chi đơn lẻ lớn nhất ngày (hòa -> lấy giao
+    // dịch đầu tiên); tính TRƯỚC khi vẽ để khung afterDraw đầu tiên của
+    // chart đã đọc đúng trạng thái mới (không đọc __dailyView cũ).
+    let biggestExp = null;
+    dayTxs.forEach(t => { if (t.type === 'Chi tiêu' && (!biggestExp || t.amount > biggestExp.amount)) biggestExp = t; });
     if (totalExp > 0 && pieContainer) {
         pieContainer.style.display = 'flex'; const catMap = {};
         dayTxs.forEach(t => { if(t.type==='Chi tiêu') catMap[t.category] = (catMap[t.category]||0)+t.amount; });
         const data = Object.keys(catMap).map(k => ({category: k, amount: catMap[k]})).sort((a,b) => b.amount - a.amount);
         dayCategories = data.map(i => i.category);
-        drawDailyPieChart(data, totalExp);
+        window.__dailyView = { txs: dayTxs, totalExp: totalExp, filter: null, categories: dayCategories, biggest: biggestExp };
+        drawDailyPieChart(data, totalExp, biggestExp);
     } else if (pieContainer) { pieContainer.style.display = 'none'; }
 
     // PERSONAL ROUND 2 (WORK 3): trạng thái lọc danh mục của modal ngày —
     // mới mở luôn không lọc; chú thích tương tác đổi ở toggleDailyFilter().
-    window.__dailyView = { txs: dayTxs, totalExp: totalExp, filter: null, categories: dayCategories };
+    window.__dailyView = { txs: dayTxs, totalExp: totalExp, filter: null, categories: dayCategories, biggest: biggestExp };
     renderDailyList();
 }
 
@@ -786,6 +794,9 @@ function toggleDailyFilter(cat) {
     triggerHaptic('light');
     st.filter = (st.filter === cat) ? null : cat;
     renderDailyList();
+    // PERSONAL ROUND 3u: vẽ lại tâm donut theo trạng thái lọc mới (lọc ->
+    // số tiền danh mục, bỏ lọc -> khoản lớn nhất). 'none' = không animation.
+    if (window.dChart) { try { window.dChart.update('none'); } catch(e){} }
 }
 
 /* PERSONAL ROUND 3s — tâm donut modal ngày: hai tầng (Hùng 21/10: "cho
@@ -801,18 +812,42 @@ function toggleDailyFilter(cat) {
      trong sandbox vẫn vừa trên máy thật); bước 0.5px từ 11px xuống sàn
      6px; ₫ vẽ riêng ở 55% cỡ số (quy tắc ₫ của app, trước đây tâm canvas
      vẽ ₫ 100%). Số KHÔNG bao giờ rút gọn — tổng đầy đủ luôn giữ.
-   - Nhãn 'Tổng chi', vòng (cutout 73% giữ nguyên -> dày theo tỉ lệ) và
-     chú thích phải không đụng; privacy '***' đi qua cùng đường vẽ.
-   - window.__dailyDonutFit chẩn đoán cho suite (họ window.__dailyView). */
-function drawDailyDonutCenter(c, ctx, appFont, totalExp) {
+   - Vòng (cutout 73% giữ nguyên -> dày theo tỉ lệ) và chú thích phải
+     không đụng; privacy '***' đi qua cùng đường vẽ.
+   - window.__dailyDonutFit chẩn đoán cho suite (họ window.__dailyView).
+   PERSONAL ROUND 3u — NỘI DUNG TÂM ĐỔI (Hùng 21/10: tâm cũ 'Tổng chi' +
+   tổng ngày trùng ô CHI TIÊU phía trên; chú thích phải đã có tỉ trọng
+   từng danh mục nên tâm không đặt danh mục nhiều nhất):
+   - Mặc định: nhãn 'Khoản lớn nhất' + khoản CHI đơn lẻ lớn nhất ngày
+     (dấu '− ' U+2212 + khoảng trắng như hàng giao dịch, đỏ, ₫ 55%,
+     qua cùng đường fit — không bao giờ rút gọn số, không ghi tên giao
+     dịch vào lỗ vì lỗ chỉ ~88px, tên cắt sẽ khó đọc; người dùng nhận
+     ra khoản đó là hàng lớn nhất trong danh sách bên dưới).
+   - Có lọc (chạm lát donut hoặc chạm chú thích): tâm hiện số tiền của
+     danh mục đang lọc (dương như tổng cũ); bỏ lọc -> trở về khoản lớn
+     nhất. LƯU Ý TRUNG THỰC: donut ngày trước 3u KHÔNG đổi tâm khi chạm
+     lát (chỉ lọc danh sách) — nhánh lọc này là triển khai mới theo mô
+     tả task, lấy cảm hứng từ nhánh active của donut tab Báo cáo (cText).
+   - Không có giao dịch chi: nhánh dự phòng giữ 'Tổng chi' + tổng cũ
+     (trên thực tế không tới được vì pie chỉ hiện khi totalExp > 0). */
+/* PERSONAL ROUND 3v — parity với production R46: nhánh lọc (chạm lát /
+   chạm chú thích) hiện TÊN danh mục (cắt 14 ký tự + '…' như nhánh active
+   của donut tab Báo cáo) + số tiền danh mục đó bằng MÀU danh mục, thay
+   vì chỉ số tiền đỏ như 3u. Màu mặc định '#F43F5E' giữ cho nhánh mặc
+   định (khoản lớn nhất) và nhánh dự phòng (Tổng chi). */
+function drawDailyDonutCenter(c, ctx, appFont, label, val, unit, color) {
+  const valColor = color || '#F43F5E';
   const cx = c.width / 2, cy = c.height / 2 + 6;
-  const tObj = formatCurrencyWithUnit(totalExp);
-  const val = isPrivacyActive ? '***' : tObj.val;
-  const unit = isPrivacyActive ? '' : tObj.unit;
   const meta = c.getDatasetMeta ? c.getDatasetMeta(0) : null;
   const arc = meta && meta.data && meta.data[0];
   const holeD = arc && arc.innerRadius ? arc.innerRadius * 2 : Math.min(c.width, c.height) * 0.73;
   const avail = holeD * 0.75;
+  ctx.fillStyle = '#94A3B8';
+  ctx.textAlign = 'center';
+  ctx.font = `500 9px ${appFont}`;
+  let lbl = label;
+  while (lbl.length > 1 && ctx.measureText(lbl).width > avail) { lbl = lbl.slice(0, -2) + '…'; }
+  ctx.fillText(lbl, cx, cy - 14);
   let size = 11;
   const measure = (s) => {
     ctx.font = `800 ${s}px ${appFont}`;
@@ -822,7 +857,7 @@ function drawDailyDonutCenter(c, ctx, appFont, totalExp) {
   };
   let w = measure(size);
   while (w > avail && size > 6) { size = Math.max(6, +(size - 0.5).toFixed(1)); w = measure(size); }
-  ctx.fillStyle = '#F43F5E';
+  ctx.fillStyle = valColor;
   ctx.textAlign = 'left';
   ctx.font = `800 ${size}px ${appFont}`;
   const wn = ctx.measureText(val).width;
@@ -830,11 +865,11 @@ function drawDailyDonutCenter(c, ctx, appFont, totalExp) {
   ctx.fillText(val, x0, cy);
   ctx.font = `800 ${size * 0.55}px ${appFont}`;
   ctx.fillText(unit, x0 + wn, cy);
-  window.__dailyDonutFit = { fontPx: size, numW: +wn.toFixed(1), totalW: +w.toFixed(1), holeD: +holeD.toFixed(1), cx, cy, text: val + unit };
+  window.__dailyDonutFit = { label: lbl, fontPx: size, numW: +wn.toFixed(1), totalW: +w.toFixed(1), holeD: +holeD.toFixed(1), cx, cy, text: val + unit, color: valColor };
   ctx.textAlign = 'center';
 }
 
-function drawDailyPieChart(data, totalExp) {
+function drawDailyPieChart(data, totalExp, biggestExp) {
     const ctx = document.getElementById('dailyPieChart').getContext('2d');
     if(window.dChart) window.dChart.destroy();
     const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map(i=>getCategoryColor(i.category));
@@ -847,7 +882,27 @@ function drawDailyPieChart(data, totalExp) {
             if (activeEls && activeEls.length > 0) toggleDailyFilter(lbls[activeEls[0].index]);
             else if (window.__dailyView && window.__dailyView.filter) toggleDailyFilter(window.__dailyView.filter); // chạm tâm -> bỏ lọc
           } },
-        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle='#94A3B8'; ctx.font=`500 9px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 8); drawDailyDonutCenter(c, ctx, appFont, totalExp); ctx.restore(); } }]
+        plugins: [{ id:'cText2', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle';
+          // PERSONAL ROUND 3u: nội dung tâm theo trạng thái (mặc định =
+          // khoản chi lớn nhất; có lọc = số tiền danh mục đang lọc; không
+          // có chi = dự phòng 'Tổng chi' + tổng cũ).
+          const st = window.__dailyView; let label, val, unit, valColor;
+          if (st && st.filter) {
+            const idx = c.data.labels.indexOf(st.filter);
+            const catAmt = idx >= 0 ? c.data.datasets[0].data[idx] : 0;
+            const o = formatCurrencyWithUnit(catAmt);
+            // ROUND 3v parity R46: tên cắt 14 ký tự + '…' + số tiền màu danh mục.
+            label = st.filter.length > 14 ? st.filter.substring(0, 14) + '…' : st.filter;
+            val = isPrivacyActive ? '***' : o.val; unit = isPrivacyActive ? '' : o.unit;
+            valColor = getCategoryTextColor(st.filter);
+          } else if (biggestExp) {
+            const o = formatCurrencyWithUnit(biggestExp.amount);
+            label = 'Khoản lớn nhất'; val = isPrivacyActive ? '***' : ('− ' + o.val); unit = isPrivacyActive ? '' : o.unit;
+          } else {
+            const o = formatCurrencyWithUnit(totalExp);
+            label = 'Tổng chi'; val = isPrivacyActive ? '***' : o.val; unit = isPrivacyActive ? '' : o.unit;
+          }
+          drawDailyDonutCenter(c, ctx, appFont, label, val, unit, valColor); ctx.restore(); } }]
     });
 
     const leg = document.getElementById('dailyCustomLegend'); if(leg) leg.innerHTML = '';
@@ -875,7 +930,74 @@ function displayDetailTransactionsList(txs) {
   document.querySelectorAll('#detailTransactionsContainer .delete-btn').forEach(btn => btn.onclick = () => { closeDetailModal(); setTimeout(() => deleteTransaction(btn.getAttribute('data-id')), 350); });
 }
 
+// ============================================================================
+// ROUND 3w (mirror production R48): KHÓA CUỘN TRANG CHÍNH KHI MODAL CHI
+// TIẾT (#detailModal) MỞ. Vấn đề (Hùng 21/10, ảnh iPhone modal NGÀY
+// 12/10/2026): khi modal mở, vuốt dọc trong danh sách giao dịch của modal
+// vẫn "xuyên" xuống trang chính phía sau (scroll chaining) — trang nền
+// cuộn theo trong khi người dùng đang cuộn danh sách modal. Cách khóa
+// (chuẩn, chỉ trong app — KHÔNG đụng disableVerticalSwipes cấp Telegram
+// 3o): mở modal -> lockDetailModalScroll(): overflow hidden trên cả
+// <html> và <body> (ngăn document cuộn), overscroll-behavior: contain +
+// touch-action: pan-y trên vùng cuộn trong modal (danh sách vẫn cuộn dọc
+// bình thường, nhưng tới mép trên/dưới không "tràn" ra document). Đóng
+// modal (mọi đường: handle, overlay -> closeAllModals, nút sửa/xóa trong
+// danh sách) -> unlockDetailModalScroll(): trả đúng giá trị inline cũ,
+// trả lại đúng vị trí cuộn đã lưu. Lũy thừa an toàn: cờ active — mở ngày
+// thứ 2 khi modal đang mở chỉ no-op (giữ nguyên vị trí đã lưu lần đầu);
+// đóng khi không khóa cũng no-op, nên closeAllModals gọi closeDetailModal
+// vô điều kiện từ các modal khác không làm gì. KHÔNG chặn touchmove toàn
+// cục (không có preventDefault) nên vuốt tab ngang sau khi đóng không ảnh
+// hưởng. Vùng cuộn trong modal lấy qua #detailTransactionsContainer
+// .parentElement (chính là div overflow-y: auto trong #detailModal) —
+// không cần sửa index.html, không thêm id. Cùng khóa áp cho
+// showCategoryDetail vì mở chung một sheet #detailModal nên gặp đúng lỗi
+// chaining này. Mở khóa NGAY khi closeDetailModal chạy (không đợi 300ms
+// overlay mờ dần): trong 300ms đó overlay vẫn phủ kín màn hình nên chạm
+// không tới trang nền; mở khóa trễ mới nguy hiểm — mở lại modal trong
+// 300ms sẽ bị unlock trễ phá khóa giữa chừng.
+// Chẩn đoán cho suite: window.__detailScrollLockState.
+// ============================================================================
+var __detailScrollLock = null;
+function lockDetailModalScroll() {
+  if (__detailScrollLock && __detailScrollLock.active) return;
+  var scrollEl = null;
+  try {
+    var txList = document.getElementById('detailTransactionsContainer');
+    if (txList) scrollEl = txList.parentElement;
+  } catch (e) { scrollEl = null; }
+  __detailScrollLock = {
+    active: true,
+    savedY: (typeof window.scrollY === 'number') ? window.scrollY : 0,
+    prevBodyOverflow: document.body ? document.body.style.overflow : '',
+    prevDocOverflow: document.documentElement ? document.documentElement.style.overflow : '',
+    prevScrollOverscroll: scrollEl ? scrollEl.style.overscrollBehavior : '',
+    prevScrollTouch: scrollEl ? scrollEl.style.touchAction : '',
+    scrollEl: scrollEl
+  };
+  try {
+    if (document.documentElement) document.documentElement.style.overflow = 'hidden';
+    if (document.body) document.body.style.overflow = 'hidden';
+    if (scrollEl) { scrollEl.style.overscrollBehavior = 'contain'; scrollEl.style.touchAction = 'pan-y'; }
+  } catch (e) {}
+  window.__detailScrollLockState = __detailScrollLock;
+}
+function unlockDetailModalScroll() {
+  var st = __detailScrollLock;
+  if (!st || !st.active) return;
+  st.active = false;
+  try {
+    if (document.documentElement) document.documentElement.style.overflow = st.prevDocOverflow;
+    if (document.body) document.body.style.overflow = st.prevBodyOverflow;
+    if (st.scrollEl) { st.scrollEl.style.overscrollBehavior = st.prevScrollOverscroll; st.scrollEl.style.touchAction = st.prevScrollTouch; }
+  } catch (e) {}
+  try {
+    if (typeof window.scrollY === 'number' && window.scrollY !== st.savedY) window.scrollTo(0, st.savedY);
+  } catch (e) {}
+}
+
 window.closeDetailModal = function() {
+    unlockDetailModalScroll(); // 3w: mở khóa TRƯỚC mọi thứ — không rò rỉ khóa nếu haptic ném lỗi
     triggerHaptic('light'); document.querySelectorAll('.calendar-day.selected-day').forEach(el => el.classList.remove('selected-day')); document.getElementById('detailModal').classList.remove('show'); setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 };
 
