@@ -596,6 +596,37 @@ function doughnutDataset(amts, colors) {
   return { data: amts, backgroundColor: colors, borderWidth: s.borderWidth, hoverOffset: s.hoverOffset, spacing: s.spacing, borderRadius: s.borderRadius };
 }
 
+/* ROUND 3t (item 1): fit helper cho tâm donut Tab 2 (plugin cText) —
+   mirror từ 3s drawDailyDonutCenter: vẽ "val" ở cỡ basePx và "unit"
+   ở 55% cỡ số, co dần bước 0.5px xuống sàn 6px cho tới khi vừa
+   avail = 0.75 * đường kính lỗ (0.75 * 1.25 = 0.94 < 1 nên chuỗi vừa
+   trong sandbox vẫn vừa trên máy render chữ rộng). KHÔNG BAO GIỜ
+   rút gọn số. Trả {size, w, wn} để suite chẩn đoán. */
+function fitDonutCenterText(ctx, val, unit, basePx, avail, appFont) {
+  let size = basePx;
+  const measure = (s) => {
+    ctx.font = `800 ${s}px ${appFont}`;
+    const wn = ctx.measureText(val).width;
+    ctx.font = `800 ${s * 0.55}px ${appFont}`;
+    return { w: wn + ctx.measureText(unit).width, wn };
+  };
+  let m = measure(size);
+  while (m.w > avail && size > 6) { size = Math.max(6, +(size - 0.5).toFixed(1)); m = measure(size); }
+  return { size, w: m.w, wn: m.wn };
+}
+function drawFitCenterAmount(ctx, cx, cy, val, unit, basePx, avail, appFont, color) {
+  const f = fitDonutCenterText(ctx, val, unit, basePx, avail, appFont);
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.font = `800 ${f.size}px ${appFont}`;
+  const x0 = cx - f.w / 2;
+  ctx.fillText(val, x0, cy);
+  ctx.font = `800 ${f.size * 0.55}px ${appFont}`;
+  ctx.fillText(unit, x0 + f.wn, cy);
+  ctx.textAlign = 'center';
+  return f;
+}
+
 function drawMonthlyPieChart(data) {
   const appFont = applyAppFontToCharts();
   const ctx = document.getElementById('monthlyPieChart').getContext('2d');
@@ -604,15 +635,15 @@ function drawMonthlyPieChart(data) {
   const amts = data.map(i=>i.amount); const lbls = data.map(i=>i.category); const bg = data.map(i=>getCategoryColor(i.category));
   const total = amts.reduce((a,b)=>a+b,0);
 
-  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = getCategoryTextColor(catName); const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); ctx.fillStyle = color; ctx.font = `800 12px ${appFont}`; 
-  const catObj = formatCurrencyWithUnit(catAmt);
-  const displayAmt = isPrivacyActive ? '***' : catObj.val + catObj.unit;
-  // FIX 3b F-10 (quét %): dòng % dưới số tiền ở tâm donut cũng phải che "***"
-  // khi ẩn số — trước đây chỉ số tiền được che, % tỉ trọng vẫn lộ số thật.
-  ctx.fillText(displayAmt, c.width/2, c.height/2 + 4); ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px ${appFont}`; ctx.fillText(isPrivacyActive ? '***' : `(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font=`500 10px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10); ctx.fillStyle='#F43F5E'; ctx.font=`800 13px ${appFont}`; 
-  const totalObj = formatCurrencyWithUnit(total);
-  const displayTotal = isPrivacyActive ? '***' : totalObj.val + totalObj.unit;
-  ctx.fillText(displayTotal, c.width/2, c.height/2 + 8); } ctx.restore(); } }] });
+  window.pChart = new Chart(ctx, { type: 'doughnut', data: { labels:lbls, datasets: [doughnutDataset(amts, bg)] }, options: { devicePixelRatio: 4, cutout: doughnutSpec().cutout, layout: {padding: 8}, plugins: { legend: {display:false}, tooltip: { enabled: false } }, onClick: (event, activeEls) => { if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = lbls[activeIdx]; showCategoryDetail(catName); } } }, plugins: [{ id:'cText', afterDraw(c) { const {ctx} = c; ctx.save(); ctx.textAlign='center'; ctx.textBaseline='middle'; const meta = c.getDatasetMeta ? c.getDatasetMeta(0) : null; const arc = meta && meta.data && meta.data[0]; const holeD = arc && arc.innerRadius ? arc.innerRadius * 2 : Math.min(c.width, c.height) * 0.73; const avail = holeD * 0.75; const activeEls = c.getActiveElements(); if (activeEls && activeEls.length > 0) { const activeIdx = activeEls[0].index; const catName = c.data.labels[activeIdx]; const catAmt = c.data.datasets[0].data[activeIdx]; const color = getCategoryTextColor(catName); const pct = total > 0 ? ((catAmt/total)*100).toFixed(1) : 0; let shortName = catName.length > 14 ? catName.substring(0, 14) + '...' : catName; ctx.fillStyle = '#94A3B8'; ctx.font = `600 9px ${appFont}`; ctx.fillText(shortName, c.width/2, c.height/2 - 12); const catObj = formatCurrencyWithUnit(catAmt);
+    const fA = drawFitCenterAmount(ctx, c.width/2, c.height/2 + 4, isPrivacyActive ? '***' : catObj.val, isPrivacyActive ? '' : catObj.unit, 12, avail, appFont, color);
+    window.__tab2DonutFit = { branch: 'active', fontPx: fA.size, totalW: +fA.w.toFixed(1), holeD: +holeD.toFixed(1), text: (isPrivacyActive ? '***' : catObj.val + catObj.unit) };
+    // FIX 3b F-10 (quét %): dòng % dưới số tiền ở tâm donut cũng phải che "***"
+    // khi ẩn số — trước đây chỉ số tiền được che, % tỉ trọng vẫn lộ số thật.
+    ctx.fillStyle = '#94A3B8'; ctx.font = `500 9px ${appFont}`; ctx.fillText(isPrivacyActive ? '***' : `(${pct}%)`, c.width/2, c.height/2 + 16); } else { ctx.fillStyle='#94A3B8'; ctx.font=`500 10px ${appFont}`; ctx.fillText('Tổng chi', c.width/2, c.height/2 - 10);
+    const totalObj = formatCurrencyWithUnit(total);
+    const fT = drawFitCenterAmount(ctx, c.width/2, c.height/2 + 8, isPrivacyActive ? '***' : totalObj.val, isPrivacyActive ? '' : totalObj.unit, 13, avail, appFont, '#F43F5E');
+    window.__tab2DonutFit = { branch: 'total', fontPx: fT.size, totalW: +fT.w.toFixed(1), holeD: +holeD.toFixed(1), text: (isPrivacyActive ? '***' : totalObj.val + totalObj.unit) }; } ctx.restore(); } }] });
 
   const leg = document.getElementById('monthlyCustomLegend'); if(leg) leg.innerHTML = '';
   const progList = document.getElementById('monthlyCategoryProgressList'); if(progList) progList.innerHTML = '';
@@ -1202,7 +1233,10 @@ function renderInsightStrip(ctx) {
       var candI = [];
       if (line2I && line2NoAvg !== line2I) candI.push([line1I, line2NoAvg]);
       if (line2I) candI.push([line1I]);
-      if (topCat && topCat.length > 20) candI.push(['Chi nhiều nhất cho ' + escapeHTML(topCat.slice(0, 20) + '…') + ' — ' + money(topAmt) + ' (' + pctT(share) + ' tổng chi)']);
+      // ROUND 3t (item 2): đồng bộ dòng dự phòng với spec 3q — nhãn thường
+      // + ":" sau "cho", chỉ GIÁ TRỊ đậm; tên vẫn cắt 20 ký tự + "…".
+      // visLen() bóc thẻ nên ngân sách 2 dòng không đổi (chỉ +1 ký tự ":").
+      if (topCat && topCat.length > 20) candI.push(['Chi nhiều nhất cho: <strong>' + escapeHTML(topCat.slice(0, 20) + '…') + ' — ' + money(topAmt) + '</strong> (' + pctT(share) + ' tổng chi)']);
       for (var ciI = 0; ciI < candI.length; ciI++) {
         lines = candI[ciI]; paintInsight();
         if (!insightOver()) break;

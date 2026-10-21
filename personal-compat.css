@@ -618,3 +618,18 @@ body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
   flex-basis: 140px !important; width: 140px !important; height: 140px !important;
   min-width: 140px !important; min-height: 140px !important;
 }
+
+/* ---------- 31) PERSONAL ROUND 3t (item 1) — donut Tab 2 (Chi tiêu theo
+   danh mục, plugin cText) TO LÊN MỘT NẤC CỐ ĐỊNH 170 -> 200px cho MỌI kỳ
+   (KHÔNG phóng theo từng kỳ, cùng lý do như §30). Đo thật pre-fix: hộp
+   170, lỗ 110.2px; tổng 8-9 chữ số ở cỡ 13px đã vừa, nhưng tổng 10 chữ
+   số (9.999.999.999) chiếu máy thật ~116.8px > lỗ 110.2px -> tràn. Hộp
+   200 -> lỗ ~130px: tổng 10 chữ số vừa ở cỡ đầy đủ 13px (chiếu thật
+   ~111px); tổng 11 chữ số trở lên co chữ fallback trong app-reports.js
+   (tầng 2). Bố cục Tab 2 là cột canh giữa nên chỉ cao thêm ~30px,
+   không chèn gì ở 360px (200 < card inner ~328). File này nạp SAU
+   redesign.css nên cùng selector + !important thắng rule 170px. */
+#tab2 .pie-layout-wrapper .pie-chart-inner {
+  flex-basis: 200px !important; width: 200px !important; height: 200px !important;
+  min-width: 200px !important; min-height: 200px !important;
+}
