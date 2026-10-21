@@ -541,3 +541,64 @@ body.hmh-fs.hmh-on-tab1:not(.fullscreen-open) #tab1 .hero-card .hero-avatar {
 #calendarWidget #calCtrlBar .cal-ctrl-toggle > i {
   position: relative; z-index: 1;
 }
+
+/* ---------- 29) ROUND 3r (port R42 của bản chính): DESKTOP CỬA SỔ HẸP —
+   CỤM NGÀY ĐÈ AVATAR (Hùng chụp desktop 22:33: "Lỗi này trước đã fix
+   rồi mà"). Nguyên nhân: lỗi đè trên ĐIỆN THOẠI đã vá bằng Cách A (§27)
+   nhưng §27 chủ động LOẠI desktop (chốt 3n: desktop giữ cụm nguyên cỡ
+   ở mọi bề ngang — nhãn đầy đủ + caret + chữ 12px). Máy tính của Hùng
+   render chữ rộng hơn sandbox ~25% (pill ~180px so với 148,5px) và cửa
+   sổ Telegram Desktop ~390px -> cụm thật ~302px, canh giữa trong 390px
+   thì mép trái cụm ở x≈44 trong khi avatar chiếm tới x=62 -> đè ~18px.
+   Tái hiện trên cây trước vá (stub tdesktop, stress nới chữ x1,25 —
+   phương pháp của chính §27/3n): gap avatar<->‹ = -3,3px ở 390 thường,
+   -17,8px dưới stress (bản chính R41: -3,3 / -18,5 — cùng một lỗi).
+   Cách vá: biến thể "fit" CHỈ desktop, CHỈ khi bề ngang ≤460px — siết
+   đúng họ lever khoảng-cách-phụ của Cách A, KHÔNG đụng các chốt cứng:
+   nhãn vẫn ĐẦY ĐỦ (không nhãn gọn trên desktop), caret ▾ vẫn HIỆN, chữ
+   pill vẫn 12px, avatar absolute 46px left:16, cụm vẫn canh giữa toàn
+   bề ngang hero (tâm Δ = 0):
+   - hộp nút ‹ › 44px -> 36px (x2 = -16px; desktop bấm bằng chuột,
+     không phải vùng chạm cảm ứng; đĩa sơn §28 theo quan hệ hộp-4:
+     40px -> 32px);
+   - gap cụm 12px -> 4px (x2 = -16px);
+   - đệm ngang pill 16px -> 10px (x2 = -12px);
+   - margin pill 4px -> 0 (x2 = -8px);
+   - gap trong .hero-date-tap (pill<->caret) 4px -> 0 (-4px).
+   Tổng cụm 272,5px -> 216,5px (-56px). Hệ quả phụ duy nhất: trong dải
+   desktop ≤460px hàng ngày cao 36px thay vì 44px nên nội dung dưới
+   nhích lên 8px; >460px và di động không đổi một pixel.
+   Cổng (giống hệt R42 — CSS không gộp được cổng OR nên 2 khối):
+   (pointer: fine) cho trình duyệt/Telegram Desktop dùng chuột (kể cả
+   weba/webk desktop không có lớp hmh-desktop), và body.hmh-desktop
+   (app-core gắn cho tdesktop/macos) phòng máy desktop cảm ứng báo
+   pointer coarse. Điện thoại (coarse, không lớp desktop) không khối
+   nào khớp -> Cách A §27 giữ nguyên từng byte.
+   Giới hạn trung thực (chứng minh như R42): ở 360px + stress, gap ≥ 8
+   là KHÔNG THỂ đạt đồng thời với các chốt cứng — canh giữa + gap ≥ 8
+   đòi cụm ≤ 360 - 2x(62+8) = 220px, nhưng riêng chữ đã stress = 146,9px
+   cộng đệm tối thiểu + 2 hộp nút + gap tối thiểu ở bất kỳ mức sane nào
+   đã ≥ 226,9px. Mức tốt nhất đạt được ở 360 + stress ≈ -5px (từ -32,8,
+   cải thiện ~28px); 360 KHÔNG stress: +9,7px — không đè khi render
+   thường. Ở bề ngang cửa sổ thật của Hùng (~390): cả 2 trạng thái
+   đều ≥ +9,5px. */
+@media (max-width: 460px) and (pointer: fine) {
+  #tab1 .hero-date-nav { gap: 4px; }
+  #tab1 .date-nav-btn { width: 36px !important; height: 36px !important; }
+  #tab1 .date-nav-btn::before { width: 32px; height: 32px; }
+  #tab1 .hero-card .hero-date {
+    padding-left: 10px; padding-right: 10px;
+    margin-left: 0; margin-right: 0;
+  }
+  #tab1 .hero-date-tap { gap: 0; }
+}
+@media (max-width: 460px) {
+  body.hmh-desktop #tab1 .hero-date-nav { gap: 4px; }
+  body.hmh-desktop #tab1 .date-nav-btn { width: 36px !important; height: 36px !important; }
+  body.hmh-desktop #tab1 .date-nav-btn::before { width: 32px; height: 32px; }
+  body.hmh-desktop #tab1 .hero-card .hero-date {
+    padding-left: 10px; padding-right: 10px;
+    margin-left: 0; margin-right: 0;
+  }
+  body.hmh-desktop #tab1 .hero-date-tap { gap: 0; }
+}
