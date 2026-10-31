@@ -675,7 +675,16 @@
     if (dir > 0 && nextPeriodStartKey() > keyOf(new Date())) { triggerHaptic('light'); return; }
     triggerHaptic('light');
     if (currentFilterMode === 'weekly') activePeriodDate.setDate(activePeriodDate.getDate() + dir * 7);
-    else activePeriodDate.setMonth(activePeriodDate.getMonth() + dir);
+    else {
+      // 3z: kẹp ngày về cuối tháng đích trước khi đổi tháng — setMonth trực
+      // tiếp tràn ngày cuối tháng (31/10 - 1 tháng thành 1/10 vì tháng 9 chỉ
+      // có 30 ngày) khiến nút lui trông như không bấm được.
+      var _d = activePeriodDate.getDate();
+      activePeriodDate.setDate(1);
+      activePeriodDate.setMonth(activePeriodDate.getMonth() + dir);
+      var _last = new Date(activePeriodDate.getFullYear(), activePeriodDate.getMonth() + 1, 0).getDate();
+      activePeriodDate.setDate(Math.min(_d, _last));
+    }
     updateTimeNavUI();
   };
 
