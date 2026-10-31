@@ -279,9 +279,16 @@ async function postToSheetWithRetry(payload, retries = 2) {
     return false;
 }
 
-async function submitTx(tx) {
+// PERSONAL ROUND 4a — opts.quiet (port từ bản chính R58): lưu hàng loạt
+// (nhập nhanh) không toast/rung/làm mới từng dòng; cuối cùng quickEntrySave
+// tự invalidate một lần + rung một lần + popup tổng kết. NGOẠI LỆ theo
+// Hùng chốt 2026-10-31: notifyTelegram VẪN gửi từng khoản như thêm lẻ
+// (không bị quiet tắt). Đồng bộ Sheet vẫn chạy ngầm từng khoản như thêm lẻ,
+// nhưng cảnh báo lỗi của nó bị nén dưới quiet (tránh N toast khi lưu loạt).
+async function submitTx(tx, opts) {
   try {
-    showToast("Đang lưu giao dịch...", "info");
+    var quiet = !!(opts && opts.quiet);
+    if (!quiet) showToast("Đang lưu giao dịch...", "info");
 
     const month = parseInt(tx.date.split('/')[1], 10);
     const year = parseInt(tx.date.split('/')[2], 10);
@@ -301,16 +308,19 @@ async function submitTx(tx) {
         });
     }
 
-    triggerHapticNotification('success');
-    showToast("Đã lưu giao dịch!", "success");
+    if (!quiet) {
+      triggerHapticNotification('success');
+      showToast("Đã lưu giao dịch!", "success");
+    }
 
-    await invalidateCachesAndRefreshUI({ reason: 'submitTx' });
+    if (!quiet) await invalidateCachesAndRefreshUI({ reason: 'submitTx' });
 
+    // 4a: notify KHÔNG bị quiet tắt (Hùng chốt: vẫn gửi Telegram từng khoản).
     if (tx.action === 'addTransaction') { notifyTelegram('add', fbTx); }
     else { notifyTelegram('update', fbTx); }
 
     postToSheetWithRetry(tx).then(ok => {
-        if (!ok) {
+        if (!ok && !quiet) {
             triggerHapticNotification('warning');
             showToast('Giao dịch đã lưu vào hệ thống, nhưng đồng bộ Google Sheet đang lỗi. Dữ liệu KHÔNG mất — vui lòng kiểm tra lại sau ít phút.', 'warning');
         }
@@ -318,13 +328,15 @@ async function submitTx(tx) {
 
     return true;
   } catch(e) {
-    triggerHapticNotification('error');
-    showToast(
-      navigator.onLine
-        ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!')
-        : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!',
-      "error"
-    );
+    if (!quiet) {
+      triggerHapticNotification('error');
+      showToast(
+        navigator.onLine
+          ? ('Lưu thất bại: ' + e.message + '. Dữ liệu CHƯA được ghi, vui lòng thử lại!')
+          : 'Mất kết nối mạng. Giao dịch CHƯA được lưu, thử lại nhé!',
+        "error"
+      );
+    }
     return false;
   }
 }
@@ -1063,4 +1075,631 @@ window.closeIconPickerModal = function() {
     setTimeout(() => document.getElementById('modalOverlay').classList.remove('show'), 300);
 
     unlockBackgroundScrollForIconPicker();
+};
+// ============================================================================
+// PERSONAL ROUND 4a — NHẬP NHANH KIỂU TIN NHẮN (port từ bản chính R54–R69).
+// Parser, thread, render, popup, guide: giữ nguyên luật bản chính (tách dòng,
+// ngày reset theo dòng R66, ngày trong ngoặc R67/R68, ghi chú ngoặc cuối R64,
+// khớp danh mục kiểu webhook R60, ô gõ textarea R65, popup giữa màn hình R60
+// + kết quả tách theo ngày R61, bong bóng đồng bộ bóng nút + R69).
+// ĐIỂM CHUYỂN ĐỔI CHO BẢN CÁ NHÂN (không bê nguyên):
+//  - Lưu qua submitTx bản cá nhân: id theo tháng (không phải id toàn cục),
+//    thêm opts.quiet (xem submitTx) để lưu hàng loạt không toast/rung/
+//    làm mới từng dòng; cuối cùng invalidate một lần (thay bước lọc cache
+//    Tab 1 riêng của bản chính — invalidate đã xóa sạch cache ngày).
+//  - Số tiền dòng phân tích dùng formatNumberWithCommas của bản cá nhân
+//    (vi-VN -> dấu chấm); cờ ẩn số cùng tên isPrivacyActive nên tự che ***.
+//  - Nút Đóng của popup đi qua fallback activateTab -> openTab (bản cá nhân
+//    dùng openTab). Không thêm whatsnew (bản cá nhân đã bỏ).
+// ============================================================================
+
+function __qeNorm(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u0111/g, 'd');
+}
+
+// Trả về số đồng (số nguyên) hoặc null nếu token không phải số tiền hợp lệ.
+function __qeParseNumberToken(numStr, suffix) {
+  var mult = 1;
+  if (suffix === 'k' || suffix === 'nghìn') mult = 1000;
+  else if (suffix === 'tr' || suffix === 'triệu') mult = 1000000;
+  else if (suffix === 'm') mult = 1000000;
+  var s = numStr;
+  if (/^[.,]/.test(s) || /[.,]$/.test(s)) return null;
+  if (/[.,]/.test(s)) {
+    if (/^\d{1,3}([.,]\d{3})+$/.test(s)) {
+      var grouped = parseInt(s.replace(/[.,]/g, ''), 10);
+      if (!grouped) return null;
+      return grouped * mult;
+    }
+    var dm = /^(\d+)[.,](\d{1,2})$/.exec(s);
+    if (dm && mult > 1) {
+      var dec = Math.round(parseFloat(dm[1] + '.' + dm[2]) * mult);
+      return dec > 0 ? dec : null;
+    }
+    return null;
+  }
+  var v = parseInt(s, 10);
+  if (!v) return null;
+  return v * mult;
+}
+
+// Tìm token số tiền trong text. Trả về { value, token, index } hoặc null.
+// token là đúng đoạn cần cắt khỏi nội dung (khi hậu tố bị loại vì dính chữ
+// sau, token chỉ còn phần số, để khỏi ăn mất chữ của từ sau).
+function __qeFindAmount(text) {
+  // R58: hậu tố m/M = triệu như bot (vd "15m" = 15.000.000; dạng XmY
+  // "1m5" = 1,5 triệu; "1,5m"/"1.5m" qua đường thập phân sẵn có).
+  var re = /-?(?:\d+m\d+|\d[\d.,]*\s*(nghìn|triệu|k|tr|m|đ|₫)?)/gi;
+  var lastBare = null, m;
+  while ((m = re.exec(text)) !== null) {
+    var raw = m[0];
+    var after = text.charAt(m.index + raw.length);
+    var afterNext = text.charAt(m.index + raw.length + 1);
+    // Dạng XmY của bot: token phải đứng riêng — sau nó không được là
+    // chữ/số, cũng không được là dấu . , rồi tới số (để khỏi ăn mất
+    // phần thập phân của số khác). Không đạt thì bỏ qua token này.
+    var xm = /^(-?)(\d+)m(\d+)$/i.exec(raw);
+    if (xm) {
+      if (/[a-zà-ỹ0-9]/i.test(after) || ((after === '.' || after === ',') && /[0-9]/.test(afterNext))) continue;
+      var xv = parseFloat(xm[2] + '.' + xm[3]) * 1000000;
+      if (xv > 0) return { value: Math.round(xv), token: raw, index: m.index };
+      continue;
+    }
+    var numMatch = /-?[\d.,]+/.exec(raw);
+    var numPart = numMatch[0];
+    var sufRaw = raw.slice(numPart.length).trim().toLowerCase();
+    var suffix = sufRaw;
+    var token = raw;
+    // Hậu tố 1-2 chữ mà dính ngay vào chữ sau ("50 trà sữa" -> "50 tr",
+    // "15mua" -> "15 m") thì không phải hậu tố: loại hậu tố, token chỉ
+    // còn phần số.
+    if ((suffix === 'k' || suffix === 'tr' || suffix === 'm' || suffix === 'đ') && /[a-zà-ỹ]/i.test(after)) {
+      suffix = '';
+      token = numPart;
+    }
+    var numDigits = numPart.charAt(0) === '-' ? numPart.slice(1) : numPart;
+    var val = __qeParseNumberToken(numDigits, suffix);
+    if (val === null) continue;
+    var strong = (suffix === 'k' || suffix === 'nghìn' || suffix === 'tr' || suffix === 'triệu' || suffix === 'm')
+      || /^\d{1,3}([.,]\d{3})+$/.test(numDigits);
+    var cand = { value: val, token: token, index: m.index };
+    if (strong) return cand;
+    lastBare = cand;
+  }
+  return lastBare;
+}
+
+function __qeDetectType(text) {
+  var t = text.trim();
+  if (t.charAt(0) === '+') return { type: 'Thu nhập', rest: t.slice(1).trim() };
+  var m = /^(thu nhập|thu|chi tiêu|chi)(?=\s|:|$)\s*:?\s*/i.exec(t);
+  if (m) {
+    var w = m[1].toLowerCase();
+    return { type: (w === 'thu' || w === 'thu nhập') ? 'Thu nhập' : 'Chi tiêu', rest: t.slice(m[0].length) };
+  }
+  if (/^(luong|nhan)\b/.test(__qeNorm(t))) return { type: 'Thu nhập', rest: t };
+  return { type: 'Chi tiêu', rest: t };
+}
+
+// R60: escape ký tự regex trong từ khóa, đúng như webhook làm
+// (kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).
+function __qeEscapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// R60: khớp danh mục đúng luật webhook — lowercase giữ dấu, ranh giới từ,
+// điểm = số từ, cao thắng, hòa thì gặp trước thắng. Không khớp -> ''.
+function __qeMatchCategory(content, entries) {
+  var desc = (content || '').toLowerCase().trim();
+  if (!desc) return '';
+  var best = '', bestScore = 0;
+  (entries || []).forEach(function (e) {
+    if (!e || !e.category) return;
+    var kws = (e.keywords || '').split(',').map(function (k) { return k.trim().toLowerCase(); }).filter(Boolean);
+    kws.forEach(function (kw) {
+      var re = new RegExp('(?:^|\\s)' + __qeEscapeRegExp(kw) + '(?:\\s|$)', 'i');
+      if (re.test(desc)) {
+        var score = kw.split(/\s+/).length;
+        if (score > bestScore) { best = e.category.trim(); bestScore = score; }
+      }
+    });
+  });
+  return best;
+}
+
+// Hàm thuần cho MỘT đoạn. entries: mảng { category, keywords }.
+// Trả về { ok: true, amount, type, category, content, note, date } hoặc
+// { ok: false, error }. dateStr: 'dd/mm/yyyy' (mặc định hôm nay).
+function __qeParseSegment(seg, entries, dateStr) {
+  var raw = (seg || '').trim().replace(/\s+/g, ' ');
+  if (!raw) return { ok: false, error: 'Chưa nhập nội dung' };
+  var det = __qeDetectType(raw);
+  var work = det.rest;
+  var amt = __qeFindAmount(work);
+  if (!amt) return { ok: false, error: 'Chưa thấy số tiền trong tin nhắn' };
+  var content = (work.slice(0, amt.index) + work.slice(amt.index + amt.token.length)).replace(/\s+/g, ' ').trim();
+  // R64: ghi chú trong ngoặc ở cuối đoạn — đúng luật webhook (regex
+  // ...\((.+?)\)$): nhóm (...) CUỐI CÙNG thành note, phần trước là nội
+  // dung; ngoặc giữa câu không ở cuối thì ở lại trong nội dung; "()"
+  // rỗng thì không tách (không lỗi). Chỉ tách khi phần trước còn nội
+  // dung — để "500k (mua đồ)" giữ "(mua đồ)" làm nội dung như webhook
+  // (regex của bot cũng đòi description dài ≥ 1 ký tự).
+  var note = '';
+  var nm = /\(([^()]*)\)\s*$/.exec(content);
+  if (nm && nm[1].trim() && content.slice(0, nm.index).trim()) {
+    note = nm[1].trim();
+    content = content.slice(0, nm.index).trim();
+    if (note) note = note.charAt(0).toUpperCase() + note.slice(1);
+  }
+  content = content.replace(/\s+-\s*$/, '').replace(/^\s*-\s+/, '').trim();
+  var category = __qeMatchCategory(content, entries);
+  if (!content && category) content = category;
+  // R57: viết hoa chữ cái đầu của nội dung như webhook làm với description
+  // (description.charAt(0).toUpperCase() + description.slice(1)); chữ số /
+  // ký tự đặc biệt ở đầu giữ nguyên; bong bóng tin vẫn giữ văn bản gốc.
+  if (content) content = content.charAt(0).toUpperCase() + content.slice(1);
+  return { ok: true, amount: amt.value, type: det.type, category: category, content: content, note: note, date: dateStr || formatDateToDDMMYYYY(new Date()) };
+}
+
+// Giữ tương thích R54: parse 1 đoạn duy nhất, ngày hôm nay.
+function parseQuickMessage(text, entries) {
+  return __qeParseSegment(text, entries, formatDateToDDMMYYYY(new Date()));
+}
+
+// R56: TÁCH TRƯỚC, rồi parse từng đoạn riêng — đúng luật bot trong file
+// webhook (Cloudflare Worker v3.1): tách tin theo xuống dòng, rồi tách mỗi
+// dòng theo /\.(?=\s|$)/ (chấm + khoảng trắng hoặc cuối chuỗi — nên
+// "50.000" không bị tách, "50k ăn trưa.7k gửi xe" không bị tách vì chấm
+// không kèm khoảng trắng). R66 SỬA LUẬT NGÀY (theo yêu cầu rõ của Hùng,
+// thay luật R65): ngày-context RESET Ở MỖI RANH GIỚI DÒNG — dòng không
+// có ngày mặc định về hôm nay, kể cả khi dòng trước mang ngày; đoạn mở
+// đầu bằng dd/mm chỉ đặt ngày-context cho chính nó và các đoạn sau
+// trong CÙNG DÒNG đó. (Miniapp nới thêm: đoạn chỉ có ngày thì chỉ đặt
+// context, không sinh khoản.) Lưu ý trung thực: code webhook giữ một
+// contextDate sống xuyên suốt cả tin — nhưng Hùng đã chốt luật reset
+// theo dòng cho miniapp vì thừa hưởng xuyên dòng khó đoán với tin nhiều
+// dòng, nên miniapp làm theo luật của Hùng, không theo code webhook ở
+// điểm này.
+function __qeSplitMessage(text) {
+  var segs = [];
+  (text || '').split('\n').forEach(function (line) {
+    line.split(/\.(?=\s|$)/).forEach(function (p) {
+      var s = p.trim();
+      if (s) segs.push(s);
+    });
+  });
+  return segs;
+}
+function __qeParseMessageMulti(text, entries, defaultDate) {
+  var today = formatDateToDDMMYYYY(new Date());
+  var base = defaultDate || today;
+  var year = String(new Date().getFullYear());
+  var items = [];
+  // R66: duyệt từng DÒNG riêng — ctxDate reset về null (→ base = hôm nay)
+  // ở đầu mỗi dòng, chỉ sống trong các đoạn của dòng đó.
+  (text || '').split('\n').forEach(function (line) {
+    var ctxDate = null;
+    line.split(/\.(?=\s|$)/).forEach(function (p) {
+      var seg = p.trim();
+      if (!seg) return;
+      var dm = /^(\d{1,2})\/(\d{1,2})(?:\s+(.*))?$/.exec(seg);
+      if (dm) {
+        var d = parseInt(dm[1], 10), mo = parseInt(dm[2], 10);
+        if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12) {
+          ctxDate = String(d).padStart(2, '0') + '/' + String(mo).padStart(2, '0') + '/' + year;
+          var rest = (dm[3] || '').trim();
+          if (!rest) return; // đoạn chỉ có ngày: đặt context, không sinh khoản
+          seg = rest;
+        }
+      }
+      var r = __qeParseSegment(seg, entries, ctxDate || base);
+      r.segment = seg;
+      items.push(r);
+    });
+  });
+  if (!items.length) items.push({ ok: false, error: 'Chưa thấy số tiền trong tin nhắn', segment: (text || '').trim() });
+  return items;
+}
+
+// ---- Lớp giao diện R55/R57: khung chat nhập hàng loạt (thay sheet xem trước từng dòng của R54) ----
+// R56: mỗi tin nhắn tách thành N khoản (theo luật bot) — thread giữ nhóm tin,
+// lưu chạy theo khoản. Parser từng đoạn giữ nguyên quy tắc R54.
+// R57: BỎ hẳn màn xem trước tổng — thread CHÍNH LÀ bản xem trước; nút đầu
+// là "Lưu (M)" ghi tuần tự qua submitTx. Dòng chưa hợp lệ không bị mất —
+// vẫn giữ trong thread để sửa.
+// Nguyên tắc R55: gửi tin
+// KHÔNG BAO GIỜ mở modal chặn luồng; mỗi tin hiện ngay trong thread kèm dòng
+// phân tích gọn; dòng chưa hợp lệ không bị mất — vẫn giữ trong thread để sửa.
+
+var __qeThread = [];
+var __qeNextId = 1;
+var __qeNextItemId = 1;
+var __qeCatCache = null;
+var __qeSaving = false;
+// R59: KHÔNG còn ngày tham chiếu phiên chat — chip R57 đã bị gỡ vì sai.
+// Webhook (Worker v3.1) khởi tạo contextDate = hôm nay trong TỪNG message
+// handler, nên mỗi tin nhắn mới đều bắt đầu ở hôm nay. R66: ngày chỉ lan
+// sang các đoạn SAU trong CÙNG DÒNG — qua ranh giới dòng là reset về
+// hôm nay (luật Hùng chốt, thay luật R65 thừa hưởng xuyên dòng). Không
+// có state ngày nào sống qua ranh giới tin nhắn.
+var __qeNotices = [];
+
+// --- Logic thuần (không chạm DOM) — test được trong VM ---
+// R56: mỗi tin nhắn là một NHÓM chứa N khoản (items) sau khi tách.
+// Item: { id, segment, ok, error, amount, type, category, content, date, saveError }.
+function __qeNewMessage(text, entries) {
+  var m = { id: __qeNextId++, text: text, editing: false, items: [] };
+  // R59: mỗi tin nhắn mới bắt đầu ngày-context ở HÔM NAY — đúng webhook,
+  // bất kể tin trước đó mang ngày nào. R66: ngày chỉ lan trong cùng
+  // DÒNG, qua dòng là reset về hôm nay.
+  var base = formatDateToDDMMYYYY(new Date());
+  __qeParseMessageMulti(text, entries, base).forEach(function (r) {
+    m.items.push({ id: __qeNextItemId++, segment: r.segment || text, ok: !!r.ok, error: r.error || '', amount: r.ok ? r.amount : 0, type: r.ok ? r.type : 'Chi tiêu', category: r.ok ? r.category : '', content: r.ok ? r.content : '', note: r.ok ? (r.note || '') : '', date: r.ok ? r.date : base, saveError: false });
+  });
+  return m;
+}
+function __qeAddMessage(text, entries) { var m = __qeNewMessage(text, entries); __qeThread.push(m); return m; }
+function __qeValid(it) { return !!(it.ok && it.amount > 0 && it.content && it.category); }
+function __qeFlatItems() { var out = []; __qeThread.forEach(function (m) { m.items.forEach(function (it) { out.push(it); }); }); return out; }
+function __qeCounts() {
+  var items = __qeFlatItems(), v = 0;
+  items.forEach(function (it) { if (__qeValid(it)) v++; });
+  return { total: items.length, valid: v, invalid: items.length - v };
+}
+function __qeFindItem(id) { var found = null; __qeThread.forEach(function (m) { m.items.forEach(function (it) { if (it.id === id) found = it; }); }); return found; }
+function __qeRemoveMessage(id) { __qeThread = __qeThread.filter(function (m) { return m.id !== id; }); }
+function __qeRemoveItem(id) {
+  __qeThread.forEach(function (m) { m.items = m.items.filter(function (it) { return it.id !== id; }); });
+  __qeThread = __qeThread.filter(function (m) { return m.items.length; });
+}
+function __qeBuildTx(it) { return { content: it.content, amount: it.amount, type: it.type, category: it.category, note: it.note || '', date: it.date, action: 'addTransaction' }; }
+function __qeReparseMessage(m, entries) {
+  var fresh = __qeNewMessage(m.text, entries);
+  m.items = fresh.items;
+  return m;
+}
+
+// --- Lớp DOM ---
+function __qeAmtText(amount) {
+  if (typeof isPrivacyActive !== 'undefined' && isPrivacyActive) return '***';
+  return formatNumberWithCommas(String(amount)) + ' ₫';
+}
+function __qeCatOptions(selected) {
+  var opts = '<option value="">— Chọn danh mục —</option>';
+  (__qeCatCache || []).forEach(function (c) {
+    opts += '<option value="' + escapeHTML(c) + '"' + (c === selected ? ' selected' : '') + '>' + escapeHTML(c) + '</option>';
+  });
+  return opts;
+}
+function __qeEnsureCats() {
+  if (__qeCatCache) return;
+  try {
+    fetchCategories().then(function (cats) {
+      __qeCatCache = cats || [];
+      if (!__qeThread.some(function (m) { return m.editing; })) {
+        __qeRenderThread();
+      }
+    });
+  } catch (e) {}
+}
+function __qeParseLine(it) {
+  // R67: MỌI dòng phân tích đều kết thúc bằng đoạn ngày. R68: ngày viết
+  // hoa và cho vào ngoặc — "· (Hôm nay)", "· (dd/mm/yyyy)".
+  // Trước đây chỉ hiện ngày khi khác hôm nay nên "không ngày" mập mờ:
+  // không phân biệt được "ghi cho hôm nay" hay "mất ngày".
+  var today = formatDateToDDMMYYYY(new Date());
+  var d = it.date || today;
+  var dateSeg = ' · (' + (d === today ? 'Hôm nay' : escapeHTML(d)) + ')';
+  if (!it.ok) return '<div class="qe-parseline qe-flag">⚠ ' + escapeHTML(it.error) + dateSeg + '</div>';
+  var line = escapeHTML(it.type) + ' · ' + __qeAmtText(it.amount) + (it.category ? ' · ' + escapeHTML(it.category) : '') + (it.content ? ' · ' + escapeHTML(it.content) : '') + (it.note ? ' · (' + escapeHTML(it.note) + ')' : '') + dateSeg;
+  var flag = '';
+  if (!it.category) flag = '<div class="qe-parseline qe-flag">⚠ Chưa có danh mục — chọn bên dưới để lưu được.</div>';
+  if (it.saveError) flag += '<div class="qe-parseline qe-flag">⚠ Lưu lỗi — vẫn giữ trong khung chat, bấm Lưu tất cả để thử lại.</div>';
+  return '<div class="qe-parseline">' + line + '</div>' + flag;
+}
+function __qeRenderMsg(m) {
+  var bubble;
+  if (m.editing) {
+    bubble = '<div class="qe-bubble-edit"><textarea id="qeEditInput_' + m.id + '" class="field-input" style="margin:0; resize:none;" rows="3">' + escapeHTML(m.text) + '</textarea>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;"><button type="button" class="btn-save flex-1 m-0" onclick="quickEntrySaveEdit(' + m.id + ')">Lưu sửa</button>'
+      + '<button type="button" class="btn-cancel flex-1 m-0" onclick="quickEntryCancelEdit(' + m.id + ')">Hủy</button></div></div>';
+  } else {
+    bubble = '<div class="qe-bubble">' + escapeHTML(m.text) + '</div>'
+      + '<div class="qe-msg-actions"><button type="button" onclick="quickEntryEditMsg(' + m.id + ')">Sửa</button>'
+      + '<button type="button" onclick="quickEntryRemoveMsg(' + m.id + ')">✕ Xóa</button></div>';
+  }
+  var body = '';
+  m.items.forEach(function (it) {
+    body += __qeParseLine(it);
+    if (it.ok && !it.category) {
+      body += '<select class="field-input qe-cat-select" onchange="quickEntrySetMsgCategory(' + it.id + ', this.value)">' + __qeCatOptions('') + '</select>';
+    }
+  });
+  return '<div class="qe-msg">' + bubble + body + '</div>';
+}
+function __qeRenderThread() {
+  var th = document.getElementById('quickEntryThread'); if (!th) return;
+  // R57: thread CHÍNH LÀ bản xem trước — nút đầu là Lưu, đếm khoản HỢP LỆ.
+  // R59: nút Lưu giữ trạng thái khóa trong lúc đang lưu (đề phòng render
+  // chen ngang khi fetch danh mục xong) — chống bấm đúp.
+  var btn = document.getElementById('quickEntrySaveBtn');
+  var c0 = __qeCounts();
+  if (btn) { btn.textContent = 'Lưu (' + c0.valid + ')'; btn.disabled = __qeSaving || c0.valid === 0; }
+  // R59: dòng hệ thống (thông báo kết quả lưu kiểu webhook) luôn vẽ sau
+  // các tin nhắn, kể cả khi thread đã trống sau khi lưu xong.
+  var notices = __qeNotices.map(function (n) { return '<div class="qe-system">' + escapeHTML(n) + '</div>'; }).join('');
+  if (!__qeThread.length) {
+    th.innerHTML = '<div class="qe-empty"><strong><i class="fas fa-book-open qe-guide-icon"></i>HƯỚNG DẪN NHẬP DỮ LIỆU:</strong><br>Nhập tin nhắn theo cú pháp để app tự động ghi nhận:<br><br><strong><i class="fas fa-lightbulb qe-guide-icon"></i>MẸO NHẬP SỐ TIỀN:</strong><br>• Nhập đầy đủ: 50000 = 50.000 VNĐ<br>• Dùng chữ tắt: k = nghìn, m = triệu<br>• VD: 50k = 50.000 • 1m5 = 1.500.000 • 2m = 2.000.000<br>──────────────<br><strong>1. Chi tiêu cơ bản (Hôm nay)</strong><br>Cú pháp: [Số tiền] [Nội dung]<br><i class="fas fa-arrow-right qe-guide-icon"></i>VD: 50k ăn trưa hoặc 50000 ăn trưa<br><br><strong>2. Chi tiêu theo ngày cụ thể</strong><br>Cú pháp: [Ngày/Tháng] [Số tiền] [Nội dung]<br><i class="fas fa-arrow-right qe-guide-icon"></i>VD: 12/06 1m5 đóng tiền nhà<br><br><strong>3. Thêm ghi chú</strong><br>Cú pháp: ... [Nội dung] (Ghi chú)<br><i class="fas fa-arrow-right qe-guide-icon"></i>VD: 500k siêu thị (mua đồ cả tuần)<br><br><strong>4. Thu nhập</strong><br>Thêm dấu + trước số tiền.<br><i class="fas fa-arrow-right qe-guide-icon"></i>VD: +10m lương tháng<br>──────────────<br>Nhiều khoản trong 1 tin, cách nhau bằng dấu chấm: 50k ăn trưa. 7k gửi xe.</div>' + notices;
+    return;
+  }
+  th.innerHTML = __qeThread.map(__qeRenderMsg).join('') + notices;
+  th.scrollTop = th.scrollHeight;
+}
+
+// R65: ô gõ đa dòng — textarea tự cao dần theo nội dung (tối đa ~5
+// dòng rồi cuộn trong), KHÔNG chặn Enter (Enter xuống dòng theo hành vi
+// mặc định của textarea, kể cả khi đang gõ IME; gửi chỉ qua nút
+// paper-plane). Gắn 1 lần, guard cho VM test không có DOM thật.
+function __qeAutoresizeComposer() {
+  var inp = document.getElementById('quickEntryInput'); if (!inp) return;
+  try {
+    inp.style.height = 'auto';
+    var max = 120;
+    inp.style.height = Math.min(inp.scrollHeight, max) + 'px';
+    inp.style.overflowY = (inp.scrollHeight > max) ? 'auto' : 'hidden';
+  } catch (e) {}
+}
+try {
+  if (typeof document !== 'undefined') {
+    var __qeInp0 = document.getElementById('quickEntryInput');
+    if (__qeInp0 && __qeInp0.addEventListener && !__qeInp0.__qeResizeBound) {
+      __qeInp0.addEventListener('input', __qeAutoresizeComposer);
+      __qeInp0.__qeResizeBound = true;
+    }
+  }
+} catch (e) {}
+
+window.openQuickEntry = function () {
+  try { triggerHaptic('light'); } catch (e) {}
+  var tv = document.getElementById('quickEntryThreadView'); if (tv) tv.style.display = 'flex';
+  var ov = document.getElementById('modalOverlay'); if (ov) ov.classList.add('show');
+  setTimeout(function () { var s = document.getElementById('quickEntryModal'); if (s) s.classList.add('show'); }, 10);
+  __qeRenderThread();
+  var inp = document.getElementById('quickEntryInput');
+  if (inp) {
+    if (inp.addEventListener && !inp.__qeResizeBound) {
+      inp.addEventListener('input', __qeAutoresizeComposer);
+      inp.__qeResizeBound = true;
+    }
+    __qeAutoresizeComposer();
+    setTimeout(function () { inp.focus(); }, 350);
+  }
+};
+
+window.closeQuickEntry = function (force, afterClose) {
+  var remaining = __qeCounts().total;
+  if (!force && remaining) {
+    showCustomConfirm('Đóng khung nhập nhanh',
+      'Còn <strong>' + remaining + ' dòng</strong> chưa lưu, đóng sẽ mất. Bạn có muốn đóng không?',
+      'Đóng', function () { window.closeQuickEntry(true, afterClose); });
+    return;
+  }
+  __qeThread = []; __qeSaving = false; __qeNotices = [];
+  // R60: đóng khung cũng giấu popup lưu nếu còn hiện (phòng trường hợp
+  // đóng bằng đường khác ngoài nút "Đóng" của popup).
+  try { var sp = document.getElementById('quickEntrySavePopup'); if (sp) sp.style.display = 'none'; } catch (e) {}
+  // R58: vẽ lại thread sau khi dọn để DOM khớp dữ liệu (trước đây DOM cũ
+  // vẫn còn cho tới lần mở sau, dù dữ liệu đã trống).
+  try { __qeRenderThread(); } catch (e) {}
+  var s = document.getElementById('quickEntryModal'); if (s) s.classList.remove('show');
+  setTimeout(function () { var ov = document.getElementById('modalOverlay'); if (ov) ov.classList.remove('show'); }, 300);
+  var inp = document.getElementById('quickEntryInput'); if (inp) { inp.value = ''; __qeAutoresizeComposer(); }
+  // R61: callback chạy sau khi đóng (nút "Đóng" của popup lưu dùng để quay
+  // về Tab 1); các đường đóng khác không truyền callback nên không đổi.
+  if (typeof afterClose === 'function') { try { afterClose(); } catch (e) {} }
+};
+
+// Đóng sheet nhập nhanh cùng mọi modal khác (nút overlay gọi closeAllModals).
+(function () {
+  var prevCloseAllModals = window.closeAllModals;
+  window.closeAllModals = function () {
+    try { if (typeof prevCloseAllModals === 'function') prevCloseAllModals(); } catch (e) {}
+    try { window.closeQuickEntry(); } catch (e) {}
+  };
+})();
+
+async function __qeLoadKeywordEntries() {
+  try {
+    if (cachedKeywords && cachedKeywords.length) return cachedKeywords;
+    if (typeof window.loadKeywords === 'function') { await window.loadKeywords(true); return cachedKeywords || []; }
+  } catch (e) {}
+  return [];
+}
+
+// Gửi 1 tin: KHÔNG mở modal, chỉ thêm vào thread và dọn ô gõ để nhập tiếp.
+window.quickEntrySend = async function () {
+  var inp = document.getElementById('quickEntryInput');
+  var text = inp ? inp.value.trim() : '';
+  if (!text) return;
+  var entries = await __qeLoadKeywordEntries();
+  __qeAddMessage(text, entries);
+  if (inp) { inp.value = ''; __qeAutoresizeComposer(); }
+  __qeRenderThread();
+  __qeEnsureCats();
+  if (inp) inp.focus();
+};
+
+window.quickEntryRemoveMsg = function (id) {
+  __qeRemoveMessage(id);
+  __qeRenderThread();
+};
+window.quickEntrySetMsgCategory = function (id, category) {
+  var it = __qeFindItem(id);
+  if (it) { it.category = category; it.saveError = false; }
+  __qeRenderThread();
+};
+window.quickEntryEditMsg = function (id) {
+  __qeThread.forEach(function (m) { m.editing = (m.id === id); });
+  __qeRenderThread();
+  var el = document.getElementById('qeEditInput_' + id);
+  if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+};
+window.quickEntryCancelEdit = function (id) {
+  __qeThread.forEach(function (m) { if (m.id === id) m.editing = false; });
+  __qeRenderThread();
+};
+window.quickEntrySaveEdit = async function (id) {
+  var el = document.getElementById('qeEditInput_' + id);
+  var m = null;
+  __qeThread.forEach(function (x) { if (x.id === id) m = x; });
+  if (!m) return;
+  var text = el ? el.value.trim() : '';
+  if (text) m.text = text;
+  m.editing = false;
+  var entries = await __qeLoadKeywordEntries();
+  __qeReparseMessage(m, entries);
+  __qeRenderThread();
+  __qeEnsureCats();
+};
+
+// R60: popup lưu GIỮA MÀN HÌNH thay cho spin/đếm trong thread của R59
+// (Hùng: "Spin lúc chờ lưu nó là show popup giữa màn hình chứ. Icon tick
+// phải dạng flat."). Popup z-index 2500: trên sheet chat (2000) và overlay
+// (1500), dưới trang fullscreen (3000) và sheet nhập CSV (3500); lớp phủ
+// chặn tương tác trong lúc lưu nên không bấm đúp được. Xong: CÙNG popup
+// chuyển sang tick FLAT (SVG 1 màu, không emoji, không gradient, không
+// bóng) + "Đã lưu N giao dịch" (+ dòng lỗi/chưa hợp lệ nếu có) và ĐỨNG
+// YÊN tới khi user bấm "Đóng" (R61 đổi nhãn từ "Đã hiểu", bấm thì đóng
+// luôn khung chat và quay về Tab 1) — không tự tắt để khỏi giấu dòng lỗi.
+// Popup này LÀ thông báo lưu nên dòng hệ thống trong thread của R59 bị gỡ
+// để khỏi thông báo trùng 2 lần cho cùng 1 lần lưu (dòng lỗi/chưa hợp lệ
+// vẫn giữ trong thread, gắn cờ như trước).
+function __qeShowSavePopup() {
+  var p = document.getElementById('quickEntrySavePopup'); if (!p) return;
+  var ic = document.getElementById('quickEntrySavePopupIcon');
+  var tx = document.getElementById('quickEntrySavePopupText');
+  var btn = document.getElementById('quickEntrySavePopupBtn');
+  if (ic) ic.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+  if (tx) tx.textContent = '';
+  if (btn) btn.style.display = 'none';
+  p.style.display = 'flex';
+}
+function __qeUpdateSavePopupCount(i, n) {
+  var tx = document.getElementById('quickEntrySavePopupText');
+  if (tx) tx.textContent = 'Đang lưu ' + i + '/' + n + '…';
+}
+function __qeShowSavePopupDone(saved, failed, invalid, savedByDate) {
+  var p = document.getElementById('quickEntrySavePopup'); if (!p) return;
+  var ic = document.getElementById('quickEntrySavePopupIcon');
+  var tx = document.getElementById('quickEntrySavePopupText');
+  var btn = document.getElementById('quickEntrySavePopupBtn');
+  // Tick FLAT: SVG 1 màu #10B981, không emoji, không gradient, không bóng.
+  if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5" stroke="#10B981" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  if (tx) {
+    var lines = [];
+    // R61: kết quả lưu TÁCH THEO NGÀY — nguyên tắc webhook (mỗi giao dịch
+    // xác nhận kèm "📅 Ngày:" của nó) áp cho dạng tổng: hôm nay trước,
+    // rồi các ngày khác tăng dần; chỉ đếm khoản ghi THÀNH CÔNG theo ngày
+    // (khoản lưu lỗi rơi vào dòng ⚠️, không vào dòng ngày nào).
+    // Lưu ý trung thực: webhook KHÔNG có chuỗi tổng gom nhóm theo ngày —
+    // nó xác nhận từng giao dịch kèm ngày riêng; đây là dạng tổng theo
+    // đúng yêu cầu của Hùng, giữ nguyên tắc "ngày nào ra ngày đó".
+    var map = savedByDate || {};
+    var dates = Object.keys(map).filter(function (d) { return map[d] > 0; });
+    if (dates.length) {
+      var todayStr = formatDateToDDMMYYYY(new Date());
+      var key = function (d) { var a = String(d).split('/'); return (parseInt(a[2], 10) || 0) * 10000 + (parseInt(a[1], 10) || 0) * 100 + (parseInt(a[0], 10) || 0); };
+      dates.sort(function (a, b) { return key(a) - key(b); });
+      if (map[todayStr]) lines.push('Đã lưu ' + map[todayStr] + ' giao dịch cho hôm nay');
+      dates.forEach(function (d) { if (d !== todayStr) lines.push('Đã lưu ' + map[d] + ' giao dịch cho ngày ' + d); });
+    } else if (saved > 0) {
+      lines.push('Đã lưu ' + saved + ' giao dịch');
+    }
+    if (failed > 0) lines.push('⚠️ ' + failed + ' dòng lưu lỗi, vẫn giữ trong khung chat để sửa');
+    if (invalid > 0) lines.push('⚠️ ' + invalid + ' dòng chưa hợp lệ chưa được lưu');
+    tx.textContent = lines.join('\n');
+  }
+  if (btn) btn.style.display = 'block';
+  p.style.display = 'flex';
+}
+// R61: nút "Đóng" của popup lưu — đóng khung chat rồi quay về Tab 1 để
+// xem ngay dữ liệu vừa lưu. Đi qua closeQuickEntry nên hộp xác nhận vẫn
+// bảo vệ các dòng chưa lưu còn lại: không còn dòng chưa lưu thì đóng
+// thẳng về Tab 1; còn thì hộp xác nhận hiện trước, chỉ khi xác nhận đóng
+// mới về Tab 1; bấm hủy thì khung chat ở nguyên, popup vẫn hiện kết quả.
+window.quickEntryCloseFromSavePopup = function () {
+  window.closeQuickEntry(false, function () {
+    try {
+      if (typeof window.activateTab === 'function') window.activateTab('tab1');
+      else if (typeof window.openTab === 'function') window.openTab('tab1');
+    } catch (e) {}
+  });
+};
+
+// R57 (port 4a): Lưu từ thread (không còn màn xem trước tổng). Ghi TUẦN
+// TỰ các khoản hợp lệ (cấp id theo tháng của bản cá nhân bắt buộc tuần tự,
+// không song song — mỗi lần lưu đổi file tháng mà lần cấp id sau đọc).
+// R59: nút Lưu khóa chống bấm đúp; KHÔNG toast tổng kết.
+// R60: tiến trình + kết quả qua popup giữa màn hình (xem trên).
+window.quickEntrySave = async function () {
+  if (__qeSaving) return;
+  var rows = __qeFlatItems().filter(__qeValid);
+  if (!rows.length) { try { showToast('Chưa có dòng hợp lệ để lưu', 'info'); } catch (e) {} return; }
+  __qeSaving = true;
+  var btn = document.getElementById('quickEntrySaveBtn'); if (btn) btn.disabled = true;
+  __qeShowSavePopup();
+  var saved = 0, failed = 0, savedByDate = {};
+  for (var i = 0; i < rows.length; i++) {
+    __qeUpdateSavePopupCount(i + 1, rows.length);
+    var ok = false;
+    try { ok = await submitTx(__qeBuildTx(rows[i]), { quiet: true }); } catch (e) { ok = false; }
+    if (ok) { saved++; rows[i]._saved = true; var d = rows[i].date; savedByDate[d] = (savedByDate[d] || 0) + 1; } else { failed++; rows[i].saveError = true; }
+  }
+  __qeThread.forEach(function (m) { m.items = m.items.filter(function (it) { return !it._saved; }); });
+  __qeThread = __qeThread.filter(function (m) { return m.items.length; });
+  __qeThread.forEach(function (m) { m.items.forEach(function (it) { delete it._saved; }); });
+  // 4a: bản cá nhân không cần bước lọc cache riêng như bản chính — invalidate
+  // xóa sạch dayTxCache/apiTxCache/monthDataCache và tải lại tab đang mở.
+  try { await invalidateCachesAndRefreshUI({ reason: 'quickEntrySave' }); } catch (e) {}
+  // R58: lưu hàng loạt chỉ rung 1 lần cuối khi có dòng lưu thành công
+  // (submitTx quiet đã tắt haptic từng dòng).
+  if (saved > 0) { try { triggerHapticNotification('success'); } catch (e) {} }
+  __qeSaving = false;
+  var c = __qeCounts();
+  __qeShowSavePopupDone(saved, failed, c.invalid, savedByDate);
+  __qeRenderThread();
+
+};
+
+// Hook cho test Node (không ảnh hưởng hành vi bản cá nhân).
+window.__quickEntryTest = {
+  parseQuickMessage: parseQuickMessage,
+  __qeParseNumberToken: __qeParseNumberToken,
+  __qeFindAmount: __qeFindAmount,
+  __qeDetectType: __qeDetectType,
+  __qeMatchCategory: __qeMatchCategory,
+  addMessage: __qeAddMessage,
+  reparseMessage: __qeReparseMessage,
+  removeMessage: __qeRemoveMessage,
+  buildTx: __qeBuildTx,
+  isValid: __qeValid,
+  counts: __qeCounts,
+  splitQuickMessage: __qeSplitMessage,
+  parseMessageMulti: __qeParseMessageMulti,
+  getThread: function () { return __qeThread; },
+  getItems: __qeFlatItems,
+  removeItem: __qeRemoveItem,
+  findItem: __qeFindItem,
+  clearThread: function () { __qeThread = []; __qeNextId = 1; __qeNextItemId = 1; __qeNotices = []; },
+  getNotices: function () { return __qeNotices.slice(); },
+  renderThread: __qeRenderThread,
+  showSavePopupDone: __qeShowSavePopupDone,
+  getSavePopup: function () {
+    var p = document.getElementById('quickEntrySavePopup');
+    var t = document.getElementById('quickEntrySavePopupText');
+    var ic = document.getElementById('quickEntrySavePopupIcon');
+    var b = document.getElementById('quickEntrySavePopupBtn');
+    return { display: p ? p.style.display : undefined, text: t ? t.textContent : undefined,
+      icon: ic ? ic.innerHTML : undefined, btnDisplay: b ? b.style.display : undefined };
+  },
 };

@@ -607,6 +607,39 @@
     <div class="nav-branding" aria-hidden="true">©masterhmh</div>
   </div>
 
+  <!-- PERSONAL ROUND 4a: bong bóng nhập nhanh (port bản chính R54) — điểm
+       vào DUY NHẤT của Nhập nhanh kiểu tin nhắn; menu nút + không đổi. -->
+  <button id="quickBubble" class="quick-bubble" type="button" aria-label="Nhập nhanh" onclick="openQuickEntry()"><i class="fas fa-comment"></i></button>
+
+  <!-- PERSONAL ROUND 4a: khung chat nhập hàng loạt (port bản chính R55–R65). -->
+  <div id="quickEntryModal" class="modal-sheet quick-chat-sheet">
+    <div class="modal-handle" onclick="closeQuickEntry()"></div>
+    <div class="quick-chat-header">
+      <div class="modal-title" style="margin: 0;">Nhập nhanh</div>
+      <div style="display: flex; gap: 8px; align-items: center; flex: none;">
+        <button id="quickEntrySaveBtn" type="button" class="btn-save" style="flex: none; width: auto; padding: 8px 16px;" onclick="quickEntrySave()">Lưu (0)</button>
+        <button type="button" class="qe-close-btn" aria-label="Đóng khung nhập nhanh" onclick="closeQuickEntry()">✕</button>
+      </div>
+    </div>
+    <div id="quickEntryThreadView" style="display: flex; flex-direction: column; flex: 1; min-height: 0;">
+      <div id="quickEntryThread" class="quick-chat-thread"></div>
+      <form id="quickEntryForm" class="quick-chat-composer" onsubmit="event.preventDefault(); quickEntrySend();">
+        <textarea id="quickEntryInput" class="field-input qe-composer-input" rows="1" style="flex: 1; margin: 0;" placeholder="Ví dụ: ăn trưa 50k" autocomplete="off"></textarea>
+        <button type="submit" class="qe-send-btn" aria-label="Gửi"><i class="fas fa-paper-plane"></i></button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PERSONAL ROUND 4a: popup lưu giữa màn hình (port bản chính R60/R61) —
+       trên sheet chat (2000), dưới trang fullscreen (3000). -->
+  <div id="quickEntrySavePopup" class="qe-save-popup" style="display: none;">
+    <div class="qe-save-popup-card">
+      <div id="quickEntrySavePopupIcon" class="qe-save-popup-icon"></div>
+      <div id="quickEntrySavePopupText" class="qe-save-popup-text"></div>
+      <button type="button" id="quickEntrySavePopupBtn" class="btn-save" style="display: none; margin-top: 16px;" onclick="quickEntryCloseFromSavePopup()">Đóng</button>
+    </div>
+  </div>
+
   <!-- ============================================================
        NẠP MODULE THEO THỨ TỰ (script.js cũ đã xóa; lịch sử ở Git)
        1) app-core.js  : tiện ích nền + Tab 1
