@@ -1459,7 +1459,55 @@ try {
   }
 } catch (e) {}
 
+// PERSONAL ROUND 4b — KHÓA CUỘN TRANG NỀN KHI KHUNG CHAT MỞ (theo mẫu
+// 3w của modal chi tiết ngày: lockDetailModalScroll). Vấn đề Hùng báo:
+// mở khung chat rồi vuốt ở vùng ngoài khung thì màn hình bên dưới vẫn bị
+// cuộn theo — vì app chưa từng khóa cuộn nền khi mở modal (overlay chỉ
+// che chạm, không chặn cuộn: kéo trên overlay vẫn cuộn được trang dưới,
+// cuộn thread tới đáy cũng chain xuống body). Khóa: html+body overflow
+// hidden + thread overscroll contain + pan-y (thread vẫn tự cuộn được).
+// Trạng thái riêng (__qeScrollLock, không dùng chung với detail modal) để
+// hai khóa không ghi đè prev của nhau nếu lỡ mở chồng. Mở khóa TRƯỚC mọi
+// thứ trong nhánh đóng đã xác nhận (như closeDetailModal) để không rò rỉ
+// khóa nếu haptic/render sau đó ném lỗi; đóng qua hộp xác nhận mà bấm Hủy
+// thì khóa Ở NGUYÊN vì khung vẫn mở.
+var __qeScrollLock = null;
+function lockQuickEntryScroll() {
+  if (__qeScrollLock && __qeScrollLock.active) return;
+  var scrollEl = null;
+  try { scrollEl = document.getElementById('quickEntryThread'); } catch (e) { scrollEl = null; }
+  __qeScrollLock = {
+    active: true,
+    savedY: (typeof window.scrollY === 'number') ? window.scrollY : 0,
+    prevBodyOverflow: document.body ? document.body.style.overflow : '',
+    prevDocOverflow: document.documentElement ? document.documentElement.style.overflow : '',
+    prevScrollOverscroll: scrollEl ? scrollEl.style.overscrollBehavior : '',
+    prevScrollTouch: scrollEl ? scrollEl.style.touchAction : '',
+    scrollEl: scrollEl
+  };
+  try {
+    if (document.documentElement) document.documentElement.style.overflow = 'hidden';
+    if (document.body) document.body.style.overflow = 'hidden';
+    if (scrollEl) { scrollEl.style.overscrollBehavior = 'contain'; scrollEl.style.touchAction = 'pan-y'; }
+  } catch (e) {}
+  window.__qeScrollLockState = __qeScrollLock;
+}
+function unlockQuickEntryScroll() {
+  var st = __qeScrollLock;
+  if (!st || !st.active) return;
+  st.active = false;
+  try {
+    if (document.documentElement) document.documentElement.style.overflow = st.prevDocOverflow;
+    if (document.body) document.body.style.overflow = st.prevBodyOverflow;
+    if (st.scrollEl) { st.scrollEl.style.overscrollBehavior = st.prevScrollOverscroll; st.scrollEl.style.touchAction = st.prevScrollTouch; }
+  } catch (e) {}
+  try {
+    if (typeof window.scrollY === 'number' && window.scrollY !== st.savedY) window.scrollTo(0, st.savedY);
+  } catch (e) {}
+}
+
 window.openQuickEntry = function () {
+  lockQuickEntryScroll();
   try { triggerHaptic('light'); } catch (e) {}
   var tv = document.getElementById('quickEntryThreadView'); if (tv) tv.style.display = 'flex';
   var ov = document.getElementById('modalOverlay'); if (ov) ov.classList.add('show');
@@ -1484,6 +1532,7 @@ window.closeQuickEntry = function (force, afterClose) {
       'Đóng', function () { window.closeQuickEntry(true, afterClose); });
     return;
   }
+  unlockQuickEntryScroll(); // 4b: mở khóa TRƯỚC mọi thứ — không rò rỉ khóa nếu render sau đó ném lỗi
   __qeThread = []; __qeSaving = false; __qeNotices = [];
   // R60: đóng khung cũng giấu popup lưu nếu còn hiện (phòng trường hợp
   // đóng bằng đường khác ngoài nút "Đóng" của popup).
@@ -1499,12 +1548,22 @@ window.closeQuickEntry = function (force, afterClose) {
   if (typeof afterClose === 'function') { try { afterClose(); } catch (e) {} }
 };
 
-// Đóng sheet nhập nhanh cùng mọi modal khác (nút overlay gọi closeAllModals).
+// PERSONAL ROUND 4b — CHỈ NÚT ✕ MỚI TẮT ĐƯỢC KHUNG CHAT (Hùng chốt).
+// Chạm overlay (vùng ngoài khung) không đóng khung, bấm handle cũng không.
+// Vì vậy wrap closeAllModals: khi khung chat đang mở thì NUỐT LUÔN lệnh
+// đóng — không được chạy closeAllModals gốc, vì closeDetailModal trong đó
+// sẽ gỡ overlay sau 300ms dù khung chat vẫn mở (khung trơ không có lớp
+// mờ, màn nền lại bấm/vuốt được — đúng lỗi Hùng báo). Khi khung không mở,
+// wrap đi qua bình thường. Nút Đóng trong popup lưu vẫn đóng khung + về
+// Tab 1 như cũ (đó là nút kết thúc luồng lưu, không phải đường tắt khung).
 (function () {
   var prevCloseAllModals = window.closeAllModals;
   window.closeAllModals = function () {
+    try {
+      var s = document.getElementById('quickEntryModal');
+      if (s && s.classList.contains('show')) return;
+    } catch (e) {}
     try { if (typeof prevCloseAllModals === 'function') prevCloseAllModals(); } catch (e) {}
-    try { window.closeQuickEntry(); } catch (e) {}
   };
 })();
 

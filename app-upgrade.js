@@ -755,9 +755,14 @@
     // (closeSearchModal/closeEditForm): KHÔNG được kiểm tra
     // '.modal-sheet.show' vì confirm-dialog của app mang class đó
     // VĨNH VIỄN (ẩn/hiện bằng cơ chế riêng) -> overlay sẽ kẹt mãi.
+    // PERSONAL ROUND 4b — NGOẠI LỆ DUY NHẤT: khung chat nhập nhanh ĐANG
+    // MỞ thì KHÔNG được gỡ overlay (khung sở hữu overlay; quy tắc chỉ ✕
+    // mới tắt khung). Kiểm tra đúng #quickEntryModal, không phải
+    // '.modal-sheet.show' chung chung (tránh bẫy confirm-dialog nói trên).
     setTimeout(function () {
       var ov = document.getElementById('modalOverlay');
-      if (ov) ov.classList.remove('show');
+      var qe = document.getElementById('quickEntryModal');
+      if (ov && !(qe && qe.classList.contains('show'))) ov.classList.remove('show');
     }, 300);
   }
   window.closePeriodPicker = closePeriodPicker;
